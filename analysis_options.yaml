@@ -1,0 +1,24 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  language:
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
+  errors:
+    missing_required_param: error
+    missing_return: error
+    invalid_assignment: error
+    dead_code: warning
+
+linter:
+  rules:
+    always_declare_return_types: true
+    avoid_dynamic_calls: true
+    avoid_print: true
+    cancel_subscriptions: true
+    directives_ordering: true
+    no_leading_underscores_for_local_identifiers: true
+    prefer_const_constructors: true
+    prefer_final_locals: true
+    unawaited_futures: true
