@@ -43,6 +43,15 @@ lib/
 
 ## Ejecutar en desarrollo
 
+Para maquetar sin API puedes activar el modo de demostración. Solo funciona en compilaciones debug y permite elegir un rol de prueba; las acciones de recuperación de contraseña son simuladas y no modifican cuentas:
+
+```powershell
+flutter run -d chrome --dart-define=DEMO_MODE=true --dart-define-from-file=env/dev.json
+flutter run -d <id-del-emulador> --dart-define=DEMO_MODE=true --dart-define-from-file=env/dev.json
+```
+
+Para probar el login real contra la API de desarrollo, ejecuta sin `DEMO_MODE`:
+
 ```powershell
 flutter pub get
 flutter run -d chrome --dart-define-from-file=env/dev.json

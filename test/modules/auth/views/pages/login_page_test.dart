@@ -9,8 +9,15 @@ void main() {
       const ProviderScope(child: MaterialApp(home: LoginPage())),
     );
     expect(find.text('Iniciar sesión'), findsOneWidget);
-    expect(find.text('Correo electrónico'), findsOneWidget);
+    expect(find.text('Usuario'), findsOneWidget);
     expect(find.text('Contraseña'), findsOneWidget);
-    expect(find.text('Entrar'), findsOneWidget);
+    expect(find.text('Iniciar sesión'), findsOneWidget);
+    expect(find.text('¿Olvidaste tu contraseña?'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('¿Olvidaste tu contraseña?'));
+    await tester.tap(find.text('¿Olvidaste tu contraseña?'));
+    await tester.pumpAndSettle();
+    expect(find.text('Recuperar contraseña'), findsOneWidget);
+    expect(find.textContaining('Modo demostración'), findsOneWidget);
   });
 }
