@@ -1,4 +1,5 @@
 export 'controllers/auth_controller.dart';
+export 'fixtures/auth_demo_fixtures.dart';
 export 'models/auth_session_model.dart';
 export 'models/user_role_model.dart';
 export 'repositories/auth_repository.dart';

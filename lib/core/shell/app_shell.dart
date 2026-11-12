@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../app/config/env.dart';
 import '../../modules/auth/auth.dart';
+import '../demo/demo_mode_banner.dart';
 import '../responsive/responsive.dart';
 import '../responsive/window_size_class.dart';
 import 'shell_item.dart';
@@ -83,7 +85,14 @@ class AppShell extends ConsumerWidget {
                   onDestinationSelected: (index) =>
                       context.go(items[index].path),
                 ),
-              Expanded(child: child),
+              Expanded(
+                child: Column(
+                  children: [
+                    if (AppEnv.demoMode) const DemoModeBanner(),
+                    Expanded(child: child),
+                  ],
+                ),
+              ),
             ],
           ),
         );
