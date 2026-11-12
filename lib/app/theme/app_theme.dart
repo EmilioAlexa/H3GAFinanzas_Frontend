@@ -98,7 +98,7 @@ abstract final class AppTheme {
       dividerColor: line,
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: surface,
+        fillColor: Colors.transparent,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 15,
