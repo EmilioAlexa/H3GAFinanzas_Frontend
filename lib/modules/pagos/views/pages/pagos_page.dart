@@ -1,7 +1,322 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-class PagosPage extends StatelessWidget {
+import '../../../../app/config/env.dart';
+import '../../../../app/theme/app_theme.dart';
+import '../../../../core/responsive/responsive.dart';
+import '../../../../core/responsive/window_size_class.dart';
+import '../../../../core/utils/money_formatter.dart';
+import '../../../../core/widgets/app_badge.dart';
+import '../../../../core/widgets/app_data_column.dart';
+import '../../../../core/widgets/app_notice.dart';
+import '../../../../core/widgets/app_page_header.dart';
+import '../../../../core/widgets/app_responsive_collection.dart';
+import '../../../../core/widgets/app_state_panel.dart';
+import '../../../auth/auth.dart';
+import '../../controllers/pagos_controller.dart';
+import '../../models/pago_model.dart';
+
+class PagosPage extends ConsumerStatefulWidget {
   const PagosPage({super.key});
   @override
-  Widget build(BuildContext context) => const Center(child: Text('Pagos'));
+  ConsumerState<PagosPage> createState() => _PagosPageState();
+}
+
+class _PagosPageState extends ConsumerState<PagosPage> {
+  final _search = TextEditingController();
+  String _query = '';
+  String _statusGroup = 'Todos';
+  String _method = 'Todas';
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = ref.watch(authControllerProvider);
+    final session = auth.valueOrNull;
+    if (auth.isLoading) return const Center(child: CircularProgressIndicator());
+    if (session == null) {
+      return const AppStatePanel(
+          icon: Icons.lock_outline,
+          title: 'Inicia sesión para continuar',
+          message: 'Pagos requiere una sesión activa.');
+    }
+    final data = ref.watch(pagosControllerProvider(session.role));
+    return data.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stack) => AppStatePanel(
+        icon: Icons.cloud_off_outlined,
+        title: 'No se pudieron cargar los pagos',
+        message: 'Inténtalo de nuevo.',
+        action: TextButton.icon(
+          onPressed: () =>
+              ref.read(pagosControllerProvider(session.role).notifier).load(),
+          icon: const Icon(Icons.refresh),
+          label: const Text('Reintentar'),
+        ),
+      ),
+      data: (state) => state == null
+          ? const AppStatePanel(
+              icon: Icons.link_off,
+              title: 'Pagos sin conectar',
+              message:
+                  'La integración con la API se realizará en B5. No se muestran registros ficticios en sesión real.')
+          : _content(context, state.payments),
+    );
+  }
+
+  Widget _content(BuildContext context, List<PagoModel> payments) {
+    final filtered = payments.where((payment) {
+      final query = _query.trim().toLowerCase();
+      final matchesQuery = query.isEmpty ||
+          payment.folio.toLowerCase().contains(query) ||
+          payment.clienteNombre.toLowerCase().contains(query) ||
+          payment.contratoFolio.toLowerCase().contains(query) ||
+          payment.referencia.toLowerCase().contains(query);
+      final matchesStatus = switch (_statusGroup) {
+        'Pendientes' => payment.estado.startsWith('Pendiente'),
+        'Por revisar' => payment.estado == 'En revisión',
+        'Rechazados' => payment.estado == 'Rechazado',
+        'Validados' => payment.estado == 'Validado',
+        _ => true,
+      };
+      return matchesQuery &&
+          matchesStatus &&
+          (_method == 'Todas' || payment.formaPago == _method);
+    }).toList();
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppTheme.space6),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        AppPageHeader(
+            eyebrow: 'Operación financiera',
+            title: 'Pagos',
+            description: 'Consulta y registra pagos de contratos.',
+            actions: [
+              OutlinedButton.icon(
+                  onPressed: () => context.go('/pagos-programados'),
+                  icon: const Icon(Icons.event_note_outlined),
+                  label: const Text('Programados')),
+              if (AppEnv.demoMode)
+                FilledButton.icon(
+                    onPressed: () => context.go('/pagos/nuevo'),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Registrar pago')),
+            ]),
+        if (AppEnv.demoMode) ...[
+          const AppNotice(
+              text:
+                  'Datos de demostración. El registro y los archivos seleccionados se mantienen solo en memoria; no se envían al backend.'),
+          const SizedBox(height: AppTheme.space4),
+        ],
+        _statusFilters(payments),
+        const SizedBox(height: AppTheme.space3),
+        _panel(context, filtered),
+      ]),
+    );
+  }
+
+  Widget _statusFilters(List<PagoModel> payments) {
+    const groups = [
+      'Todos',
+      'Pendientes',
+      'Por revisar',
+      'Rechazados',
+      'Validados'
+    ];
+    int count(String group) => payments
+        .where((payment) => switch (group) {
+              'Pendientes' => payment.estado.startsWith('Pendiente'),
+              'Por revisar' => payment.estado == 'En revisión',
+              'Rechazados' => payment.estado == 'Rechazado',
+              'Validados' => payment.estado == 'Validado',
+              _ => true,
+            })
+        .length;
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(children: [
+        for (final group in groups)
+          Padding(
+            padding: const EdgeInsets.only(right: AppTheme.space2),
+            child: ChoiceChip(
+              label: Text('$group  ${count(group)}'),
+              selected: _statusGroup == group,
+              onSelected: (_) => setState(() => _statusGroup = group),
+            ),
+          ),
+      ]),
+    );
+  }
+
+  Widget _panel(BuildContext context, List<PagoModel> payments) => Container(
+        padding: const EdgeInsets.all(AppTheme.space4),
+        decoration: BoxDecoration(
+            color: AppTheme.surface,
+            border: Border.all(color: AppTheme.line),
+            borderRadius: BorderRadius.circular(AppTheme.radius),
+            boxShadow: AppTheme.elevation),
+        child:
+            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          LayoutBuilder(builder: (context, constraints) {
+            final compact = Responsive.classify(constraints.maxWidth) ==
+                WindowSizeClass.compacto;
+            final search = TextField(
+                controller: _search,
+                onChanged: (v) => setState(() => _query = v),
+                decoration: const InputDecoration(
+                    labelText: 'Buscar',
+                    hintText: 'Folio, cliente o referencia',
+                    prefixIcon: Icon(Icons.search)));
+            final method = DropdownButtonFormField<String>(
+                initialValue: _method,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Forma de pago'),
+                items: const [
+                  'Todas',
+                  'Transferencia',
+                  'Depósito',
+                  'Efectivo',
+                  'Cheque'
+                ]
+                    .map((value) => DropdownMenuItem(
+                        value: value,
+                        child: Text(value, overflow: TextOverflow.ellipsis)))
+                    .toList(),
+                onChanged: (value) =>
+                    setState(() => _method = value ?? 'Todas'));
+            if (compact) {
+              return Column(children: [
+                search,
+                const SizedBox(height: AppTheme.space2),
+                method
+              ]);
+            }
+            return Row(children: [
+              Expanded(child: search),
+              const SizedBox(width: AppTheme.space3),
+              SizedBox(width: 280, child: method)
+            ]);
+          }),
+          const Divider(height: AppTheme.space6),
+          if (payments.isEmpty)
+            const AppStatePanel(
+                icon: Icons.search_off_outlined,
+                title: 'No hay pagos para mostrar',
+                message:
+                    'Cambia los filtros o registra un pago de demostración.')
+          else
+            AppResponsiveCollection<PagoModel>(
+              rows: payments,
+              columns: [
+                AppDataColumn(
+                    label: 'Folio / Cliente',
+                    value: (p) => Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(p.folio,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w700)),
+                              Text(p.clienteNombre)
+                            ])),
+                AppDataColumn(
+                    label: 'Contrato / Servicio',
+                    showOnMedium: false,
+                    value: (p) => Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(p.contratoFolio),
+                              Text(p.servicioNombre)
+                            ])),
+                AppDataColumn(
+                    label: 'Fecha',
+                    value: (p) => Text(MoneyFormatter.formatDate(p.fechaPago))),
+                AppDataColumn(
+                    label: 'Número de pago',
+                    showOnMedium: false,
+                    value: (p) => Text(_paymentNumber(p))),
+                AppDataColumn(
+                    label: 'Importe',
+                    numeric: true,
+                    value: (p) => Text(MoneyFormatter.format(p.monto))),
+                AppDataColumn(
+                    label: 'Forma de pago',
+                    showOnMedium: false,
+                    value: (p) => Text(p.formaPago)),
+                AppDataColumn(label: 'Estado', value: (p) => _badge(p.estado)),
+                AppDataColumn(
+                    label: 'Evidencias',
+                    value: (p) => Text('${p.evidencias.length}')),
+                AppDataColumn(
+                    label: '', value: (p) => const Icon(Icons.chevron_right)),
+              ],
+              compactCardBuilder: _card,
+              onRowTap: (p) => context.go('/pagos/${p.id}'),
+            ),
+          const Divider(height: AppTheme.space6),
+          Text('Mostrando ${payments.length} movimientos de demostración'),
+        ]),
+      );
+
+  Widget _card(BuildContext context, PagoModel p) => Container(
+        padding: const EdgeInsets.all(AppTheme.space4),
+        decoration: BoxDecoration(
+            border: Border.all(color: AppTheme.line),
+            borderRadius: BorderRadius.circular(AppTheme.radius)),
+        child:
+            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text(p.folio, style: const TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: AppTheme.space2),
+          Align(alignment: Alignment.centerLeft, child: _badge(p.estado)),
+          const SizedBox(height: AppTheme.space2),
+          Text(p.clienteNombre),
+          Text('${p.contratoFolio} · ${p.servicioNombre}',
+              style: Theme.of(context).textTheme.bodySmall),
+          const Divider(height: AppTheme.space4),
+          _line('Fecha', MoneyFormatter.formatDate(p.fechaPago)),
+          _line('Pago', _paymentNumber(p)),
+          _line('Importe', MoneyFormatter.format(p.monto)),
+          _line('Forma de pago', p.formaPago),
+          _line(
+              'Evidencias',
+              p.evidencias.isEmpty
+                  ? 'Sin evidencia'
+                  : '${p.evidencias.length} archivos'),
+          Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                  onPressed: () => context.go('/pagos/${p.id}'),
+                  icon: const Icon(Icons.arrow_forward),
+                  label: const Text('Detalle'))),
+        ]),
+      );
+
+  Widget _line(String label, String value) => Padding(
+      padding: const EdgeInsets.only(top: AppTheme.space1),
+      child: Row(children: [
+        SizedBox(width: 110, child: Text(label)),
+        Expanded(child: Text(value))
+      ]));
+
+  Widget _badge(String state) => AppBadge(
+      label: state,
+      tone: switch (state) {
+        'Validado' => AppBadgeTone.success,
+        'Rechazado' => AppBadgeTone.danger,
+        'En revisión' => AppBadgeTone.info,
+        _ => AppBadgeTone.warning,
+      });
+
+  String _paymentNumber(PagoModel payment) {
+    final number = payment.numeroPago;
+    final total = payment.cantidadPagos;
+    if (number == null || total == null) return 'Sin número de pago';
+    return total == 1
+        ? 'Pago único · $number de $total'
+        : 'Mensualidad $number de $total';
+  }
 }

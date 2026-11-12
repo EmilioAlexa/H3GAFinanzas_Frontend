@@ -1,15 +1,16 @@
+import 'package:decimal/decimal.dart';
+
 import '../../../core/demo/demo_dataset.dart';
 import '../../../core/demo/demo_metric.dart';
 import '../../../core/demo/demo_record.dart';
+import '../models/evidencia_pago_model.dart';
+import '../models/pago_model.dart';
+import '../models/pago_programado_model.dart';
 
 abstract final class PagosDemoFixtures {
   static const dataset = DemoDataset(
     module: 'pagos',
-    metrics: [
-      DemoMetric(label: 'Pagos del periodo', value: '124'),
-      DemoMetric(label: 'Por validar', value: '8'),
-      DemoMetric(label: 'Vencidos', value: '4'),
-    ],
+    metrics: [DemoMetric(label: 'Pagos de muestra', value: '3')],
     records: [
       DemoRecord(
           id: 'demo-payment-1',
@@ -20,24 +21,153 @@ abstract final class PagosDemoFixtures {
       DemoRecord(
           id: 'demo-payment-2',
           title: 'PG-2025-0501',
-          subtitle: 'Natalia Vázquez · H3-M40-0317',
-          status: 'Programado',
-          amount: '\$10,000'),
-      DemoRecord(
-          id: 'demo-payment-3',
-          title: 'PG-2025-0502',
-          subtitle: 'Arturo Medina · H3-M10-0426',
+          subtitle: 'Carlos Mendoza · H3-M10-0391',
           status: 'Pendiente',
           amount: '\$6,900'),
       DemoRecord(
-          id: 'demo-payment-4',
-          title: 'PG-2025-0503',
-          subtitle: 'Rosa Pacheco · H3-APD-0189',
-          status: 'Rechazado',
+          id: 'demo-payment-3',
+          title: 'PG-2025-0502',
+          subtitle: 'Sofía Ramírez · H3-APD-0182',
+          status: 'En revisión',
           amount: '\$42,500'),
     ],
-    notes: [
-      'Registros y movimientos son muestras de interfaz, no transacciones.'
-    ],
+    notes: ['Los movimientos y estados son muestras locales.'],
   );
+
+  static final payments = <PagoModel>[
+    PagoModel(
+      id: 'demo-payment-1',
+      folio: 'PG-2025-0428',
+      contratoId: 'demo-contract-1',
+      contratoFolio: 'M40202500001',
+      clienteNombre: 'Elena Robles Vargas',
+      servicioNombre: 'Modalidad 40',
+      asesorNombre: 'Daniela Cruz',
+      formaPagoId: 1,
+      formaPago: 'Transferencia',
+      estadoPagoId: 3,
+      estado: 'Validado',
+      monto: Decimal.parse('10000'),
+      fechaPago: DateTime(2025, 5, 2),
+      numeroPago: 7,
+      cantidadPagos: 12,
+      referencia: 'TRX-048292',
+      observaciones: 'Pago mensual de mayo.',
+      pagoProgramadoId: 'demo-schedule-1',
+      assignedToCurrentAdvisor: true,
+      evidencias: [
+        EvidenciaPagoModel(
+          id: 'demo-evidence-1',
+          name: 'comprobante_mayo.pdf',
+          mimeType: 'application/pdf',
+          sizeBytes: 245760,
+          uploadedAt: DateTime(2025, 5, 2),
+        )
+      ],
+      historial: [
+        'Pendiente de revisión · 02/05/2025',
+        'Validado · 03/05/2025'
+      ],
+    ),
+    PagoModel(
+      id: 'demo-payment-2',
+      folio: 'PG-2025-0501',
+      contratoId: 'demo-contract-2',
+      contratoFolio: 'H3-M10-0391',
+      clienteNombre: 'Carlos Mendoza Ruiz',
+      servicioNombre: 'Modalidad 10',
+      asesorNombre: 'Jorge Silva',
+      formaPagoId: 2,
+      formaPago: 'Depósito',
+      estadoPagoId: 1,
+      estado: 'Pendiente de revisión financiera',
+      monto: Decimal.parse('6900'),
+      fechaPago: DateTime(2025, 5, 3),
+      numeroPago: 3,
+      cantidadPagos: 6,
+      referencia: 'DEP-2025-992',
+      observaciones: '',
+      assignedToCurrentAdvisor: false,
+      evidencias: const [],
+      historial: ['Pendiente de revisión · 03/05/2025'],
+    ),
+    PagoModel(
+      id: 'demo-payment-3',
+      folio: 'PG-2025-0502',
+      contratoId: 'demo-contract-3',
+      contratoFolio: 'H3-APD-0182',
+      clienteNombre: 'Sofía Ramírez León',
+      servicioNombre: 'APD',
+      asesorNombre: 'Daniela Cruz',
+      formaPagoId: 3,
+      formaPago: 'Efectivo',
+      estadoPagoId: 2,
+      estado: 'En revisión',
+      monto: Decimal.parse('42500'),
+      fechaPago: DateTime(2025, 5, 5),
+      numeroPago: 1,
+      cantidadPagos: 1,
+      referencia: '',
+      folioRecibo: 'REC-0182',
+      recibidoPor: 'Mariana López',
+      observaciones: 'Recepción en oficina.',
+      assignedToCurrentAdvisor: true,
+      evidencias: const [],
+      historial: ['Pendiente de revisión · 05/05/2025'],
+    ),
+  ];
+
+  static final scheduled = <PagoProgramadoModel>[
+    PagoProgramadoModel(
+      id: 'demo-schedule-1',
+      contratoId: 'demo-contract-1',
+      contratoFolio: 'M40202500001',
+      clienteNombre: 'Elena Robles Vargas',
+      servicioNombre: 'Modalidad 40',
+      numeroPago: 6,
+      fechaEsperada: DateTime(2025, 6, 2),
+      fechaVencimiento: DateTime(2025, 6, 10),
+      montoEsperado: Decimal.parse('10000'),
+      estadoId: 1,
+      estado: 'Pendiente',
+      pagosRegistrados: 1,
+      tipoCobroId: 1,
+      periodo: DateTime(2025, 6),
+      assignedToCurrentAdvisor: true,
+    ),
+    PagoProgramadoModel(
+      id: 'demo-schedule-2',
+      contratoId: 'demo-contract-2',
+      contratoFolio: 'H3-M10-0391',
+      clienteNombre: 'Carlos Mendoza Ruiz',
+      servicioNombre: 'Modalidad 10',
+      numeroPago: 3,
+      fechaEsperada: DateTime(2025, 6, 5),
+      fechaVencimiento: DateTime(2025, 6, 12),
+      montoEsperado: Decimal.parse('6900'),
+      estadoId: 2,
+      estado: 'Parcial',
+      pagosRegistrados: 1,
+      tipoCobroId: 2,
+      periodo: DateTime(2025, 6),
+      assignedToCurrentAdvisor: false,
+    ),
+    PagoProgramadoModel(
+      id: 'demo-schedule-3',
+      contratoId: 'demo-contract-3',
+      contratoFolio: 'H3-APD-0182',
+      clienteNombre: 'Sofía Ramírez León',
+      servicioNombre: 'APD',
+      numeroPago: 1,
+      fechaEsperada: DateTime(2025, 5, 20),
+      fechaVencimiento: DateTime(2025, 5, 20),
+      montoEsperado: Decimal.parse('42500'),
+      estadoId: 3,
+      estado: 'Cubierto',
+      pagosRegistrados: 1,
+      tipoCobroId: 3,
+      periodo: DateTime(2025, 5),
+      assignedToCurrentAdvisor: true,
+    ),
+  ];
 }

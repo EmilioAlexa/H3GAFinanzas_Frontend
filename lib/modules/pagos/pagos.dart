@@ -1,2 +1,11 @@
+export 'controllers/pagos_controller.dart';
 export 'fixtures/pagos_demo_fixtures.dart';
+export 'models/evidencia_pago_model.dart';
+export 'models/pago_model.dart';
+export 'models/pago_programado_model.dart';
+export 'repositories/pagos_repository.dart';
+export 'views/pages/pago_detalle_page.dart';
+export 'views/pages/pago_form_page.dart';
+export 'views/pages/pago_programado_form_page.dart';
 export 'views/pages/pagos_page.dart';
+export 'views/pages/pagos_programados_page.dart';
