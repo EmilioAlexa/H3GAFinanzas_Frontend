@@ -25,7 +25,9 @@ class AppShell extends ConsumerWidget {
         final items = visibleShellItems(session.role);
         final currentPath = GoRouterState.of(context).uri.path;
         final selectedIndex = items.indexWhere(
-          (item) => item.path == currentPath,
+          (item) =>
+              item.path == currentPath ||
+              currentPath.startsWith('${item.path}/'),
         );
         final safeSelectedIndex = selectedIndex < 0 ? 0 : selectedIndex;
 
@@ -88,7 +90,9 @@ class AppShell extends ConsumerWidget {
 
   String _titleFor(List<ShellItem> items, String path) {
     for (final item in items) {
-      if (item.path == path) return item.label;
+      if (item.path == path || path.startsWith('${item.path}/')) {
+        return item.label;
+      }
     }
     return 'H3GA Finanzas';
   }

@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/shell/app_shell.dart';
-import '../../core/shell/shell_navigation.dart';
 import '../../modules/auth/auth.dart';
 import '../../modules/clientes/clientes.dart' as clientes;
 import '../../modules/comisiones/comisiones.dart' as comisiones;
@@ -14,6 +13,7 @@ import '../../modules/reportes/reportes.dart' as reportes;
 import '../../modules/usuarios/usuarios.dart' as usuarios;
 import '../../modules/validacion/validacion.dart' as validacion;
 import 'route_guard.dart';
+import 'route_roles.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authControllerProvider);
@@ -24,7 +24,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       location: state.uri.path,
       session: session,
       loading: auth.isLoading,
-      allowedRoles: allowedRolesForRoute(state.uri.path),
+      allowedRoles: allowedRolesForLocation(state.uri.path),
     ),
     routes: [
       GoRoute(path: '/login', builder: (context, state) => const LoginPage()),
@@ -47,6 +47,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/clientes',
             builder: (context, state) => const clientes.ClientesPage(),
+          ),
+          GoRoute(
+            path: '/clientes/nuevo',
+            builder: (context, state) => const clientes.ClienteFormPage(),
+          ),
+          GoRoute(
+            path: '/clientes/:id/editar',
+            builder: (context, state) => clientes.ClienteFormPage(
+              clienteId: state.pathParameters['id'],
+            ),
+          ),
+          GoRoute(
+            path: '/clientes/:id',
+            builder: (context, state) => clientes.ClienteDetallePage(
+              clienteId: state.pathParameters['id']!,
+            ),
           ),
           GoRoute(
             path: '/contratos',
