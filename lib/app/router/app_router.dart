@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/shell/app_shell.dart';
+import '../../core/shell/shell_navigation.dart';
 import '../../modules/auth/auth.dart';
 import '../../modules/clientes/clientes.dart' as clientes;
 import '../../modules/comisiones/comisiones.dart' as comisiones;
@@ -23,7 +24,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       location: state.uri.path,
       session: session,
       loading: auth.isLoading,
-      allowedRoles: _allowedRoles(state.uri.path),
+      allowedRoles: allowedRolesForRoute(state.uri.path),
     ),
     routes: [
       GoRoute(path: '/login', builder: (context, state) => const LoginPage()),
@@ -86,12 +87,3 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   ref.onDispose(router.dispose);
   return router;
 });
-
-Set<UserRole> _allowedRoles(String path) => switch (path) {
-      '/cortes' || '/prenomina' || '/reportes' => {
-          UserRole.administrador,
-          UserRole.administradorFinanciero
-        },
-      '/usuarios' => {UserRole.administrador},
-      _ => {},
-    };

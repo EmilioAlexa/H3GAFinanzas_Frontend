@@ -33,7 +33,7 @@ class AuthController extends StateNotifier<AsyncValue<AuthSessionModel?>> {
 
   final AuthRepository _repository;
   final bool demoMode;
-  final UserRole demoRole;
+  UserRole demoRole;
 
   Future<void> restoreSession() async {
     if (demoMode) {
@@ -73,6 +73,20 @@ class AuthController extends StateNotifier<AsyncValue<AuthSessionModel?>> {
     }
     await _repository.logout();
     state = const AsyncData(null);
+  }
+
+  void changeDemoRole(UserRole role) {
+    if (!demoMode || state.valueOrNull == null) return;
+    demoRole = role;
+    final current = state.requireValue!;
+    state = AsyncData(
+      AuthSessionModel(
+        id: 'demo-${role.name}',
+        name: current.name,
+        email: current.email,
+        role: role,
+      ),
+    );
   }
 
   AuthSessionModel _demoSession() => AuthSessionModel(
