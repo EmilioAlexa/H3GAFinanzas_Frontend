@@ -20,4 +20,24 @@ void main() {
     expect(find.text('Recuperar contraseña'), findsOneWidget);
     expect(find.textContaining('Modo demostración'), findsOneWidget);
   });
+
+  testWidgets('renders without overflow at compact, medium and expanded widths',
+      (tester) async {
+    for (final size in [
+      const Size(390, 844),
+      const Size(768, 1024),
+      const Size(1280, 900),
+    ]) {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = size;
+      await tester.pumpWidget(
+        const ProviderScope(child: MaterialApp(home: LoginPage())),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Bienvenido de vuelta'), findsOneWidget);
+      expect(tester.takeException(), isNull, reason: 'viewport $size');
+    }
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
 }

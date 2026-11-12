@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 abstract final class AppTheme {
+  static const fontFamily = 'Inter';
+
   static const primary = Color(0xFF0F3B45);
   static const black = Color(0xFF011818);
   static const white = Color(0xFFFCFCFC);
@@ -48,6 +50,7 @@ abstract final class AppTheme {
   static const radiusField = 9.0;
   static const radiusDialog = 11.0;
   static const radiusLoginCard = 32.0;
+  static const radiusPill = 999.0;
 
   static const space1 = 4.0;
   static const space2 = 8.0;
@@ -60,21 +63,51 @@ abstract final class AppTheme {
   static const space9 = 40.0;
   static const space10 = 48.0;
 
+  static const shadowXs = BoxShadow(
+    color: Color(0x0F0F3B45),
+    blurRadius: 2,
+    offset: Offset(0, 1),
+  );
   static const shadow = BoxShadow(
-    color: Color(0x190F3B45),
+    color: Color(0x0F0F3B45),
     blurRadius: 14,
     offset: Offset(0, 4),
+  );
+  static const shadowTight = BoxShadow(
+    color: Color(0x0A011818),
+    blurRadius: 2,
+    offset: Offset(0, 1),
+  );
+  static const shadowMediumTint = BoxShadow(
+    color: Color(0x0D011818),
+    blurRadius: 4,
+    offset: Offset(0, 2),
   );
   static const shadowMedium = BoxShadow(
     color: Color(0x1A0F3B45),
     blurRadius: 26,
     offset: Offset(0, 10),
   );
+  static const shadowLargeTint = BoxShadow(
+    color: Color(0x14011818),
+    blurRadius: 16,
+    offset: Offset(0, 8),
+  );
   static const shadowLarge = BoxShadow(
     color: Color(0x2E0F3B45),
     blurRadius: 56,
     offset: Offset(0, 24),
   );
+  static const focusRing = BoxShadow(
+    color: Color(0x594ECAD4),
+    spreadRadius: 3,
+  );
+
+  static List<BoxShadow> get elevation => const [shadowTight, shadow];
+  static List<BoxShadow> get elevationMedium =>
+      const [shadowMediumTint, shadowMedium];
+  static List<BoxShadow> get elevationLarge =>
+      const [shadowLargeTint, shadowLarge];
 
   static ThemeData get light {
     final scheme = ColorScheme.fromSeed(
@@ -93,9 +126,33 @@ abstract final class AppTheme {
 
     return ThemeData(
       useMaterial3: false,
+      fontFamily: fontFamily,
       colorScheme: scheme,
       scaffoldBackgroundColor: canvas,
       dividerColor: line,
+      textTheme: const TextTheme(
+        displayLarge:
+            TextStyle(fontSize: 36, height: 1.1, letterSpacing: -0.72),
+        displayMedium:
+            TextStyle(fontSize: 32, height: 1.12, letterSpacing: -0.64),
+        displaySmall:
+            TextStyle(fontSize: 28, height: 1.15, letterSpacing: -0.56),
+        headlineLarge:
+            TextStyle(fontSize: 27, height: 1.15, letterSpacing: -0.6),
+        headlineMedium:
+            TextStyle(fontSize: 24, height: 1.2, letterSpacing: -0.48),
+        headlineSmall:
+            TextStyle(fontSize: 20, height: 1.25, letterSpacing: -0.3),
+        titleLarge: TextStyle(fontSize: 18, height: 1.3),
+        titleMedium: TextStyle(fontSize: 16, height: 1.35),
+        titleSmall: TextStyle(fontSize: 14, height: 1.4),
+        bodyLarge: TextStyle(fontSize: 16, height: 1.45),
+        bodyMedium: TextStyle(fontSize: 14, height: 1.45),
+        bodySmall: TextStyle(fontSize: 12, height: 1.4),
+        labelLarge: TextStyle(fontSize: 14, height: 1.4),
+        labelMedium: TextStyle(fontSize: 12, height: 1.4),
+        labelSmall: TextStyle(fontSize: 10, height: 1.35),
+      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.transparent,

@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.h3ga.h3ga_finanzas"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

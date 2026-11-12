@@ -28,8 +28,22 @@ dev_dependencies:
   freezed: ^2.5.8
   json_serializable: ^6.9.4
 
+dependency_overrides:
+  # file_picker 8 compiles against API 34; newer lifecycle versions pull
+  # AndroidX metadata requiring API 36. 2.0.23 retains AndroidX 1.7/API 34.
+  flutter_plugin_android_lifecycle: 2.0.23
+
 flutter:
   uses-material-design: true
   assets:
     - assets/images/login_background.png
     - assets/images/h3ga_logo.png
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Inter-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700

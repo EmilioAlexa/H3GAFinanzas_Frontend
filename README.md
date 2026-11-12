@@ -19,25 +19,29 @@ Aplicación multiplataforma (Web y Android) construida con **Flutter** para el s
 - **Generación de Código:** `build_runner`
 - **Pruebas y Análisis:** `flutter analyze`, `flutter test`
 
-##  Estructura del Proyecto
+## Estructura del proyecto
 
 ```text
 lib/
-├── main.dart                   # Punto de entrada de la aplicación
-├── config/                     # Configuración global (rutas, temas, entornos)
-├── controllers/                # Lógica de negocio y gestión de estado (Controllers)
-├── models/                     # Modelos de datos y mapeo DTO (Models)
-├── views/                      # Pantallas, módulos y componentes UI (Views)
-│   ├── auth/                   # Módulo de Login y Recuperación
-│   ├── dashboard/              # Tablero principal adaptable
-│   └── shared/                 # Widgets reutilizables, Shell y Layouts
-├── services/                   # Cliente HTTP, API REST, almacenamiento local
-├── guards/                     # Protecciones y filtros de navegación por rol
-└── utils/                      # Formateadores, constantes y helpers generales
+  main.dart
+  app/          # App, router, theme y configuracion del entorno
+  core/         # Network, storage, platform, responsive, widgets y shell
+  modules/      # auth, dashboard, clientes, contratos, pagos, validacion,
+                # comisiones, cortes, prenomina, reportes y usuarios
+    <modulo>/models/
+    <modulo>/repositories/
+    <modulo>/controllers/
+    <modulo>/views/pages/
+    <modulo>/views/widgets/
+    <modulo>/<modulo>.dart
+```
+
+`README.md` y el codigo del proyecto son independientes de `docs/`, que permanece local e ignorado por Git.
 
 ## Requisitos
 
 - Flutter estable y Dart incluidos en Flutter.
+- Android SDK Platform API 36 para compilar el APK debug/release.
 - Backend accesible desde el dispositivo o navegador.
 - Archivos locales `env/dev.json`, `env/staging.json` y `env/prod.json` con `API_BASE_URL`.
 
