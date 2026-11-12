@@ -12,7 +12,7 @@ import '../../modules/validacion/validacion.dart';
 import 'demo_dataset.dart';
 
 abstract final class DemoFixtureRegistry {
-  static const all = <String, DemoDataset>{
+  static final all = <String, DemoDataset>{
     'auth': AuthDemoFixtures.dataset,
     'dashboard': DashboardDemoFixtures.dataset,
     'clientes': ClientesDemoFixtures.dataset,
