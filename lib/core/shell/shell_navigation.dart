@@ -17,6 +17,12 @@ const shellItems = <ShellItem>[
     section: ShellSection.general,
   ),
   ShellItem(
+    label: 'Servicios',
+    path: '/servicios',
+    icon: Icons.business_center_outlined,
+    section: ShellSection.general,
+  ),
+  ShellItem(
     label: 'Contratos',
     path: '/contratos',
     icon: Icons.description_outlined,
