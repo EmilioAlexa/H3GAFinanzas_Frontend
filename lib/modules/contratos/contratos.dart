@@ -1,2 +1,11 @@
+export 'controllers/contratos_controller.dart';
+export 'controllers/servicios_controller.dart';
 export 'fixtures/contratos_demo_fixtures.dart';
+export 'models/contrato_model.dart';
+export 'models/servicio_model.dart';
+export 'repositories/contratos_repository.dart';
+export 'views/pages/contrato_detalle_page.dart';
+export 'views/pages/contrato_form_page.dart';
 export 'views/pages/contratos_page.dart';
+export 'views/pages/servicio_detalle_page.dart';
+export 'views/pages/servicios_page.dart';

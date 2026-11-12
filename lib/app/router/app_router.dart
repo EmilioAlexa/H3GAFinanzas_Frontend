@@ -65,8 +65,34 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+            path: '/servicios',
+            builder: (context, state) => const contratos.ServiciosPage(),
+          ),
+          GoRoute(
+            path: '/servicios/:servicio',
+            builder: (context, state) => contratos.ServicioDetallePage(
+              servicioClave: state.pathParameters['servicio']!,
+            ),
+          ),
+          GoRoute(
             path: '/contratos',
             builder: (context, state) => const contratos.ContratosPage(),
+          ),
+          GoRoute(
+            path: '/contratos/nuevo',
+            builder: (context, state) => const contratos.ContratoFormPage(),
+          ),
+          GoRoute(
+            path: '/contratos/:id/editar',
+            builder: (context, state) => contratos.ContratoFormPage(
+              contratoId: state.pathParameters['id'],
+            ),
+          ),
+          GoRoute(
+            path: '/contratos/:id',
+            builder: (context, state) => contratos.ContratoDetallePage(
+              contratoId: state.pathParameters['id']!,
+            ),
           ),
           GoRoute(
             path: '/pagos',
