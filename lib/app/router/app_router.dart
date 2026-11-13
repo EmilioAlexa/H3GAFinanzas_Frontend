@@ -163,6 +163,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+            path: '/prenomina/preparacion/:id',
+            builder: (context, state) => prenomina.PrenominaPreparacionPage(
+              cutId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
+            path: '/prenomina/detalle/:id',
+            builder: (context, state) => prenomina.PrenominaDetallePage(
+              recipientId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
             path: '/prenomina',
             builder: (context, state) => const prenomina.PrenominaPage(),
           ),

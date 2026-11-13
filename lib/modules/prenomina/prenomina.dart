@@ -1,2 +1,9 @@
+export 'controllers/prenomina_controller.dart';
 export 'fixtures/prenomina_demo_fixtures.dart';
+export 'models/prenomina_cut_model.dart';
+export 'models/prenomina_model.dart';
+export 'models/prenomina_movement_model.dart';
+export 'repositories/prenomina_repository.dart';
+export 'views/pages/prenomina_detalle_page.dart';
 export 'views/pages/prenomina_page.dart';
+export 'views/pages/prenomina_preparacion_page.dart';
