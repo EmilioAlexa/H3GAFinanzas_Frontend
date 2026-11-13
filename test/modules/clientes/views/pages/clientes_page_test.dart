@@ -11,7 +11,11 @@ import 'package:h3ga_finanzas/modules/clientes/clientes.dart';
 void main() {
   testWidgets('client list adapts without overflow on compact and expanded',
       (tester) async {
-    for (final size in [const Size(390, 844), const Size(1280, 900)]) {
+    for (final size in [
+      const Size(390, 844),
+      const Size(768, 1024),
+      const Size(1280, 900),
+    ]) {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = size;
       await tester.pumpWidget(

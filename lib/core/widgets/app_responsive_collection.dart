@@ -51,33 +51,39 @@ class AppResponsiveCollection<T> extends StatelessWidget {
           final visibleColumns = size == WindowSizeClass.medio
               ? columns.where((column) => column.showOnMedium).toList()
               : columns;
+          final tableMinWidth =
+              constraints.maxWidth.isFinite ? constraints.maxWidth : 0.0;
           return SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            child: DataTable(
-              headingRowColor:
-                  const WidgetStatePropertyAll(AppTheme.surfaceSecondary),
-              horizontalMargin: AppTheme.space4,
-              columnSpacing: AppTheme.space6,
-              columns: [
-                for (final column in visibleColumns)
-                  DataColumn(
-                      label: Text(column.label), numeric: column.numeric),
-              ],
-              rows: [
-                for (final row in rows)
-                  DataRow(
-                    cells: [
-                      for (final column in visibleColumns)
-                        DataCell(
-                          InkWell(
-                            onTap:
-                                onRowTap == null ? null : () => onRowTap!(row),
-                            child: column.value(row),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: tableMinWidth),
+              child: DataTable(
+                headingRowColor:
+                    const WidgetStatePropertyAll(AppTheme.surfaceSecondary),
+                horizontalMargin: AppTheme.space4,
+                columnSpacing: AppTheme.space6,
+                columns: [
+                  for (final column in visibleColumns)
+                    DataColumn(
+                        label: Text(column.label), numeric: column.numeric),
+                ],
+                rows: [
+                  for (final row in rows)
+                    DataRow(
+                      cells: [
+                        for (final column in visibleColumns)
+                          DataCell(
+                            InkWell(
+                              onTap: onRowTap == null
+                                  ? null
+                                  : () => onRowTap!(row),
+                              child: column.value(row),
+                            ),
                           ),
-                        ),
-                    ],
-                  ),
-              ],
+                      ],
+                    ),
+                ],
+              ),
             ),
           );
         },

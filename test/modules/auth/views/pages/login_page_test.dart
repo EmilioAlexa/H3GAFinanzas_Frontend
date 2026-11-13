@@ -35,6 +35,13 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('Bienvenido de vuelta'), findsOneWidget);
+      expect(
+        tester.getRect(
+          find.text('Ingrese sus credenciales para acceder al sistema'),
+        ).right,
+        lessThanOrEqualTo(size.width),
+        reason: 'login intro must stay within viewport $size',
+      );
       expect(tester.takeException(), isNull, reason: 'viewport $size');
     }
     tester.view.resetPhysicalSize();

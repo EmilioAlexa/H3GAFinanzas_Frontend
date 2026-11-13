@@ -127,6 +127,7 @@ class _CortesPageState extends ConsumerState<CortesPage> {
                     width: 230,
                     child: DropdownButtonFormField<String>(
                       initialValue: _periodFilter,
+                      isExpanded: true,
                       decoration: const InputDecoration(
                           labelText: 'Periodo', isDense: true),
                       items: ['Todos los periodos', ...periods]
@@ -144,6 +145,7 @@ class _CortesPageState extends ConsumerState<CortesPage> {
                     width: 230,
                     child: DropdownButtonFormField<String>(
                       initialValue: _statusFilter,
+                      isExpanded: true,
                       decoration: const InputDecoration(
                           labelText: 'Estado', isDense: true),
                       items: const [
@@ -322,18 +324,36 @@ class _CortesPageState extends ConsumerState<CortesPage> {
         ],
       );
 
-  Widget _periodCell(CutModel cut) => SizedBox(
-        width: 180,
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(
-            CutPeriodFormatter.label(cut.periodStart, cut.periodEndExclusive),
-            style: const TextStyle(fontWeight: FontWeight.w700),
+  Widget _periodCell(CutModel cut) {
+    final label = CutPeriodFormatter.label(
+      cut.periodStart,
+      cut.periodEndExclusive,
+    );
+    return SizedBox(
+      width: 180,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Tooltip(
+            message: label,
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
           ),
           const SizedBox(height: AppTheme.space1),
-          const Text('Viernes → Jueves',
-              style: TextStyle(color: AppTheme.muted, fontSize: 12)),
-        ]),
-      );
+          const Text(
+            'Viernes → Jueves',
+            maxLines: 1,
+            style: TextStyle(color: AppTheme.muted, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _cutCard(CutModel cut) => Container(
         padding: const EdgeInsets.all(AppTheme.space4),

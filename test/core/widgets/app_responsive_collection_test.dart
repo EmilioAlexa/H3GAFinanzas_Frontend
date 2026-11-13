@@ -38,6 +38,8 @@ void main() {
     await tester.pumpWidget(harness(768));
     expect(find.text('Nombre'), findsOneWidget);
     expect(find.text('Dato extendido'), findsNothing);
+    expect(tester.getSize(find.byType(DataTable)).width,
+        greaterThanOrEqualTo(768));
   });
 
   testWidgets('shows every column in expanded layouts', (tester) async {
@@ -46,6 +48,10 @@ void main() {
     await tester.pumpWidget(harness(1280));
     expect(find.text('Nombre'), findsOneWidget);
     expect(find.text('Dato extendido'), findsOneWidget);
+    expect(
+      tester.getSize(find.byType(DataTable)).width,
+      greaterThanOrEqualTo(1280),
+    );
     tester.view.resetPhysicalSize();
     tester.view.resetDevicePixelRatio();
   });

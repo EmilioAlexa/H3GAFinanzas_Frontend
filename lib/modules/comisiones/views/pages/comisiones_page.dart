@@ -347,9 +347,8 @@ class _ComisionesPageState extends ConsumerState<ComisionesPage> {
                 MoneyFormatter.format(_companyRemainder(payment))),
           ],
           const SizedBox(height: AppTheme.space2),
-          Row(children: [
+          Wrap(alignment: WrapAlignment.spaceBetween, children: [
             _statusBadge(payment),
-            const Spacer(),
             IconButton(
               tooltip: 'Ver detalle de ${payment.paymentFolio}',
               onPressed: () => context.go('/comisiones/${payment.id}'),

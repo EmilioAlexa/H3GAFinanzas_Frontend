@@ -15,7 +15,11 @@ Future<void> main() async {
 
   testWidgets('validation queue adapts on compact and expanded screens',
       (tester) async {
-    for (final size in [const Size(390, 844), const Size(1280, 900)]) {
+    for (final size in [
+      const Size(390, 844),
+      const Size(768, 1024),
+      const Size(1280, 900),
+    ]) {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = size;
       await tester.pumpWidget(
