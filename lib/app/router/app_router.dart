@@ -121,6 +121,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const validacion.ValidacionPage(),
           ),
           GoRoute(
+            path: '/validacion/:id',
+            builder: (context, state) => validacion.ValidacionDetallePage(
+              paymentId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
             path: '/comisiones',
             builder: (context, state) => const comisiones.ComisionesPage(),
           ),

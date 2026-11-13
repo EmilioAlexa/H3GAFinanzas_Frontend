@@ -27,6 +27,65 @@ class PagosRepository {
     return null;
   }
 
+  PagoModel changeReviewStateDemo({
+    required String paymentId,
+    required UserRole role,
+    required String action,
+    required String comment,
+    required String actor,
+  }) {
+    final index = _payments.indexWhere((item) => item.id == paymentId);
+    if (index < 0) throw StateError('Pago no disponible.');
+    final payment = _payments[index];
+    if (role == UserRole.asesor) {
+      throw StateError('El asesor no puede validar pagos.');
+    }
+    if (role == UserRole.administradorFinanciero &&
+        payment.estado != 'Pendiente de revisión financiera') {
+      throw StateError(
+          'Solo puedes revisar pagos pendientes de revisión financiera.');
+    }
+    if (role == UserRole.administrador &&
+        payment.estado != 'Pendiente de revisión financiera' &&
+        payment.estado != 'Pendiente de autorización') {
+      throw StateError(
+          'El pago no está disponible para una decisión administrativa.');
+    }
+    if (action == 'validar' && role != UserRole.administrador) {
+      throw StateError('La validación final corresponde a administración.');
+    }
+    if (action == 'enviar_a_autorizacion' &&
+        role != UserRole.administradorFinanciero) {
+      throw StateError('Esta acción corresponde a administración financiera.');
+    }
+    if (!const {'rechazar', 'enviar_a_autorizacion', 'validar'}
+        .contains(action)) {
+      throw StateError('Acción de validación no reconocida.');
+    }
+    if (action == 'validar' && !payment.hasEvidenceForApproval) {
+      throw StateError(
+        'No se puede validar: falta evidencia compatible con la forma de pago.',
+      );
+    }
+    if (comment.length > 1000) {
+      throw StateError('El comentario no puede superar 1000 caracteres.');
+    }
+
+    final (nextId, nextStatus) = switch (action) {
+      'rechazar' => (5, 'Rechazado'),
+      'enviar_a_autorizacion' => (4, 'Pendiente de autorización'),
+      _ => (3, 'Validado'),
+    };
+    final note = comment.trim().isEmpty ? '' : ' · ${comment.trim()}';
+    final updated = payment.withReview(
+      estadoPagoId: nextId,
+      estado: nextStatus,
+      historyEntry: '$nextStatus · $actor$note',
+    );
+    _payments[index] = updated;
+    return updated;
+  }
+
   PagoModel createPayment({
     required ContratoModel contract,
     required int methodId,
