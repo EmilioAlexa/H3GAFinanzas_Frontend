@@ -52,4 +52,18 @@ void main() {
     expect(allowedRolesForLocation('/cortes/demo-cut'), management);
     expect(allowedRolesForLocation('/cortes/demo-cut/preparacion'), management);
   });
+
+  test('all prenomina screens require management roles', () {
+    const management = {
+      UserRole.administrador,
+      UserRole.administradorFinanciero,
+    };
+    expect(allowedRolesForLocation('/prenomina'), management);
+    expect(
+        allowedRolesForLocation('/prenomina/preparacion/demo-cut'), management);
+    expect(allowedRolesForLocation('/prenomina/detalle/demo-recipient'),
+        management);
+    expect(allowedRolesForLocation('/prenomina/detalle/demo-recipient'),
+        isNot(contains(UserRole.asesor)));
+  });
 }

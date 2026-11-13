@@ -2,6 +2,9 @@ import '../../core/shell/shell_navigation.dart';
 import '../../modules/auth/auth.dart';
 
 Set<UserRole> allowedRolesForLocation(String path) {
+  if (path == '/prenomina' || path.startsWith('/prenomina/')) {
+    return {UserRole.administrador, UserRole.administradorFinanciero};
+  }
   if (path == '/validacion' || path.startsWith('/validacion/')) {
     return {UserRole.administrador, UserRole.administradorFinanciero};
   }
