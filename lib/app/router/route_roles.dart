@@ -13,5 +13,8 @@ Set<UserRole> allowedRolesForLocation(String path) {
       RegExp(r'^/comisiones/contratos/[^/]+/configuracion$').hasMatch(path)) {
     return {UserRole.administrador, UserRole.administradorFinanciero};
   }
+  if (path == '/cortes' || RegExp(r'^/cortes/[^/]+').hasMatch(path)) {
+    return {UserRole.administrador, UserRole.administradorFinanciero};
+  }
   return allowedRolesForRoute(path);
 }

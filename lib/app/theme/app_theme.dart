@@ -130,6 +130,30 @@ abstract final class AppTheme {
       colorScheme: scheme,
       scaffoldBackgroundColor: canvas,
       dividerColor: line,
+      appBarTheme: const AppBarTheme(
+        backgroundColor: surface,
+        foregroundColor: ink,
+        elevation: 0,
+        iconTheme: IconThemeData(color: muted),
+        titleTextStyle: TextStyle(
+          color: ink,
+          fontFamily: fontFamily,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        backgroundColor: surface,
+        selectedItemColor: primary,
+        unselectedItemColor: muted,
+        showSelectedLabels: true,
+        showUnselectedLabels: true,
+        type: BottomNavigationBarType.fixed,
+        selectedLabelStyle:
+            TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+        unselectedLabelStyle: TextStyle(fontSize: 10),
+        elevation: 8,
+      ),
       textTheme: const TextTheme(
         displayLarge:
             TextStyle(fontSize: 36, height: 1.1, letterSpacing: -0.72),
