@@ -179,6 +179,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const prenomina.PrenominaPage(),
           ),
           GoRoute(
+            path: '/reportes/:reportType',
+            builder: (context, state) => reportes.ReportesPage(
+              reportType: reportes.ReportType.fromKey(
+                state.pathParameters['reportType'],
+              ),
+            ),
+          ),
+          GoRoute(
             path: '/reportes',
             builder: (context, state) => const reportes.ReportesPage(),
           ),
