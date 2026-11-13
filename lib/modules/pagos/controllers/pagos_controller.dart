@@ -55,6 +55,26 @@ class PagosController extends StateNotifier<AsyncValue<PagosState?>> {
   PagoModel? findPayment(String id) =>
       demoMode ? _repository.findPayment(id, _role) : null;
 
+  PagoModel changeReviewStateDemo({
+    required String paymentId,
+    required String action,
+    required String comment,
+    required String actor,
+  }) {
+    if (!demoMode) {
+      throw StateError('Las acciones de demostración están deshabilitadas.');
+    }
+    final updated = _repository.changeReviewStateDemo(
+      paymentId: paymentId,
+      role: _role,
+      action: action,
+      comment: comment,
+      actor: actor,
+    );
+    _refresh();
+    return updated;
+  }
+
   PagoModel createPayment(
       {required ContratoModel contract,
       required int methodId,

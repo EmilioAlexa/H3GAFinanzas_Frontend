@@ -20,4 +20,13 @@ void main() {
   test('client details allow every signed-in role', () {
     expect(allowedRolesForLocation('/clientes/demo-client-1'), isEmpty);
   });
+
+  test('validation queue and details only allow management roles', () {
+    const management = {
+      UserRole.administrador,
+      UserRole.administradorFinanciero,
+    };
+    expect(allowedRolesForLocation('/validacion'), management);
+    expect(allowedRolesForLocation('/validacion/demo-payment-1'), management);
+  });
 }

@@ -5,6 +5,7 @@ class EvidenciaPagoModel {
     required this.mimeType,
     required this.sizeBytes,
     required this.uploadedAt,
+    this.tipoCompatibleConMetodo = false,
     this.demoOnly = true,
   });
 
@@ -13,5 +14,6 @@ class EvidenciaPagoModel {
   final String mimeType;
   final int sizeBytes;
   final DateTime uploadedAt;
+  final bool tipoCompatibleConMetodo;
   final bool demoOnly;
 }

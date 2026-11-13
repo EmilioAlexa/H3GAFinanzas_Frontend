@@ -53,6 +53,40 @@ class PagoModel {
   final String? recibidoPor;
   final bool assignedToCurrentAdvisor;
 
+  bool get hasEvidenceForApproval =>
+      evidencias.any((evidence) => evidence.tipoCompatibleConMetodo);
+
+  PagoModel withReview({
+    required int estadoPagoId,
+    required String estado,
+    required String historyEntry,
+  }) =>
+      PagoModel(
+        id: id,
+        folio: folio,
+        contratoId: contratoId,
+        contratoFolio: contratoFolio,
+        clienteNombre: clienteNombre,
+        servicioNombre: servicioNombre,
+        asesorNombre: asesorNombre,
+        formaPagoId: formaPagoId,
+        formaPago: formaPago,
+        estadoPagoId: estadoPagoId,
+        estado: estado,
+        monto: monto,
+        fechaPago: fechaPago,
+        numeroPago: numeroPago,
+        cantidadPagos: cantidadPagos,
+        referencia: referencia,
+        observaciones: observaciones,
+        evidencias: evidencias,
+        historial: [...historial, historyEntry],
+        pagoProgramadoId: pagoProgramadoId,
+        folioRecibo: folioRecibo,
+        recibidoPor: recibidoPor,
+        assignedToCurrentAdvisor: assignedToCurrentAdvisor,
+      );
+
   Map<String, Object?> toCreatePayload({
     required String contratoId,
     required int formaPagoId,

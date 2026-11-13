@@ -62,6 +62,7 @@ abstract final class PagosDemoFixtures {
           mimeType: 'application/pdf',
           sizeBytes: 245760,
           uploadedAt: DateTime(2025, 5, 2),
+          tipoCompatibleConMetodo: true,
         )
       ],
       historial: [
@@ -88,7 +89,16 @@ abstract final class PagosDemoFixtures {
       referencia: 'DEP-2025-992',
       observaciones: '',
       assignedToCurrentAdvisor: false,
-      evidencias: const [],
+      evidencias: [
+        EvidenciaPagoModel(
+          id: 'demo-evidence-2',
+          name: 'deposito_mensual.jpg',
+          mimeType: 'image/jpeg',
+          sizeBytes: 186000,
+          uploadedAt: DateTime(2025, 5, 3),
+          tipoCompatibleConMetodo: true,
+        ),
+      ],
       historial: ['Pendiente de revisión · 03/05/2025'],
     ),
     PagoModel(
@@ -101,8 +111,8 @@ abstract final class PagosDemoFixtures {
       asesorNombre: 'Daniela Cruz',
       formaPagoId: 3,
       formaPago: 'Efectivo',
-      estadoPagoId: 2,
-      estado: 'En revisión',
+      estadoPagoId: 1,
+      estado: 'Pendiente de revisión financiera',
       monto: Decimal.parse('42500'),
       fechaPago: DateTime(2025, 5, 5),
       numeroPago: 1,
@@ -113,7 +123,40 @@ abstract final class PagosDemoFixtures {
       observaciones: 'Recepción en oficina.',
       assignedToCurrentAdvisor: true,
       evidencias: const [],
-      historial: ['Pendiente de revisión · 05/05/2025'],
+      historial: ['Pendiente de revisión financiera · 05/05/2025'],
+    ),
+    PagoModel(
+      id: 'demo-payment-4',
+      folio: 'PG-2025-0504',
+      contratoId: 'demo-contract-4',
+      contratoFolio: 'H3-R40-0087',
+      clienteNombre: 'Javier Torres Luna',
+      servicioNombre: 'M40 Retroactiva',
+      asesorNombre: 'Mónica Ruiz',
+      formaPagoId: 1,
+      formaPago: 'Transferencia',
+      estadoPagoId: 4,
+      estado: 'Pendiente de autorización',
+      monto: Decimal.parse('78500'),
+      fechaPago: DateTime(2025, 5, 6),
+      numeroPago: 1,
+      cantidadPagos: 1,
+      referencia: 'TRX-78500',
+      observaciones: 'Enviado a autorización financiera.',
+      evidencias: [
+        EvidenciaPagoModel(
+          id: 'demo-evidence-4',
+          name: 'transferencia_retroactiva.pdf',
+          mimeType: 'application/pdf',
+          sizeBytes: 312000,
+          uploadedAt: DateTime(2025, 5, 6),
+          tipoCompatibleConMetodo: true,
+        ),
+      ],
+      historial: [
+        'Pendiente de revisión financiera · 06/05/2025',
+        'Pendiente de autorización · 06/05/2025',
+      ],
     ),
   ];
 
