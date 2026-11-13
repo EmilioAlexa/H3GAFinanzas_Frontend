@@ -4,6 +4,7 @@ import 'window_size_class.dart';
 class Responsive {
   static const compactMaxWidth = 600.0;
   static const expandedMinWidth = 1024.0;
+  static const contentMaxWidth = 1600.0;
   static const figmaNavigationCollapseWidth = 860.0;
   static const figmaDenseLayoutWidth = 1150.0;
 

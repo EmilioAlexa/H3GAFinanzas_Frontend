@@ -90,19 +90,29 @@ class DashboardPage extends ConsumerWidget {
                 description: model.isAdvisor
                     ? 'Resumen de tus clientes y operaciones asignadas.'
                     : 'Este es el estado financiero y operativo de hoy.',
-                actions: [
-                  if (!model.isAdvisor)
-                    OutlinedButton.icon(
-                      onPressed: () => _exportDashboard(context, model),
-                      icon: const Icon(Icons.download_outlined),
-                      label: const Text('Exportar'),
-                    ),
-                  ElevatedButton.icon(
+              ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
+                  alignment: WrapAlignment.start,
+                  spacing: AppTheme.space2,
+                  runSpacing: AppTheme.space2,
+                  children: [
+                    if (!model.isAdvisor)
+                      OutlinedButton.icon(
+                        onPressed: () => _exportDashboard(context, model),
+                        icon: const Icon(Icons.download_outlined),
+                        label: const Text('Exportar'),
+                      ),
+                    ElevatedButton.icon(
                       onPressed: () => context.go('/pagos/nuevo'),
                       icon: const Icon(Icons.add),
-                      label: const Text('Registrar pago')),
-                ],
+                      label: const Text('Registrar pago'),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(height: AppTheme.space4),
               Container(
                 constraints: const BoxConstraints(minHeight: 48),
                 padding: const EdgeInsets.symmetric(
@@ -298,6 +308,7 @@ class DashboardPage extends ConsumerWidget {
             _activityPanel(context, model.recentActivity),
             firstFlex: 3,
             secondFlex: 2,
+            equalHeight: true,
           ),
         ],
       );
@@ -334,6 +345,7 @@ class DashboardPage extends ConsumerWidget {
     Widget second, {
     required int firstFlex,
     required int secondFlex,
+    bool equalHeight = false,
   }) {
     if (size != WindowSizeClass.expandido) {
       return Column(
@@ -345,14 +357,16 @@ class DashboardPage extends ConsumerWidget {
         ],
       );
     }
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final row = Row(
+      crossAxisAlignment:
+          equalHeight ? CrossAxisAlignment.stretch : CrossAxisAlignment.start,
       children: [
         Expanded(flex: firstFlex, child: first),
         const SizedBox(width: AppTheme.space5),
         Expanded(flex: secondFlex, child: second),
       ],
     );
+    return equalHeight ? IntrinsicHeight(child: row) : row;
   }
 
   Widget _incomePanel(BuildContext context, DashboardModel model) => _panel(
@@ -553,38 +567,57 @@ class DashboardPage extends ConsumerWidget {
         footer: _nextCutNote(context),
       );
 
-  Widget _nextCutNote(BuildContext context) => Container(
-        width: double.infinity,
-        margin: const EdgeInsets.only(top: AppTheme.space3),
-        padding: const EdgeInsets.all(AppTheme.space3),
-        decoration: BoxDecoration(
-          color: AppTheme.surfaceSecondary,
-          borderRadius: BorderRadius.circular(AppTheme.radiusField),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Icon(Icons.schedule, color: AppTheme.primary),
-            const SizedBox(width: AppTheme.space2),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Semana financiera',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+  Widget _nextCutNote(BuildContext context) {
+    final today = DateTime.now();
+    final daysUntilThursday = (DateTime.thursday - today.weekday + 7) % 7;
+    final nextCut =
+        DateTime(today.year, today.month, today.day + daysUntilThursday);
+    final formattedDate = DateFormat('EEEE d MMMM', 'es_MX').format(nextCut);
+    final dateLabel = formattedDate.isEmpty
+        ? formattedDate
+        : '${formattedDate[0].toUpperCase()}${formattedDate.substring(1)}';
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: AppTheme.space3),
+      padding: const EdgeInsets.all(AppTheme.space3),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceSecondary,
+        borderRadius: BorderRadius.circular(AppTheme.radiusField),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.schedule, color: AppTheme.primary),
+          const SizedBox(width: AppTheme.space2),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Próximo corte financiero',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                Text(
+                  dateLabel,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.inkSecondary,
                   ),
-                  const Text('El periodo va de viernes a jueves.'),
-                  TextButton(
-                    onPressed: () => context.go('/cortes'),
-                    child: const Text('Consultar cortes'),
-                  ),
-                ],
-              ),
+                ),
+                const Text('El periodo financiero va de viernes a jueves.'),
+                TextButton(
+                  onPressed: () => context.go('/cortes'),
+                  child: const Text('Consultar cortes'),
+                ),
+              ],
             ),
-          ],
-        ),
-      );
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _taskPanel(
     BuildContext context, {

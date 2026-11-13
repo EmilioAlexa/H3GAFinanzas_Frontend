@@ -3,6 +3,7 @@ export 'app_badge.dart';
 export 'app_button.dart';
 export 'app_data_column.dart';
 export 'app_dialog.dart';
+export 'app_filter_dropdown.dart';
 export 'app_metric_card.dart';
 export 'app_navigation_drawer.dart';
 export 'app_notice.dart';

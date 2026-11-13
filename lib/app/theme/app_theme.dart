@@ -156,24 +156,24 @@ abstract final class AppTheme {
       ),
       textTheme: const TextTheme(
         displayLarge:
-            TextStyle(fontSize: 36, height: 1.1, letterSpacing: -0.72),
+            TextStyle(fontSize: 32, height: 1.1, letterSpacing: -0.64),
         displayMedium:
-            TextStyle(fontSize: 32, height: 1.12, letterSpacing: -0.64),
+            TextStyle(fontSize: 29, height: 1.12, letterSpacing: -0.58),
         displaySmall:
-            TextStyle(fontSize: 28, height: 1.15, letterSpacing: -0.56),
+            TextStyle(fontSize: 26, height: 1.15, letterSpacing: -0.52),
         headlineLarge:
             TextStyle(fontSize: 27, height: 1.15, letterSpacing: -0.6),
         headlineMedium:
             TextStyle(fontSize: 24, height: 1.2, letterSpacing: -0.48),
         headlineSmall:
             TextStyle(fontSize: 20, height: 1.25, letterSpacing: -0.3),
-        titleLarge: TextStyle(fontSize: 18, height: 1.3),
-        titleMedium: TextStyle(fontSize: 16, height: 1.35),
-        titleSmall: TextStyle(fontSize: 14, height: 1.4),
-        bodyLarge: TextStyle(fontSize: 16, height: 1.45),
-        bodyMedium: TextStyle(fontSize: 14, height: 1.45),
+        titleLarge: TextStyle(fontSize: 16, height: 1.3),
+        titleMedium: TextStyle(fontSize: 14, height: 1.35),
+        titleSmall: TextStyle(fontSize: 13, height: 1.4),
+        bodyLarge: TextStyle(fontSize: 14, height: 1.45),
+        bodyMedium: TextStyle(fontSize: 13, height: 1.45),
         bodySmall: TextStyle(fontSize: 12, height: 1.4),
-        labelLarge: TextStyle(fontSize: 14, height: 1.4),
+        labelLarge: TextStyle(fontSize: 13, height: 1.4),
         labelMedium: TextStyle(fontSize: 12, height: 1.4),
         labelSmall: TextStyle(fontSize: 10, height: 1.35),
       ),
@@ -182,7 +182,7 @@ abstract final class AppTheme {
         fillColor: Colors.transparent,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
-          vertical: 15,
+          vertical: 12,
         ),
         labelStyle: const TextStyle(color: muted),
         hintStyle: const TextStyle(color: faint),
@@ -221,18 +221,21 @@ abstract final class AppTheme {
                       ? lineStrong
                       : states.contains(WidgetState.hovered)
                           ? secondaryHover
-                          : secondaryDark))),
+                          : secondaryDark),
+              foregroundColor: WidgetStateProperty.resolveWith((states) =>
+                  states.contains(WidgetState.disabled) ? muted : white))),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ButtonStyle(
           backgroundColor: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.disabled)) {
-              return secondaryDark.withValues(alpha: .48);
+              return surfaceSecondary;
             }
             if (states.contains(WidgetState.pressed)) return secondaryDark;
             if (states.contains(WidgetState.hovered)) return secondaryHover;
             return secondaryDark;
           }),
-          foregroundColor: const WidgetStatePropertyAll(white),
+          foregroundColor: WidgetStateProperty.resolveWith((states) =>
+              states.contains(WidgetState.disabled) ? muted : white),
           overlayColor: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.focused)) {
               return secondary.withValues(alpha: .22);

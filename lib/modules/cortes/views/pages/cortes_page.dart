@@ -9,6 +9,7 @@ import '../../../../core/responsive/window_size_class.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_data_column.dart';
+import '../../../../core/widgets/app_filter_dropdown.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_responsive_collection.dart';
 import '../../../../core/widgets/app_state_panel.dart';
@@ -117,11 +118,9 @@ class _CortesPageState extends ConsumerState<CortesPage> {
                 children: [
                   SizedBox(
                     width: 230,
-                    child: DropdownButtonFormField<String>(
-                      initialValue: _periodFilter,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                          labelText: 'Periodo', isDense: true),
+                    child: AppFilterDropdown<String>(
+                      value: _periodFilter,
+                      label: 'Periodo',
                       items: ['Todos los periodos', ...periods]
                           .map((period) => DropdownMenuItem(
                               value: period, child: Text(period)))
@@ -135,11 +134,9 @@ class _CortesPageState extends ConsumerState<CortesPage> {
                   ),
                   SizedBox(
                     width: 230,
-                    child: DropdownButtonFormField<String>(
-                      initialValue: _statusFilter,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                          labelText: 'Estado', isDense: true),
+                    child: AppFilterDropdown<String>(
+                      value: _statusFilter,
+                      label: 'Estado',
                       items: const [
                         'Todos los estados',
                         'En preparación',

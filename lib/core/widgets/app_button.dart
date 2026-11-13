@@ -25,18 +25,26 @@ class AppButton extends StatelessWidget {
       AppButtonVariant.secondary => OutlinedButton(
           onPressed: loading ? null : onPressed,
           style: ButtonStyle(
-            backgroundColor: WidgetStateProperty.resolveWith((states) =>
-                states.contains(WidgetState.hovered)
-                    ? AppTheme.secondarySoft
-                    : AppTheme.surface),
-            foregroundColor: WidgetStateProperty.resolveWith((states) =>
-                states.contains(WidgetState.hovered)
-                    ? AppTheme.secondaryHover
-                    : AppTheme.accent),
+            backgroundColor: WidgetStateProperty.resolveWith((states) => loading
+                ? AppTheme.secondarySoft
+                : states.contains(WidgetState.disabled)
+                    ? AppTheme.surfaceSecondary
+                    : states.contains(WidgetState.hovered)
+                        ? AppTheme.secondarySoft
+                        : AppTheme.surface),
+            foregroundColor: WidgetStateProperty.resolveWith((states) => loading
+                ? AppTheme.secondaryDark
+                : states.contains(WidgetState.disabled)
+                    ? AppTheme.muted
+                    : states.contains(WidgetState.hovered)
+                        ? AppTheme.secondaryHover
+                        : AppTheme.accent),
             side: WidgetStateProperty.resolveWith((states) => BorderSide(
-                  color: states.contains(WidgetState.hovered)
-                      ? AppTheme.secondaryDark
-                      : AppTheme.lineStrong,
+                  color: states.contains(WidgetState.disabled)
+                      ? AppTheme.lineStrong
+                      : states.contains(WidgetState.hovered)
+                          ? AppTheme.secondaryDark
+                          : AppTheme.lineStrong,
                 )),
             minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
             padding: const WidgetStatePropertyAll(
@@ -58,13 +66,15 @@ class AppButton extends StatelessWidget {
           onPressed: loading ? null : onPressed,
           style: ButtonStyle(
             backgroundColor: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.disabled)) {
+              if (loading) {
                 return switch (variant) {
                   AppButtonVariant.danger => AppTheme.danger,
-                  AppButtonVariant.gold => AppTheme.gold,
-                  _ => AppTheme.secondaryDark,
-                }
-                    .withValues(alpha: .48);
+                  AppButtonVariant.gold => AppTheme.goldHover,
+                  _ => AppTheme.secondaryHover,
+                };
+              }
+              if (states.contains(WidgetState.disabled)) {
+                return AppTheme.surfaceSecondary;
               }
               if (states.contains(WidgetState.hovered)) {
                 return switch (variant) {
@@ -79,11 +89,21 @@ class AppButton extends StatelessWidget {
                 _ => AppTheme.secondaryDark,
               };
             }),
-            foregroundColor: WidgetStatePropertyAll(
-              variant == AppButtonVariant.gold
+            foregroundColor: WidgetStateProperty.resolveWith((states) {
+              if (loading) {
+                return variant == AppButtonVariant.gold
+                    ? AppTheme.black
+                    : AppTheme.white;
+              }
+              if (states.contains(WidgetState.disabled)) return AppTheme.muted;
+              return variant == AppButtonVariant.gold
                   ? AppTheme.black
-                  : AppTheme.white,
-            ),
+                  : AppTheme.white;
+            }),
+            side: WidgetStateProperty.resolveWith((states) =>
+                states.contains(WidgetState.disabled)
+                    ? const BorderSide(color: AppTheme.lineStrong)
+                    : BorderSide.none),
             minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
             shape: WidgetStatePropertyAll(
               RoundedRectangleBorder(
@@ -117,9 +137,11 @@ class AppButton extends StatelessWidget {
           height: 20,
           child: CircularProgressIndicator(
             strokeWidth: 2,
-            color: variant == AppButtonVariant.gold
-                ? AppTheme.black
-                : AppTheme.white,
+            color: switch (variant) {
+              AppButtonVariant.secondary => AppTheme.secondaryDark,
+              AppButtonVariant.gold => AppTheme.black,
+              _ => AppTheme.white,
+            },
           ),
         )
       : Text(label, textAlign: TextAlign.center);

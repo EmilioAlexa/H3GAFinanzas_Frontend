@@ -7,6 +7,7 @@ import '../../../../core/responsive/responsive.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_data_column.dart';
 import '../../../../core/widgets/app_dialog.dart';
+import '../../../../core/widgets/app_filter_dropdown.dart';
 import '../../../../core/widgets/app_metric_card.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_responsive_collection.dart';
@@ -28,6 +29,7 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
   String _statusFilter = 'Todos los estados';
   String _roleFilter = 'Todos los roles';
   int _selectedTab = 0;
+  bool? _filtersExpanded;
 
   @override
   void dispose() {
@@ -174,70 +176,93 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
             padding: const EdgeInsets.all(AppTheme.space4),
             child: LayoutBuilder(builder: (context, constraints) {
               final compact = Responsive.isCompact(constraints.maxWidth);
-              final filterWidth = compact ? constraints.maxWidth : null;
+              final filtersVisible = _filtersExpanded ?? !compact;
               final search = SizedBox(
-                width: compact ? double.infinity : 330,
+                width: compact ? null : 330,
                 child: TextField(
                   controller: _searchController,
                   onChanged: (_) => setState(() {}),
                   decoration: const InputDecoration(
                     prefixIcon: Icon(Icons.search),
                     hintText: 'Buscar por nombre, correo o rol...',
-                    labelText: 'Buscar usuarios',
+                    isDense: true,
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   ),
                 ),
               );
-              final filters = Wrap(spacing: AppTheme.space2, children: [
-                SizedBox(
-                  width: filterWidth ?? 180,
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _statusFilter,
-                    isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'Estado'),
-                    items: const [
-                      'Todos los estados',
-                      'Activos',
-                      'Suspendidos',
-                    ]
-                        .map((value) =>
-                            DropdownMenuItem(value: value, child: Text(value)))
-                        .toList(),
-                    onChanged: (value) => setState(
-                        () => _statusFilter = value ?? 'Todos los estados'),
+              final filterButton = SizedBox(
+                width: 96,
+                height: 48,
+                child: OutlinedButton.icon(
+                  onPressed: () =>
+                      setState(() => _filtersExpanded = !filtersVisible),
+                  icon: const Icon(Icons.filter_list_rounded, size: 19),
+                  label: const Text('Filtros'),
+                  style: OutlinedButton.styleFrom(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: AppTheme.space2),
                   ),
                 ),
-                SizedBox(
-                  width: filterWidth ?? 210,
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _roleFilter,
-                    isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'Rol'),
-                    items: [
-                      'Todos los roles',
-                      ...UsuariosRepository.roles.map((role) => role.nombre),
-                    ]
-                        .map((value) =>
-                            DropdownMenuItem(value: value, child: Text(value)))
-                        .toList(),
-                    onChanged: (value) => setState(
-                        () => _roleFilter = value ?? 'Todos los roles'),
-                  ),
-                ),
-              ]);
+              );
+              final statusFilter = AppFilterDropdown<String>(
+                value: _statusFilter,
+                label: 'Estado',
+                items: const [
+                  'Todos los estados',
+                  'Activos',
+                  'Suspendidos',
+                ]
+                    .map((value) =>
+                        DropdownMenuItem(value: value, child: Text(value)))
+                    .toList(),
+                onChanged: (value) => setState(
+                    () => _statusFilter = value ?? 'Todos los estados'),
+              );
+              final roleFilter = AppFilterDropdown<String>(
+                value: _roleFilter,
+                label: 'Rol',
+                items: [
+                  'Todos los roles',
+                  ...UsuariosRepository.roles.map((role) => role.nombre),
+                ]
+                    .map((value) =>
+                        DropdownMenuItem(value: value, child: Text(value)))
+                    .toList(),
+                onChanged: (value) =>
+                    setState(() => _roleFilter = value ?? 'Todos los roles'),
+              );
               if (compact) {
                 return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      search,
-                      const SizedBox(height: AppTheme.space3),
-                      filters,
-                    ]);
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(children: [
+                      Expanded(child: search),
+                      const SizedBox(width: AppTheme.space2),
+                      filterButton,
+                    ]),
+                    if (filtersVisible) ...[
+                      const SizedBox(height: AppTheme.space2),
+                      statusFilter,
+                      const SizedBox(height: AppTheme.space2),
+                      roleFilter,
+                    ],
+                  ],
+                );
               }
               return Wrap(
-                  spacing: AppTheme.space3,
-                  runSpacing: AppTheme.space3,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [search, filters]);
+                spacing: AppTheme.space2,
+                runSpacing: AppTheme.space2,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  search,
+                  filterButton,
+                  if (filtersVisible) ...[
+                    SizedBox(width: 180, child: statusFilter),
+                    SizedBox(width: 210, child: roleFilter),
+                  ],
+                ],
+              );
             }),
           ),
           const Divider(height: 1),

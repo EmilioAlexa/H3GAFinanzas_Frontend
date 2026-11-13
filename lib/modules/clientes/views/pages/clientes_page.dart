@@ -7,6 +7,7 @@ import '../../../../core/responsive/responsive.dart';
 import '../../../../core/responsive/window_size_class.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_data_column.dart';
+import '../../../../core/widgets/app_filter_dropdown.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_responsive_collection.dart';
 import '../../../../core/widgets/app_state_panel.dart';
@@ -29,7 +30,7 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
   String _statusFilter = 'Todos los estados';
   String _serviceFilter = 'Todos los servicios';
   int _page = 1;
-  bool _filtersExpanded = false;
+  bool? _filtersExpanded;
 
   @override
   void dispose() {
@@ -268,6 +269,7 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
 
   Widget _filters(BuildContext context, WindowSizeClass widthClass) {
     final compact = widthClass == WindowSizeClass.compacto;
+    final filtersVisible = _filtersExpanded ?? !compact;
     final search = TextField(
       key: const Key('clientes-search'),
       controller: _searchController,
@@ -278,21 +280,33 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
       decoration: const InputDecoration(
         hintText: 'Buscar por nombre, folio o CURP…',
         prefixIcon: Icon(Icons.search),
+        isDense: true,
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(),
       ),
     );
-    final filterButton = OutlinedButton.icon(
-      onPressed: () => setState(() => _filtersExpanded = !_filtersExpanded),
-      icon: const Icon(Icons.filter_list),
-      label: const Text('Filtros'),
+    final filterButton = SizedBox(
+      width: 96,
+      height: 48,
+      child: OutlinedButton.icon(
+        onPressed: () => setState(() => _filtersExpanded = !filtersVisible),
+        icon: const Icon(Icons.filter_list_rounded, size: 19),
+        label: const Text('Filtros'),
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: AppTheme.space2),
+        ),
+      ),
     );
     if (compact) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          search,
-          Align(alignment: Alignment.centerRight, child: filterButton),
-          if (_filtersExpanded) ...[
+          Row(children: [
+            Expanded(child: search),
+            const SizedBox(width: AppTheme.space2),
+            filterButton,
+          ]),
+          if (filtersVisible) ...[
             const SizedBox(height: AppTheme.space3),
             _filterDropdowns(context),
           ],
@@ -306,8 +320,10 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
       children: [
         SizedBox(width: 330, child: search),
         filterButton,
-        SizedBox(width: 190, child: _statusDropdown()),
-        SizedBox(width: 190, child: _serviceDropdown()),
+        if (filtersVisible) ...[
+          SizedBox(width: 190, child: _statusDropdown()),
+          SizedBox(width: 190, child: _serviceDropdown()),
+        ],
       ],
     );
   }
@@ -320,10 +336,9 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
         ],
       );
 
-  Widget _statusDropdown() => DropdownButtonFormField<String>(
-        initialValue: _statusFilter,
-        isExpanded: true,
-        decoration: const InputDecoration(labelText: 'Estado'),
+  Widget _statusDropdown() => AppFilterDropdown<String>(
+        value: _statusFilter,
+        label: 'Estado',
         items: const [
           DropdownMenuItem(
             value: 'Todos los estados',
@@ -339,10 +354,9 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
         }),
       );
 
-  Widget _serviceDropdown() => DropdownButtonFormField<String>(
-        initialValue: _serviceFilter,
-        isExpanded: true,
-        decoration: const InputDecoration(labelText: 'Servicio'),
+  Widget _serviceDropdown() => AppFilterDropdown<String>(
+        value: _serviceFilter,
+        label: 'Servicio',
         items: const [
           DropdownMenuItem(
             value: 'Todos los servicios',

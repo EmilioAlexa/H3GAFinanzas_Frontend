@@ -8,6 +8,7 @@ import '../../../../core/responsive/responsive.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_data_column.dart';
+import '../../../../core/widgets/app_filter_dropdown.dart';
 import '../../../../core/widgets/app_metric_card.dart';
 import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_page_header.dart';
@@ -232,13 +233,9 @@ class _PrenominaPageState extends ConsumerState<PrenominaPage> {
             child: Wrap(spacing: AppTheme.space3, children: [
               SizedBox(
                 width: 230,
-                child: DropdownButtonFormField<String>(
-                  isExpanded: true,
-                  initialValue: _position,
-                  decoration: const InputDecoration(
-                    labelText: 'Puesto o destino',
-                    isDense: true,
-                  ),
+                child: AppFilterDropdown<String>(
+                  value: _position,
+                  label: 'Puesto o destino',
                   items: [
                     'Todos los puestos',
                     ...items.map((item) => item.position).toSet(),

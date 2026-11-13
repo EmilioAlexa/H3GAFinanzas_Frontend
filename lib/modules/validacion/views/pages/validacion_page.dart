@@ -83,7 +83,7 @@ class _ValidacionPageState extends ConsumerState<ValidacionPage> {
         .toList();
     final pending = payments
         .where(
-            (payment) => payment.estado == 'Pendiente de revisión financiera')
+            (payment) => payment.estado == 'Por revisar')
         .length;
     final waiting = payments
         .where((payment) => payment.estado == 'Pendiente de autorización')
@@ -126,7 +126,7 @@ class _ValidacionPageState extends ConsumerState<ValidacionPage> {
     return payments
         .where((payment) => switch (currentStage) {
               'Pendientes' =>
-                payment.estado == 'Pendiente de revisión financiera',
+                payment.estado == 'Por revisar',
               'Por autorizar' => payment.estado == 'Pendiente de autorización',
               'Concluidos' =>
                 payment.estado == 'Validado' || payment.estado == 'Rechazado',

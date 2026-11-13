@@ -66,7 +66,7 @@ abstract final class PagosDemoFixtures {
         )
       ],
       historial: [
-        'Pendiente de revisión · 02/05/2025',
+        'Por revisar · 02/05/2025',
         'Validado · 03/05/2025'
       ],
     ),
@@ -81,7 +81,7 @@ abstract final class PagosDemoFixtures {
       formaPagoId: 2,
       formaPago: 'Depósito',
       estadoPagoId: 1,
-      estado: 'Pendiente de revisión financiera',
+      estado: 'Por revisar',
       monto: Decimal.parse('6900'),
       fechaPago: DateTime(2025, 5, 3),
       numeroPago: 3,
@@ -99,7 +99,7 @@ abstract final class PagosDemoFixtures {
           tipoCompatibleConMetodo: true,
         ),
       ],
-      historial: ['Pendiente de revisión · 03/05/2025'],
+      historial: ['Por revisar· 03/05/2025'],
     ),
     PagoModel(
       id: 'demo-payment-3',
@@ -112,7 +112,7 @@ abstract final class PagosDemoFixtures {
       formaPagoId: 3,
       formaPago: 'Efectivo',
       estadoPagoId: 1,
-      estado: 'Pendiente de revisión financiera',
+      estado: 'Por revisar',
       monto: Decimal.parse('42500'),
       fechaPago: DateTime(2025, 5, 5),
       numeroPago: 1,
@@ -123,7 +123,7 @@ abstract final class PagosDemoFixtures {
       observaciones: 'Recepción en oficina.',
       assignedToCurrentAdvisor: true,
       evidencias: const [],
-      historial: ['Pendiente de revisión financiera · 05/05/2025'],
+      historial: ['Por revisar · 05/05/2025'],
     ),
     PagoModel(
       id: 'demo-payment-4',
@@ -154,8 +154,8 @@ abstract final class PagosDemoFixtures {
         ),
       ],
       historial: [
-        'Pendiente de revisión financiera · 06/05/2025',
-        'Pendiente de autorización · 06/05/2025',
+        'Pendiente· 06/05/2025',
+        'Pendiente· 06/05/2025',
       ],
     ),
   ];

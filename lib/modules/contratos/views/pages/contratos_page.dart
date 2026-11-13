@@ -8,6 +8,7 @@ import '../../../../core/responsive/responsive.dart';
 import '../../../../core/responsive/window_size_class.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_data_column.dart';
+import '../../../../core/widgets/app_filter_dropdown.dart';
 import '../../../../core/widgets/app_metric_card.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_responsive_collection.dart';
@@ -28,6 +29,7 @@ class _ContratosPageState extends ConsumerState<ContratosPage> {
   String _query = '';
   String _service = 'Todos los servicios';
   String _status = 'Todos los estados';
+  bool? _filtersExpanded;
 
   @override
   void dispose() {
@@ -236,6 +238,7 @@ class _ContratosPageState extends ConsumerState<ContratosPage> {
       );
 
   Widget _filters(BuildContext context, WindowSizeClass size) {
+    final filtersVisible = _filtersExpanded ?? size != WindowSizeClass.compacto;
     final search = TextField(
       key: const Key('contratos-search'),
       controller: _searchController,
@@ -243,13 +246,26 @@ class _ContratosPageState extends ConsumerState<ContratosPage> {
       decoration: const InputDecoration(
         hintText: 'Buscar por cliente o folio…',
         prefixIcon: Icon(Icons.search),
+        isDense: true,
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(),
       ),
     );
-    final service = DropdownButtonFormField<String>(
-      initialValue: _service,
-      isExpanded: true,
-      decoration: const InputDecoration(labelText: 'Servicio'),
+    final filterButton = SizedBox(
+      width: 96,
+      height: 48,
+      child: OutlinedButton.icon(
+        onPressed: () => setState(() => _filtersExpanded = !filtersVisible),
+        icon: const Icon(Icons.filter_list_rounded, size: 19),
+        label: const Text('Filtros'),
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: AppTheme.space2),
+        ),
+      ),
+    );
+    final service = AppFilterDropdown<String>(
+      value: _service,
+      label: 'Servicio',
       items: const [
         DropdownMenuItem(
             value: 'Todos los servicios', child: Text('Todos los servicios')),
@@ -261,10 +277,9 @@ class _ContratosPageState extends ConsumerState<ContratosPage> {
       ],
       onChanged: (value) => setState(() => _service = value ?? _service),
     );
-    final status = DropdownButtonFormField<String>(
-      initialValue: _status,
-      isExpanded: true,
-      decoration: const InputDecoration(labelText: 'Estado'),
+    final status = AppFilterDropdown<String>(
+      value: _status,
+      label: 'Estado',
       items: const [
         DropdownMenuItem(
             value: 'Todos los estados', child: Text('Todos los estados')),
@@ -280,10 +295,17 @@ class _ContratosPageState extends ConsumerState<ContratosPage> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          search,
-          const SizedBox(height: AppTheme.space2),
-          service,
-          status
+          Row(children: [
+            Expanded(child: search),
+            const SizedBox(width: AppTheme.space2),
+            filterButton,
+          ]),
+          if (filtersVisible) ...[
+            const SizedBox(height: AppTheme.space2),
+            service,
+            const SizedBox(height: AppTheme.space2),
+            status,
+          ],
         ],
       );
     }
@@ -292,8 +314,11 @@ class _ContratosPageState extends ConsumerState<ContratosPage> {
       runSpacing: AppTheme.space2,
       children: [
         SizedBox(width: 300, child: search),
-        SizedBox(width: 220, child: service),
-        SizedBox(width: 210, child: status),
+        filterButton,
+        if (filtersVisible) ...[
+          SizedBox(width: 220, child: service),
+          SizedBox(width: 210, child: status),
+        ],
       ],
     );
   }

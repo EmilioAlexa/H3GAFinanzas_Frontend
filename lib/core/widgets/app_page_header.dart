@@ -21,7 +21,7 @@ class AppPageHeader extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: AppTheme.space6),
         child: LayoutBuilder(
-          builder: (context, _) {
+          builder: (context, constraints) {
             final compact = Responsive.of(context) == WindowSizeClass.compacto;
             final heading = Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -59,15 +59,23 @@ class AppPageHeader extends StatelessWidget {
             );
             if (actions.isEmpty) return heading;
             if (compact) {
+              final actionWidth = actions.length == 1
+                  ? constraints.maxWidth
+                  : (constraints.maxWidth - AppTheme.space2) / 2;
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   heading,
                   const SizedBox(height: AppTheme.space4),
                   Wrap(
-                      spacing: AppTheme.space2,
-                      runSpacing: AppTheme.space2,
-                      children: actions),
+                    alignment: WrapAlignment.start,
+                    spacing: AppTheme.space2,
+                    runSpacing: AppTheme.space2,
+                    children: [
+                      for (final action in actions)
+                        SizedBox(width: actionWidth, child: action),
+                    ],
+                  ),
                 ],
               );
             }

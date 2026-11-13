@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 class EvidenciaPagoModel {
   const EvidenciaPagoModel({
     required this.id,
@@ -7,6 +9,7 @@ class EvidenciaPagoModel {
     required this.uploadedAt,
     this.tipoCompatibleConMetodo = false,
     this.demoOnly = true,
+    this.previewBytes,
   });
 
   final String id;
@@ -16,4 +19,5 @@ class EvidenciaPagoModel {
   final DateTime uploadedAt;
   final bool tipoCompatibleConMetodo;
   final bool demoOnly;
+  final Uint8List? previewBytes;
 }

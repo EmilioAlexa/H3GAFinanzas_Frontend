@@ -4,9 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/theme/app_theme.dart';
 import '../../modules/auth/auth.dart';
+import '../../modules/busqueda/busqueda.dart';
 import '../responsive/responsive.dart';
 import '../responsive/window_size_class.dart';
-import '../widgets/app_badge.dart';
 import 'shell_item.dart';
 import 'shell_navigation.dart';
 
@@ -20,30 +20,26 @@ class AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) => LayoutBuilder(
         builder: (context, constraints) {
           final size = Responsive.classify(constraints.maxWidth);
+          final usesDrawer =
+              Responsive.usesCollapsedNavigation(constraints.maxWidth);
           final items = visibleShellItems(session.role);
           final currentPath = GoRouterState.of(context).uri.path;
-          final selectedIndex = items.indexWhere(
-            (item) => _isSelected(item.path, currentPath),
-          );
-          final safeSelectedIndex = selectedIndex < 0 ? 0 : selectedIndex;
 
           return Scaffold(
-            appBar: size == WindowSizeClass.compacto
+            appBar: usesDrawer
                 ? AppBar(
-                    title: const Row(children: [
-                      Icon(Icons.search, color: AppTheme.muted),
-                      SizedBox(width: AppTheme.space2),
-                      Expanded(
-                        child: Text(
-                          'Buscar clientes, contratos o pagos...',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: AppTheme.faint, fontSize: 14),
-                        ),
+                    automaticallyImplyLeading: false,
+                    leading: Builder(
+                      builder: (scaffoldContext) => IconButton(
+                        tooltip: 'Abrir navegación',
+                        onPressed: () =>
+                            Scaffold.of(scaffoldContext).openDrawer(),
+                        icon: const Icon(Icons.menu),
                       ),
-                    ]),
+                    ),
+                    title: _searchControl(context, session.role),
                     actions: [
-                      _notificationButton(),
+                      _notificationButton(context),
                       Padding(
                         padding: const EdgeInsets.only(right: AppTheme.space3),
                         child: CircleAvatar(
@@ -56,8 +52,11 @@ class AppShell extends ConsumerWidget {
                     ],
                   )
                 : null,
-            drawer: size == WindowSizeClass.compacto
+            drawer: usesDrawer
                 ? Drawer(
+                    width: constraints.maxWidth * .86 > 280
+                        ? 280
+                        : constraints.maxWidth * .86,
                     backgroundColor: AppTheme.primary,
                     child: SafeArea(
                       child: _fullNavigation(
@@ -77,7 +76,7 @@ class AppShell extends ConsumerWidget {
                         _mobileNavigation(scaffoldContext, items, currentPath))
                 : null,
             body: Row(children: [
-              if (size == WindowSizeClass.expandido)
+              if (!usesDrawer)
                 SizedBox(
                   key: const Key('expanded-sidebar'),
                   width: 252,
@@ -90,56 +89,29 @@ class AppShell extends ConsumerWidget {
                     compact: false,
                   ),
                 ),
-              if (size == WindowSizeClass.medio)
-                _navigationRail(context, items, safeSelectedIndex),
               Expanded(
                 child: Column(children: [
-                  if (size != WindowSizeClass.compacto)
-                    _desktopTopBar(context, session),
-                  Expanded(child: child),
+                  if (!usesDrawer) _desktopTopBar(context, session),
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, contentConstraints) => Align(
+                        alignment: Alignment.topCenter,
+                        child: SizedBox(
+                          width: contentConstraints.maxWidth >
+                                  Responsive.contentMaxWidth
+                              ? Responsive.contentMaxWidth
+                              : contentConstraints.maxWidth,
+                          height: contentConstraints.maxHeight,
+                          child: child,
+                        ),
+                      ),
+                    ),
+                  ),
                 ]),
               ),
             ]),
           );
         },
-      );
-
-  Widget _navigationRail(
-    BuildContext context,
-    List<ShellItem> items,
-    int selectedIndex,
-  ) =>
-      NavigationRail(
-        backgroundColor: AppTheme.primary,
-        selectedIndex: selectedIndex,
-        labelType: NavigationRailLabelType.none,
-        scrollable: true,
-        indicatorColor: AppTheme.secondary.withValues(alpha: .14),
-        selectedIconTheme: const IconThemeData(color: AppTheme.secondary),
-        unselectedIconTheme: IconThemeData(
-          color: AppTheme.white.withValues(alpha: .66),
-        ),
-        leading: const Padding(
-          padding: EdgeInsets.only(
-            top: AppTheme.space3,
-            bottom: AppTheme.space4,
-          ),
-          child: Image(
-            image: AssetImage('assets/images/h3ga_logo.png'),
-            width: 38,
-            height: 38,
-            semanticLabel: 'H3GA Finanzas',
-          ),
-        ),
-        destinations: [
-          for (final item in items)
-            NavigationRailDestination(
-              icon: Tooltip(message: item.label, child: Icon(item.icon)),
-              selectedIcon: Icon(item.icon),
-              label: Text(item.label),
-            ),
-        ],
-        onDestinationSelected: (index) => context.go(items[index].path),
       );
 
   Widget _mobileNavigation(
@@ -486,15 +458,8 @@ class AppShell extends ConsumerWidget {
         boxShadow: const [AppTheme.shadowXs],
       ),
       child: Row(children: [
-        const Icon(Icons.search, color: AppTheme.faint),
-        const SizedBox(width: AppTheme.space3),
-        const Expanded(
-          child: Text(
-            'Buscar clientes, contratos o pagos...',
-            style: TextStyle(color: AppTheme.faint, fontSize: 15),
-          ),
-        ),
-        _notificationButton(),
+        Expanded(child: _searchControl(context, user.role)),
+        _notificationButton(context),
         const SizedBox(width: AppTheme.space3),
         const VerticalDivider(indent: 14, endIndent: 14),
         const SizedBox(width: AppTheme.space3),
@@ -519,6 +484,9 @@ class AppShell extends ConsumerWidget {
     );
   }
 
+  Widget _searchControl(BuildContext context, UserRole role) =>
+      GlobalSearchBar(role: role);
+
   String _initials(String name) {
     final parts = name.trim().split(RegExp(r'\s+'));
     if (parts.isEmpty || parts.first.isEmpty) return '?';
@@ -527,103 +495,107 @@ class AppShell extends ConsumerWidget {
         .toUpperCase();
   }
 
-  Widget _notificationButton() => PopupMenuButton<void>(
-        tooltip: 'Notificaciones',
-        offset: const Offset(0, 46),
-        icon: const Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Icon(Icons.notifications_none_outlined, color: AppTheme.muted),
-            Positioned(
-              right: -1,
-              top: -1,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: AppTheme.dangerBase,
-                  shape: BoxShape.circle,
-                ),
-                child: SizedBox(width: 7, height: 7),
+  Widget _notificationButton(BuildContext context) {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final menuWidth = screenWidth < 352 ? screenWidth - 32 : 328.0;
+    return PopupMenuButton<int>(
+      tooltip: 'Notificaciones',
+      offset: const Offset(0, 46),
+      color: AppTheme.surface,
+      elevation: 12,
+      shadowColor: AppTheme.primary.withValues(alpha: .16),
+      menuPadding: EdgeInsets.zero,
+      constraints: BoxConstraints(minWidth: menuWidth, maxWidth: menuWidth),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+        side: const BorderSide(color: AppTheme.line),
+      ),
+      onSelected: (selection) {
+        if (selection == 1) context.go('/validacion');
+      },
+      icon:
+          const Icon(Icons.notifications_none_outlined, color: AppTheme.muted),
+      itemBuilder: (menuContext) => [
+        PopupMenuItem<int>(
+          enabled: false,
+          padding: EdgeInsets.zero,
+          child: SizedBox(
+            width: menuWidth - 24,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppTheme.space4,
+                AppTheme.space3,
+                AppTheme.space4,
+                AppTheme.space2,
               ),
-            ),
-          ],
-        ),
-        itemBuilder: (context) => [
-          PopupMenuItem<void>(
-            enabled: false,
-            padding: EdgeInsets.zero,
-            child: SizedBox(
-              width: 360,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+              child: Row(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.all(AppTheme.space4),
-                    child: Row(
-                      children: [
-                        Text(
-                          'Notificaciones',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleLarge
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        const Spacer(),
-                        const AppBadge(
-                          label: '3 nuevas',
-                          tone: AppBadgeTone.warning,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Divider(height: 1),
-                  _notificationLine(
-                      '8 pagos requieren revisión', 'Hace 12 min'),
-                  _notificationLine(
-                    '4 cobros se encuentran vencidos',
-                    'Hace 1 h',
-                  ),
-                  _notificationLine(
-                    '17 contratos finalizan este mes',
-                    'Hoy',
-                    last: true,
+                  const Icon(Icons.notifications_none_outlined,
+                      color: AppTheme.secondaryDark),
+                  const SizedBox(width: AppTheme.space2),
+                  Text(
+                    'Notificaciones',
+                    style: Theme.of(menuContext)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w700),
                   ),
                 ],
               ),
             ),
           ),
-        ],
-      );
-
-  Widget _notificationLine(String title, String time, {bool last = false}) =>
-      Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppTheme.space4,
-          vertical: AppTheme.space3,
         ),
-        decoration: BoxDecoration(
-          border: last
-              ? null
-              : const Border(bottom: BorderSide(color: AppTheme.line)),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.circle, size: 9, color: AppTheme.secondaryDark),
-            const SizedBox(width: AppTheme.space3),
-            Expanded(
+        PopupMenuItem<int>(
+          enabled: false,
+          padding: EdgeInsets.zero,
+          child: SizedBox(
+            width: menuWidth - 24,
+            child: const Padding(
+              padding: EdgeInsets.fromLTRB(
+                AppTheme.space4,
+                AppTheme.space4,
+                AppTheme.space4,
+                AppTheme.space3,
+              ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title,
-                      style: const TextStyle(fontWeight: FontWeight.w700)),
-                  const SizedBox(height: AppTheme.space1),
-                  Text(time, style: const TextStyle(color: AppTheme.muted)),
+                  Icon(Icons.notifications_off_outlined,
+                      size: 32, color: AppTheme.muted),
+                  SizedBox(height: AppTheme.space2),
+                  Text(
+                    'No hay notificaciones nuevas',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  SizedBox(height: AppTheme.space1),
+                  Text(
+                    'Las alertas aparecerán aquí cuando estén disponibles.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: AppTheme.muted, fontSize: 12),
+                  ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right),
-          ],
+          ),
         ),
-      );
+        PopupMenuItem<int>(
+          value: 1,
+          padding: EdgeInsets.zero,
+          child: SizedBox(
+            width: menuWidth - 24,
+            child: const ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.fact_check_outlined,
+                  color: AppTheme.secondaryDark),
+              title: Text('Abrir bandeja de validación'),
+              trailing: Icon(Icons.chevron_right),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
   String _sectionLabel(ShellSection section) => switch (section) {
         ShellSection.general => 'General',

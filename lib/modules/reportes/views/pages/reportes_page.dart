@@ -11,6 +11,7 @@ import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_data_column.dart';
 import '../../../../core/widgets/app_dialog.dart';
+import '../../../../core/widgets/app_filter_dropdown.dart';
 import '../../../../core/widgets/app_metric_card.dart';
 import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_page_header.dart';
@@ -355,11 +356,9 @@ class _ReportFilters extends ConsumerWidget {
                 label: 'Hasta', value: filters.to, onChanged: controller.setTo),
             SizedBox(
               width: 210,
-              child: DropdownButtonFormField<String>(
-                isExpanded: true,
-                initialValue: filters.granularity,
-                decoration:
-                    const InputDecoration(labelText: 'Periodo', isDense: true),
+              child: AppFilterDropdown<String>(
+                value: filters.granularity,
+                label: 'Periodo',
                 items: const ['Semanal', 'Mensual', 'Anual']
                     .map((item) =>
                         DropdownMenuItem(value: item, child: Text(item)))
@@ -372,11 +371,9 @@ class _ReportFilters extends ConsumerWidget {
             if (showSaleType)
               SizedBox(
                 width: 220,
-                child: DropdownButtonFormField<String>(
-                  isExpanded: true,
-                  initialValue: filters.saleType,
-                  decoration: const InputDecoration(
-                      labelText: 'Tipo de venta', isDense: true),
+                child: AppFilterDropdown<String>(
+                  value: filters.saleType,
+                  label: 'Tipo de venta',
                   items: const [
                     'Todos los tipos',
                     'Cambaceo',
@@ -396,11 +393,9 @@ class _ReportFilters extends ConsumerWidget {
             if (showMethod)
               SizedBox(
                 width: 220,
-                child: DropdownButtonFormField<String>(
-                  isExpanded: true,
-                  initialValue: filters.paymentMethod,
-                  decoration: const InputDecoration(
-                      labelText: 'Método de pago', isDense: true),
+                child: AppFilterDropdown<String>(
+                  value: filters.paymentMethod,
+                  label: 'Método de pago',
                   items: const [
                     'Todos los métodos',
                     'Transferencia',
@@ -502,10 +497,9 @@ class _ReportFilters extends ConsumerWidget {
   }) =>
       SizedBox(
         width: 210,
-        child: DropdownButtonFormField<String>(
-          initialValue: value,
-          isExpanded: true,
-          decoration: InputDecoration(labelText: label, isDense: true),
+        child: AppFilterDropdown<String>(
+          value: value,
+          label: label,
           items: values
               .map((item) => DropdownMenuItem(value: item, child: Text(item)))
               .toList(),
