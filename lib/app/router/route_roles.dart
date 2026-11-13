@@ -5,6 +5,9 @@ Set<UserRole> allowedRolesForLocation(String path) {
   if (path == '/prenomina' || path.startsWith('/prenomina/')) {
     return {UserRole.administrador, UserRole.administradorFinanciero};
   }
+  if (path == '/reportes' || path.startsWith('/reportes/')) {
+    return {UserRole.administrador, UserRole.administradorFinanciero};
+  }
   if (path == '/validacion' || path.startsWith('/validacion/')) {
     return {UserRole.administrador, UserRole.administradorFinanciero};
   }

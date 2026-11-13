@@ -1,2 +1,9 @@
+export 'controllers/reportes_controller.dart';
 export 'fixtures/reportes_demo_fixtures.dart';
+export 'models/report_data_model.dart';
+export 'models/report_filters_model.dart';
+export 'models/report_point_model.dart';
+export 'models/report_row_model.dart';
+export 'models/report_type_model.dart';
+export 'repositories/reportes_repository.dart';
 export 'views/pages/reportes_page.dart';

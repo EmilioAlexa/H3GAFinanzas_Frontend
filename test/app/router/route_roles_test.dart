@@ -66,4 +66,14 @@ void main() {
     expect(allowedRolesForLocation('/prenomina/detalle/demo-recipient'),
         isNot(contains(UserRole.asesor)));
   });
+
+  test('all report screens require management roles', () {
+    const management = {
+      UserRole.administrador,
+      UserRole.administradorFinanciero,
+    };
+    expect(allowedRolesForLocation('/reportes'), management);
+    expect(allowedRolesForLocation('/reportes/imss'), management);
+    expect(allowedRolesForLocation('/reportes/pagos-metodo'), management);
+  });
 }
