@@ -76,4 +76,11 @@ void main() {
     expect(allowedRolesForLocation('/reportes/imss'), management);
     expect(allowedRolesForLocation('/reportes/pagos-metodo'), management);
   });
+
+  test('user administration is restricted to administrators', () {
+    expect(
+      allowedRolesForLocation('/usuarios'),
+      {UserRole.administrador},
+    );
+  });
 }
