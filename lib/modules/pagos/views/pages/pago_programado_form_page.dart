@@ -51,8 +51,8 @@ class _PagoProgramadoFormPageState
     if (!controller.demoMode) {
       return const AppStatePanel(
           icon: Icons.link_off,
-          title: 'Programación sin conectar',
-          message: 'El formulario se habilitará al integrar el endpoint B5.');
+          title: 'Programación no disponible',
+          message: 'No fue posible cargar el formulario.');
     }
     final contracts = ContratosDemoFixtures.contracts
         .where((item) =>

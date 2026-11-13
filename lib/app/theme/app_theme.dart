@@ -207,6 +207,21 @@ abstract final class AppTheme {
           borderSide: const BorderSide(color: danger, width: 1.5),
         ),
       ),
+      filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+        backgroundColor: secondaryDark,
+        foregroundColor: white,
+        minimumSize: const Size(48, 48),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(radiusField)),
+        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+      ).copyWith(
+              backgroundColor: WidgetStateProperty.resolveWith(
+                  (states) => states.contains(WidgetState.disabled)
+                      ? lineStrong
+                      : states.contains(WidgetState.hovered)
+                          ? secondaryHover
+                          : secondaryDark))),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ButtonStyle(
           backgroundColor: WidgetStateProperty.resolveWith((states) {

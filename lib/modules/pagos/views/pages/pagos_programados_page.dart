@@ -43,7 +43,7 @@ class PagosProgramadosPage extends ConsumerWidget {
       data: (value) => value == null
           ? const AppStatePanel(
               icon: Icons.link_off,
-              title: 'Pagos programados sin conectar',
+              title: 'Pagos programados no disponibles',
               message:
                   'La integración se realizará en B5; no se muestran fixtures en sesión real.')
           : _content(context, value.scheduled),
@@ -73,7 +73,7 @@ class PagosProgramadosPage extends ConsumerWidget {
           if (AppEnv.demoMode) ...[
             const AppNotice(
                 text:
-                    'Programar un pago representa un cobro esperado; no crea un pago real. Los cambios de esta maqueta solo viven en memoria.'),
+                    'Programar un pago representa un cobro esperado; no registra un pago recibido.'),
             const SizedBox(height: AppTheme.space4),
           ],
           if (rows.isEmpty)

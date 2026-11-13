@@ -41,7 +41,7 @@ class ReceptoresPage extends ConsumerWidget {
         if (state == null) {
           return const AppStatePanel(
             icon: Icons.link_off,
-            title: 'Receptores sin conectar',
+            title: 'Receptores no disponibles',
             message: 'Se conectará en la etapa de integración de comisiones.',
           );
         }
@@ -50,7 +50,7 @@ class ReceptoresPage extends ConsumerWidget {
           children: [
             AppPageHeader(
               title: 'Receptores de dispersión',
-              description: 'Catálogo. No se guardan cambios en el backend.',
+              description: 'Personas disponibles para recibir dispersiones.',
               actions: [
                 FilledButton.icon(
                   onPressed: () => _showCreate(context, ref, session.role),
@@ -110,7 +110,7 @@ class ReceptoresPage extends ConsumerWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Desactivar receptor'),
-        content: Text('¿Desactivar a ${receiver.name} en la maqueta?'),
+        content: Text('¿Desactivar a ${receiver.name}?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),

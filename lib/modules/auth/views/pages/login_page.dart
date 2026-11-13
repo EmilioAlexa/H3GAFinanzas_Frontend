@@ -120,7 +120,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 _buildIntro(compact),
-                                SizedBox(height: compact ? 34 : 48),
+                                SizedBox(height: compact ? 28 : 38),
                                 _buildForm(error, isLoading),
                               ],
                             ),
@@ -141,21 +141,21 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   Widget _buildIntro(bool compact) => Column(
         children: [
           SizedBox(
-            width: compact ? 180 : 200,
-            height: compact ? 180 : 200,
+            width: compact ? 140 : 160,
+            height: compact ? 140 : 160,
             child: Image.asset(
               'assets/images/h3ga_logo.png',
               fit: BoxFit.contain,
               semanticLabel: 'H3GA Seguros y Pensiones',
             ),
           ),
-          SizedBox(height: compact ? 24 : 28),
+          SizedBox(height: compact ? 18 : 22),
           Text(
             'Bienvenido de vuelta',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: AppTheme.white,
-              fontSize: compact ? 28 : 36,
+              fontSize: compact ? 22 : 26,
               fontWeight: FontWeight.w700,
               letterSpacing: compact ? -.56 : -.72,
               height: 1.15,
@@ -167,7 +167,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Color(0xFFA9C2C6),
-              fontSize: 15,
+              fontSize: 13,
               height: 1.4,
             ),
           ),
@@ -222,6 +222,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             child: TextButton(
               style: TextButton.styleFrom(
                 foregroundColor: AppTheme.secondary,
+                backgroundColor: Colors.transparent,
+                overlayColor: AppTheme.secondary,
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 minimumSize: const Size(48, 48),
                 textStyle: const TextStyle(fontSize: 15),

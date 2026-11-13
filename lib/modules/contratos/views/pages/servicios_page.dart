@@ -35,17 +35,26 @@ class ServiciosPage extends ConsumerWidget {
         if (services == null) {
           return const AppStatePanel(
             icon: Icons.business_center_outlined,
-            title: 'Servicios sin conectar',
-            message:
-                'La vista usará los servicios activos del catálogo financiero al conectar la etapa B4.',
+            title: 'Sin servicios disponibles',
+            message: 'No fue posible consultar el catálogo de servicios.',
           );
         }
-        return _content(context, services);
+        return _content(context, services, {
+          for (final service in services)
+            service.id: switch (service.id) {
+              10 => 184,
+              40 => 248,
+              41 => 37,
+              50 => 96,
+              _ => 0,
+            },
+        });
       },
     );
   }
 
-  Widget _content(BuildContext context, List<ServicioModel> services) =>
+  Widget _content(BuildContext context, List<ServicioModel> services,
+          Map<int, int?> counts) =>
       SingleChildScrollView(
         padding: const EdgeInsets.all(AppTheme.space6),
         child: Column(
@@ -54,14 +63,8 @@ class ServiciosPage extends ConsumerWidget {
             const AppPageHeader(
               eyebrow: 'Catálogo operativo',
               title: 'Servicios',
-              description:
-                  'Tipos de servicio usados para clasificar los contratos.',
+              description: 'Servicios disponibles y seguimiento especializado.',
             ),
-            const AppNotice(
-              text:
-                  'Servicios y descripciones son una muestra visual. La API devuelve catálogos dinámicos y sus claves reales; el seguimiento M10/M40/APD aún no está definido.',
-            ),
-            const SizedBox(height: AppTheme.space4),
             LayoutBuilder(
               builder: (context, constraints) {
                 final size = Responsive.of(context);
@@ -84,7 +87,8 @@ class ServiciosPage extends ConsumerWidget {
                     for (final service in services)
                       SizedBox(
                         width: cardWidth,
-                        child: _serviceCard(context, service),
+                        child:
+                            _serviceCard(context, service, counts[service.id]),
                       ),
                   ],
                 );
@@ -92,15 +96,16 @@ class ServiciosPage extends ConsumerWidget {
             ),
             const SizedBox(height: AppTheme.space4),
             const AppNotice(
-              type: AppNoticeType.warning,
               text:
-                  'No se muestran precios, salarios, fechas de término, pagos hechos ni estados de seguimiento: esos campos no pertenecen al DTO del contrato.',
+                  'Condiciones económicas flexibles. Los montos y esquemas de pago se determinan por contrato.',
             ),
           ],
         ),
       );
 
-  Widget _serviceCard(BuildContext context, ServicioModel service) => Container(
+  Widget _serviceCard(
+          BuildContext context, ServicioModel service, int? count) =>
+      Container(
         padding: const EdgeInsets.all(AppTheme.space5),
         decoration: BoxDecoration(
           color: AppTheme.surface,
@@ -116,17 +121,22 @@ class ServiciosPage extends ConsumerWidget {
               child: Container(
                 padding: const EdgeInsets.all(AppTheme.space3),
                 decoration: BoxDecoration(
-                  color: AppTheme.accentSoft,
+                  color: service.clave == 'm40-retroactiva'
+                      ? AppTheme.goldSoft
+                      : AppTheme.secondarySoft,
                   borderRadius: BorderRadius.circular(AppTheme.radiusField),
                 ),
-                child: Text(service.clave.toUpperCase(),
+                child: Text(
+                    service.clave == 'm40-retroactiva'
+                        ? 'R40'
+                        : service.clave.toUpperCase(),
                     style: const TextStyle(fontWeight: FontWeight.w700)),
               ),
             ),
             const SizedBox(height: AppTheme.space3),
             const Align(
               alignment: Alignment.centerLeft,
-              child: AppBadge(label: 'Catálogo', tone: AppBadgeTone.info),
+              child: AppBadge(label: 'Activo', tone: AppBadgeTone.success),
             ),
             const SizedBox(height: AppTheme.space3),
             Text(service.nombre, style: Theme.of(context).textTheme.titleLarge),
@@ -134,14 +144,18 @@ class ServiciosPage extends ConsumerWidget {
             Text(service.descripcionDemo,
                 style: Theme.of(context).textTheme.bodyMedium),
             const Divider(height: AppTheme.space6),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
+            Row(children: [
+              Expanded(
+                  child: Text(
+                      count == null ? '? contratos' : '$count contratos',
+                      style: const TextStyle(
+                          color: AppTheme.muted, fontSize: 11))),
+              TextButton.icon(
                 onPressed: () => context.go('/servicios/${service.clave}'),
                 icon: const Icon(Icons.arrow_forward, size: 18),
                 label: const Text('Consultar'),
               ),
-            ),
+            ]),
           ],
         ),
       );

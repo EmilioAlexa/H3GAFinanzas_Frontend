@@ -47,12 +47,14 @@ lib/
 
 ## Ejecutar en desarrollo
 
-Para maquetar sin API puedes activar el modo de demostración. Solo funciona en compilaciones debug y permite elegir un rol de prueba; las acciones de recuperación de contraseña son simuladas y no modifican cuentas:
+Para revisar el maquetado sin API activa el modo visual local. Solo funciona en debug. El rol no se elige desde la interfaz: se define con `DEMO_ROLE`.
 
 ```powershell
-flutter run -d chrome --dart-define=DEMO_MODE=true --dart-define-from-file=env/dev.json
-flutter run -d <id-del-emulador> --dart-define=DEMO_MODE=true --dart-define-from-file=env/dev.json
+flutter run -d chrome --dart-define=DEMO_MODE=true --dart-define=DEMO_ROLE=administrador_financiero --dart-define-from-file=env/dev.json
+flutter run -d <id-del-emulador> --dart-define=DEMO_MODE=true --dart-define=DEMO_ROLE=administrador --dart-define-from-file=env/dev.json
 ```
+
+Valores admitidos: `administrador`, `administrador_financiero` y `asesor`. El OTP local de recuperación para pruebas es `482916`; no se muestra en la interfaz ni modifica cuentas.
 
 Para probar el login real contra la API de desarrollo, ejecuta sin `DEMO_MODE`:
 

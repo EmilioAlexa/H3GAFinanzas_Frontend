@@ -44,7 +44,7 @@ void main() {
     expect(payload, isNot(contains('evidencias')));
   });
 
-  test('evidence validation allows PDF/JPEG up to 10 MB only', () {
+  test('evidence validation allows PDF/JPEG/PNG up to 10 MB only', () {
     SelectedFile file(String name, int size) => SelectedFile(
           name: name,
           bytes: Uint8List(size),
@@ -52,7 +52,7 @@ void main() {
 
     expect(validateEvidence(file('recibo.pdf', maxEvidenceBytes)), isNull);
     expect(validateEvidence(file('foto.jpeg', 12)), isNull);
-    expect(validateEvidence(file('foto.png', 12)), isNotNull);
+    expect(validateEvidence(file('foto.png', 12)), isNull);
     expect(
         validateEvidence(file('grande.jpg', maxEvidenceBytes + 1)), isNotNull);
   });

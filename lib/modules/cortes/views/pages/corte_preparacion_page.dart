@@ -43,8 +43,8 @@ class CortePreparacionPage extends ConsumerWidget {
             if (cuts == null) {
               return const AppStatePanel(
                 icon: Icons.link_off,
-                title: 'Preparación sin conectar',
-                message: 'La vista previa real se integra en B8.',
+                title: 'Preparación no disponible',
+                message: 'No fue posible cargar los movimientos del corte.',
               );
             }
             if (cut == null) {
@@ -87,11 +87,6 @@ class CortePreparacionPage extends ConsumerWidget {
             AppBadge(label: cut.status, tone: AppBadgeTone.warning),
           ],
         ),
-        const AppNotice(
-          text:
-              'Vista previa de ejemplo. La API calcula los pagos elegibles, exclusiones y comisiones en cada periodo; estos importes no vienen del backend.',
-        ),
-        const SizedBox(height: AppTheme.space4),
         _metrics(cut),
         const SizedBox(height: AppTheme.space4),
         LayoutBuilder(builder: (context, constraints) {
@@ -333,7 +328,7 @@ class CortePreparacionPage extends ConsumerWidget {
                             style: TextStyle(fontWeight: FontWeight.w700)),
                         SizedBox(height: AppTheme.space1),
                         Text(
-                            'Generar abrirá el corte en esta maqueta. No se registrará información real.'),
+                            'Revisa los movimientos incluidos y excluidos antes de confirmar.'),
                       ]),
                 ),
               ]),
@@ -347,7 +342,7 @@ class CortePreparacionPage extends ConsumerWidget {
                 action: 'generar',
                 title: 'Generar corte',
                 description:
-                    'El estado pasará a Abierto solo en esta maqueta; no se guardará en el backend.',
+                    'El corte quedará listo para continuar el proceso.',
                 successMessage: 'Corte abierto.',
               ),
               icon: const Icon(Icons.check),
@@ -361,8 +356,7 @@ class CortePreparacionPage extends ConsumerWidget {
                 cut,
                 action: 'cancelar',
                 title: 'Cancelar corte',
-                description:
-                    'El corte quedará cancelado. En el backend se liberarían las reservas del periodo.',
+                description: 'El corte quedará cancelado.',
                 successMessage: 'Corte cancelado.',
               ),
               icon: const Icon(Icons.close),

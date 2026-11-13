@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../app/config/env.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_badge.dart';
@@ -87,12 +86,6 @@ class ComisionDetallePage extends ConsumerWidget {
             ),
           ],
         ),
-        if (AppEnv.demoMode)
-          const AppNotice(
-            text:
-                'Detalle local. Los snapshots ya generados no cambian al editar la configuración del contrato.',
-          ),
-        const SizedBox(height: AppTheme.space4),
         _section(context, 'Estado', [
           AppBadge(
             label: isAdvisor ? _myStatus(payment) : status,
@@ -164,22 +157,15 @@ class ComisionDetallePage extends ConsumerWidget {
                 trailing: Text('${line.percentage}%'),
               ),
             const SizedBox(height: AppTheme.space2),
-            Wrap(
-                spacing: AppTheme.space2,
-                runSpacing: AppTheme.space2,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: () => context.go(
-                        '/comisiones/contratos/${payment.contractId}/configuracion'),
-                    icon: const Icon(Icons.tune),
-                    label: const Text('Configurar contrato'),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: () => context.go('/comisiones/receptores'),
-                    icon: const Icon(Icons.people_alt_outlined),
-                    label: const Text('Administrar receptores'),
-                  ),
-                ]),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: () => context.go(
+                    '/comisiones/contratos/${payment.contractId}/configuracion'),
+                icon: const Icon(Icons.tune),
+                label: const Text('Configurar contrato'),
+              ),
+            ),
             const Divider(height: AppTheme.space4),
             Text('Historial de configuración',
                 style: Theme.of(context).textTheme.titleSmall),

@@ -9,7 +9,6 @@ import '../../../../core/responsive/window_size_class.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_data_column.dart';
-import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_responsive_collection.dart';
 import '../../../../core/widgets/app_state_panel.dart';
@@ -58,9 +57,8 @@ class _CortesPageState extends ConsumerState<CortesPage> {
           data: (cuts) => cuts == null
               ? const AppStatePanel(
                   icon: Icons.link_off,
-                  title: 'Cortes sin conectar',
-                  message:
-                      'La respuesta de cortes se conectará en la etapa de integración B8.',
+                  title: 'Sin cortes disponibles',
+                  message: 'No fue posible consultar los cortes.',
                 )
               : _content(context, cuts, session.name),
         );
@@ -99,13 +97,6 @@ class _CortesPageState extends ConsumerState<CortesPage> {
       padding: const EdgeInsets.all(AppTheme.space6),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         _header(context, actor),
-        if (ref.read(cortesControllerProvider.notifier).demoMode) ...[
-          const AppNotice(
-            text:
-                'Cortes . Crear, generar, cerrar y cancelar solo cambia datos locales; no reserva pagos reales.',
-          ),
-          const SizedBox(height: AppTheme.space4),
-        ],
         _currentCutCard(current),
         const SizedBox(height: AppTheme.space4),
         Container(
@@ -120,6 +111,7 @@ class _CortesPageState extends ConsumerState<CortesPage> {
             Padding(
               padding: const EdgeInsets.all(AppTheme.space4),
               child: Wrap(
+                alignment: WrapAlignment.start,
                 spacing: AppTheme.space2,
                 runSpacing: AppTheme.space2,
                 children: [
@@ -288,7 +280,7 @@ class _CortesPageState extends ConsumerState<CortesPage> {
             CutPeriodFormatter.label(cut.periodStart, cut.periodEndExclusive),
             style: const TextStyle(
               color: AppTheme.white,
-              fontSize: 24,
+              fontSize: 20,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -313,7 +305,7 @@ class _CortesPageState extends ConsumerState<CortesPage> {
             MoneyFormatter.format(cut.totalAmount),
             style: const TextStyle(
               color: AppTheme.white,
-              fontSize: 32,
+              fontSize: 24,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -440,7 +432,7 @@ class _CortesPageState extends ConsumerState<CortesPage> {
       builder: (context) => AlertDialog(
         title: const Text('Preparar corte'),
         content: Text(
-          'Se creará un periodo viernes a jueves desde ${CutPeriodFormatter.short(start)}. En esta maqueta no se reservarán pagos reales.',
+          'Se creará un periodo viernes a jueves desde ${CutPeriodFormatter.short(start)}.',
         ),
         actions: [
           TextButton(

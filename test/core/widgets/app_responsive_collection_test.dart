@@ -36,24 +36,26 @@ void main() {
       (tester) async {
     await tester.pumpWidget(harness(390));
     expect(find.text('Tarjeta Cliente A'), findsOneWidget);
-    expect(find.text('Dato extendido'), findsNothing);
+    expect(find.text('DATO EXTENDIDO'), findsNothing);
 
     await tester.pumpWidget(harness(768));
-    expect(find.text('Nombre'), findsOneWidget);
-    expect(find.text('Dato extendido'), findsNothing);
-    expect(tester.getSize(find.byType(DataTable)).width,
-        greaterThanOrEqualTo(850));
+    expect(find.text('NOMBRE'), findsOneWidget);
+    expect(find.text('DATO EXTENDIDO'), findsNothing);
+    expect(
+      tester.getSize(find.byKey(const Key('app-responsive-table'))).width,
+      equals(768),
+    );
   });
 
   testWidgets('shows every column in expanded layouts', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(1400, 900);
     await tester.pumpWidget(harness(1280));
-    expect(find.text('Nombre'), findsOneWidget);
-    expect(find.text('Dato extendido'), findsOneWidget);
+    expect(find.text('NOMBRE'), findsOneWidget);
+    expect(find.text('DATO EXTENDIDO'), findsOneWidget);
     expect(
-      tester.getSize(find.byType(DataTable)).width,
-      greaterThanOrEqualTo(850),
+      tester.getSize(find.byKey(const Key('app-responsive-table'))).width,
+      equals(1280),
     );
     tester.view.resetPhysicalSize();
     tester.view.resetDevicePixelRatio();

@@ -232,7 +232,7 @@ class _PasswordRecoveryDialogState extends State<PasswordRecoveryDialog> {
         backgroundColor: Colors.transparent,
         insetPadding: EdgeInsets.all(compact ? 12 : 24),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 460),
+          constraints: const BoxConstraints(maxWidth: 556),
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: AppTheme.surface,
@@ -246,34 +246,45 @@ class _PasswordRecoveryDialogState extends State<PasswordRecoveryDialog> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      IconButton(
-                        tooltip: 'Cerrar',
-                        onPressed:
-                            _loading ? null : () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close),
-                      ),
-                    ],
-                  ),
-                  Text(
-                    _title,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: AppTheme.ink,
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
+                  if (_step != RecoveryStep.success) ...[
+                    Row(children: [
+                      for (var index = 0; index < 3; index++)
+                        Expanded(
+                            child: Padding(
+                                padding: const EdgeInsets.only(right: 6),
+                                child: Container(
+                                  height: 4,
+                                  color: index <= _stepIndex
+                                      ? AppTheme.secondaryDark
+                                      : AppTheme.line,
+                                ))),
+                    ]),
+                    const SizedBox(height: 20),
+                  ],
+                  Align(
+                      alignment: _step == RecoveryStep.success
+                          ? Alignment.center
+                          : Alignment.centerLeft,
+                      child: CircleAvatar(
+                        backgroundColor: AppTheme.secondarySoft,
+                        foregroundColor: AppTheme.secondaryDark,
+                        child: Icon(switch (_step) {
+                          RecoveryStep.email => Icons.people_outline,
+                          RecoveryStep.code => Icons.credit_card_outlined,
+                          RecoveryStep.password => Icons.settings_outlined,
+                          RecoveryStep.success => Icons.check_circle_outline,
+                        }),
+                      )),
                   const SizedBox(height: 16),
-                  LinearProgressIndicator(
-                    value: (_stepIndex + 1) / RecoveryStep.values.length,
-                    minHeight: 3,
-                    borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-                    backgroundColor: AppTheme.line,
-                    color: AppTheme.secondaryDark,
-                  ),
-                  const SizedBox(height: 20),
+                  Text(_title,
+                      textAlign: _step == RecoveryStep.success
+                          ? TextAlign.center
+                          : TextAlign.start,
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleLarge
+                          ?.copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 16),
                   _buildStepBody(context),
                   if (_requestError != null) ...[
                     const SizedBox(height: 14),
@@ -306,7 +317,7 @@ class _PasswordRecoveryDialogState extends State<PasswordRecoveryDialog> {
           const Text(
             'Ingresa el correo electrónico asociado a tu cuenta y te enviaremos '
             'un código para confirmar tu identidad.',
-            textAlign: TextAlign.center,
+            textAlign: TextAlign.start,
           ),
           const SizedBox(height: 18),
           AppTextField(
@@ -349,7 +360,7 @@ class _PasswordRecoveryDialogState extends State<PasswordRecoveryDialog> {
               ),
             ],
           ),
-          textAlign: TextAlign.center,
+          textAlign: TextAlign.start,
         ),
         const SizedBox(height: 20),
         Text(
@@ -426,7 +437,7 @@ class _PasswordRecoveryDialogState extends State<PasswordRecoveryDialog> {
       children: [
         const Text(
           'Crea una nueva contraseña para proteger tu cuenta.',
-          textAlign: TextAlign.center,
+          textAlign: TextAlign.start,
         ),
         const SizedBox(height: 18),
         PasswordInput(
@@ -549,10 +560,11 @@ class _PasswordRecoveryDialogState extends State<PasswordRecoveryDialog> {
       );
     }
     return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        Expanded(child: cancel),
+        SizedBox(width: 150, child: cancel),
         const SizedBox(width: 10),
-        Expanded(child: submit),
+        SizedBox(width: 230, child: submit),
       ],
     );
   }

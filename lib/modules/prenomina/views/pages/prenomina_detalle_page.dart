@@ -7,7 +7,6 @@ import '../../../../app/theme/app_theme.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_metric_card.dart';
-import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_state_panel.dart';
 import '../../controllers/prenomina_controller.dart';
@@ -32,8 +31,8 @@ class PrenominaDetallePage extends ConsumerWidget {
         if (items == null) {
           return const AppStatePanel(
             icon: Icons.link_off_outlined,
-            title: 'Detalle sin conectar',
-            message: 'GET /finanzas/prenominas/{id} se integrará en B9.',
+            title: 'Detalle no disponible',
+            message: 'No fue posible consultar el detalle de prenómina.',
           );
         }
         final matches = items.where((item) => item.id == recipientId);
@@ -74,12 +73,6 @@ class PrenominaDetallePage extends ConsumerWidget {
           title: 'Prenómina · ${model.recipient}',
           description: model.position,
         ),
-        const AppNotice(
-          type: AppNoticeType.warning,
-          text:
-              'Detalle ilustrativo. Los movimientos y estados se reemplazarán por la respuesta del backend al integrar B9.',
-        ),
-        const SizedBox(height: AppTheme.space4),
         LayoutBuilder(builder: (context, constraints) {
           final compact = constraints.maxWidth < 600;
           final cards = [

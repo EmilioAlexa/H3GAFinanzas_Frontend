@@ -8,4 +8,12 @@ abstract final class AppEnv {
   );
 
   static const demoMode = kDebugMode && _demoModeRequested;
+
+  /// Perfil con el que inicia el recorrido visual local.
+  ///
+  /// Ejemplos: administrador, administrador_financiero, asesor.
+  static const demoRole = String.fromEnvironment(
+    'DEMO_ROLE',
+    defaultValue: 'administrador',
+  );
 }

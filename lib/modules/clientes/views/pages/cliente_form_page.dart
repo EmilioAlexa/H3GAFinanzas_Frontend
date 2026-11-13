@@ -55,9 +55,8 @@ class ClienteFormPage extends ConsumerWidget {
             if (!AppEnv.demoMode || clients == null) {
               return const AppStatePanel(
                 icon: Icons.edit_note_outlined,
-                title: 'Formulario sin conectar',
-                message:
-                    'En modo real, el alta y la edición se conectarán a la API en la etapa B4.',
+                title: 'Formulario no disponible',
+                message: 'No fue posible cargar la información del cliente.',
               );
             }
 

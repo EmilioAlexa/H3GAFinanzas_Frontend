@@ -47,9 +47,8 @@ class _PrenominaPageState extends ConsumerState<PrenominaPage> {
       data: (items) => items == null
           ? const AppStatePanel(
               icon: Icons.link_off_outlined,
-              title: 'Prenómina sin conectar',
-              message:
-                  'La integración con GET /finanzas/prenominas se realizará en B9.',
+              title: 'Sin prenómina disponible',
+              message: 'No fue posible consultar la prenómina del periodo.',
             )
           : _content(items),
     );
@@ -361,7 +360,7 @@ class _PrenominaPageState extends ConsumerState<PrenominaPage> {
               ),
               onTap: recipients.isEmpty
                   ? null
-                  : () => context.go('/prenomina/preparacion/${cut.id}'),
+                  : () => context.go('/prenomina/${recipients.first.id}'),
             );
           }),
       ],

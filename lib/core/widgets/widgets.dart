@@ -9,4 +9,5 @@ export 'app_notice.dart';
 export 'app_page_header.dart';
 export 'app_responsive_collection.dart';
 export 'app_state_panel.dart';
+export 'app_tab_strip.dart';
 export 'app_text_field.dart';

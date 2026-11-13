@@ -6,10 +6,12 @@ class AppDataColumn<T> {
     required this.value,
     this.showOnMedium = true,
     this.numeric = false,
+    this.flex = 1,
   });
 
   final String label;
   final Widget Function(T row) value;
   final bool showOnMedium;
   final bool numeric;
+  final int flex;
 }

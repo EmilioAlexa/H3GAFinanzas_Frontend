@@ -6,8 +6,15 @@ import '../models/user_role_model.dart';
 import '../repositories/auth_repository.dart';
 
 final demoRoleProvider = StateProvider<UserRole>(
-  (ref) => UserRole.administrador,
+  (ref) => _roleFromEnvironment(AppEnv.demoRole),
 );
+
+UserRole _roleFromEnvironment(String value) =>
+    switch (value.trim().toLowerCase().replaceAll(' ', '_')) {
+      'asesor' => UserRole.asesor,
+      'administrador_financiero' => UserRole.administradorFinanciero,
+      _ => UserRole.administrador,
+    };
 
 final authRepositoryProvider = Provider<AuthRepository>(
   (ref) => AuthRepository(
@@ -89,10 +96,17 @@ class AuthController extends StateNotifier<AsyncValue<AuthSessionModel?>> {
     );
   }
 
-  AuthSessionModel _demoSession() => AuthSessionModel(
-        id: 'demo-${demoRole.name}',
-        name: 'Joyce Mabel',
-        email: 'demo@h3ga.local',
-        role: demoRole,
-      );
+  AuthSessionModel _demoSession() {
+    final name = switch (demoRole) {
+      UserRole.administrador => 'Lic. Anita',
+      UserRole.administradorFinanciero => 'Joyce Mabel',
+      UserRole.asesor => 'Daniela Cruz',
+    };
+    return AuthSessionModel(
+      id: 'local-${demoRole.name}',
+      name: name,
+      email: 'usuario@h3ga.mx',
+      role: demoRole,
+    );
+  }
 }

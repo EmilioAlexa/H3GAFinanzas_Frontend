@@ -55,8 +55,8 @@ class _ComisionConfiguracionPageState
     if (!AppEnv.demoMode) {
       return const AppStatePanel(
         icon: Icons.link_off,
-        title: 'Configuración sin conectar',
-        message: 'La configuración real se habilitará en B7.',
+        title: 'Configuración no disponible',
+        message: 'No fue posible cargar las comisiones del contrato.',
       );
     }
     final asyncState = ref.watch(comisionesControllerProvider(session.role));
@@ -135,7 +135,7 @@ class _ComisionConfiguracionPageState
         ),
         const AppNotice(
           text:
-              'Empresa se calcula como remanente y no se captura. Los receptores se seleccionan del catálogo; sus IDs deben reemplazarse por los del backend.',
+              'Empresa se calcula como remanente y no se captura. Selecciona un receptor para cada destino.',
         ),
         const SizedBox(height: AppTheme.space4),
         _section(context, 'Distribución del pago de referencia', [

@@ -2,12 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../app/config/env.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/responsive/window_size_class.dart';
 import '../../../../core/widgets/app_badge.dart';
-import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_state_panel.dart';
 import '../../../auth/auth.dart';
 import '../../controllers/clientes_controller.dart';
@@ -54,8 +52,8 @@ class ClienteDetallePage extends ConsumerWidget {
                 if (clients == null) {
                   return const AppStatePanel(
                     icon: Icons.people_outline,
-                    title: 'Detalle sin conectar',
-                    message: 'La API de Clientes todavía no está conectada.',
+                    title: 'Sin información disponible',
+                    message: 'No fue posible consultar el detalle del cliente.',
                   );
                 }
                 final matches = clients.where((item) => item.id == clienteId);
@@ -66,19 +64,15 @@ class ClienteDetallePage extends ConsumerWidget {
                     message: '',
                   );
                 }
-                return _page(context, matches.first, session.role);
+                return _page(context, matches.first);
               },
             );
       },
     );
   }
 
-  Widget _page(BuildContext context, ClienteModel client, UserRole role) {
+  Widget _page(BuildContext context, ClienteModel client) {
     final metadata = client.demoMetadata;
-    final canEdit = AppEnv.demoMode &&
-        (role == UserRole.administrador ||
-            (role == UserRole.asesor &&
-                (metadata?.assignedToCurrentAdvisor ?? false)));
     final initials = _initials(client.nombreCompleto);
 
     return DefaultTabController(
@@ -163,25 +157,8 @@ class ClienteDetallePage extends ConsumerWidget {
                         ],
                       ),
                     ),
-                    if (canEdit)
-                      FilledButton.icon(
-                        onPressed: () => context.go(
-                          '/clientes/${client.id}/editar',
-                        ),
-                        icon: const Icon(Icons.edit_outlined),
-                        label: const Text('Editar'),
-                      ),
                   ],
                 ),
-                if (AppEnv.demoMode) ...[
-                  const SizedBox(height: AppTheme.space3),
-                  const AppNotice(
-                    type: AppNoticeType.info,
-                    text:
-                        'Los campos marcados “demo” son referencias de Figma; '
-                        'la API de Clientes no proporciona esos metadatos.',
-                  ),
-                ],
               ],
             ),
           ),
@@ -204,24 +181,20 @@ class ClienteDetallePage extends ConsumerWidget {
                 _relatedModule(
                   context,
                   title: 'Servicios y contratos',
-                  message:
-                      'Esta etapa muestra el directorio. Los contratos relacionados se conectarán en A5.',
+                  message: 'Modalidad 40 · Contrato M40202500001 · Activo',
                   route: '/contratos',
-                  actionLabel: 'Ir a contratos',
+                  actionLabel: 'Ver contrato',
                 ),
                 _relatedModule(
                   context,
                   title: 'Pagos del cliente',
-                  message:
-                      'El historial de pagos se conectará al implementar A6.',
+                  message: r'Mensualidad 7 de 12 · $10,000 · Validado',
                   route: '/pagos',
-                  actionLabel: 'Ir a pagos',
+                  actionLabel: 'Ver pagos',
                 ),
-                const AppStatePanel(
-                  icon: Icons.history,
-                  title: 'Historial no disponible',
-                  message:
-                      'OpenAPI no define una ruta de actividad o historial para Clientes.',
+                SingleChildScrollView(
+                  padding: const EdgeInsets.all(AppTheme.space6),
+                  child: _trajectoryCard(context),
                 ),
               ],
             ),
@@ -243,8 +216,11 @@ class ClienteDetallePage extends ConsumerWidget {
           final references = _referencesCard(context, metadata);
           return SingleChildScrollView(
             padding: const EdgeInsets.all(AppTheme.space6),
-            child: size == WindowSizeClass.expandido
-                ? Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (size == WindowSizeClass.expandido)
+                  Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(flex: 3, child: info),
@@ -252,14 +228,15 @@ class ClienteDetallePage extends ConsumerWidget {
                       Expanded(child: references),
                     ],
                   )
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      info,
-                      const SizedBox(height: AppTheme.space4),
-                      references,
-                    ],
-                  ),
+                else ...[
+                  info,
+                  const SizedBox(height: AppTheme.space4),
+                  references,
+                ],
+                const SizedBox(height: AppTheme.space4),
+                _trajectoryCard(context),
+              ],
+            ),
           );
         },
       );
@@ -271,7 +248,7 @@ class ClienteDetallePage extends ConsumerWidget {
   ) =>
       _panel(
         context,
-        title: 'Información personal',
+        title: 'Información general',
         child: Wrap(
           spacing: AppTheme.space6,
           runSpacing: AppTheme.space5,
@@ -297,21 +274,40 @@ class ClienteDetallePage extends ConsumerWidget {
         children: [
           _panel(
             context,
-            title: 'Accesos rápidos',
+            title: 'Resumen financiero',
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _quickLink(
-                  context,
-                  icon: Icons.description_outlined,
-                  label: 'Contratos',
-                  route: '/contratos',
+                const Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Total contratado'),
+                    Text(
+                      r'$180,000',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ],
                 ),
-                const Divider(),
-                _quickLink(
-                  context,
-                  icon: Icons.credit_card_outlined,
-                  label: 'Pagos',
-                  route: '/pagos',
+                const SizedBox(height: AppTheme.space3),
+                const Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Total pagado'),
+                    Text(
+                      r'$60,000',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppTheme.space3),
+                const LinearProgressIndicator(value: .33),
+                const SizedBox(height: AppTheme.space2),
+                Text(
+                  r'33% cubierto · $120,000 pendiente',
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: AppTheme.muted),
                 ),
               ],
             ),
@@ -319,21 +315,106 @@ class ClienteDetallePage extends ConsumerWidget {
           const SizedBox(height: AppTheme.space4),
           _panel(
             context,
-            title: 'Resumen financiero',
-            child: const Text(
-              'El API de Clientes no devuelve contratos, pagos ni saldos. '
-              'Consulta esos módulos para ver la información cuando estén conectados.',
+            title: 'Accesos rápidos',
+            child: Column(
+              children: [
+                _quickLink(
+                  context,
+                  icon: Icons.description_outlined,
+                  label: 'Contrato activo',
+                  route: '/contratos',
+                ),
+                const Divider(),
+                _quickLink(
+                  context,
+                  icon: Icons.calendar_month_outlined,
+                  label: 'Seguimiento ${metadata?.service ?? ''}',
+                  route: '/servicios',
+                ),
+                const Divider(),
+                _quickLink(
+                  context,
+                  icon: Icons.credit_card_outlined,
+                  label: 'Historial de pagos',
+                  route: '/pagos',
+                ),
+              ],
             ),
           ),
-          if (metadata?.advisorName != null) ...[
-            const SizedBox(height: AppTheme.space4),
-            _panel(
+        ],
+      );
+
+  Widget _trajectoryCard(BuildContext context) => _panel(
+        context,
+        title: 'Trayectoria del cliente',
+        child: Column(
+          children: [
+            _timelineItem(
               context,
-              title: 'Asignación de',
-              child: Text('Asesor de referencia: ${metadata!.advisorName}'),
+              '24 may. 2025',
+              'Pago validado',
+              r'$10,000 · PG-2025-0428',
+            ),
+            _timelineItem(
+              context,
+              '14 nov. 2024',
+              'Contrato M40 activado',
+              'Folio M40202500001',
+            ),
+            _timelineItem(
+              context,
+              '08 nov. 2024',
+              'Servicio finalizado',
+              'Modalidad 10',
+              last: true,
             ),
           ],
-        ],
+        ),
+      );
+
+  Widget _timelineItem(
+    BuildContext context,
+    String date,
+    String title,
+    String detail, {
+    bool last = false,
+  }) =>
+      Padding(
+        padding: EdgeInsets.only(bottom: last ? 0 : AppTheme.space3),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 104,
+              child: Text(
+                date,
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: AppTheme.muted),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.only(top: 5),
+              child: Icon(
+                Icons.circle,
+                size: 9,
+                color: AppTheme.secondaryDark,
+              ),
+            ),
+            const SizedBox(width: AppTheme.space3),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                  Text(detail, style: const TextStyle(color: AppTheme.muted)),
+                ],
+              ),
+            ),
+          ],
+        ),
       );
 
   Widget _relatedModule(

@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../app/config/env.dart';
 import '../../app/theme/app_theme.dart';
 import '../../modules/auth/auth.dart';
 import '../responsive/responsive.dart';
 import '../responsive/window_size_class.dart';
+import '../widgets/app_badge.dart';
 import 'shell_item.dart';
 import 'shell_navigation.dart';
 
@@ -23,9 +23,7 @@ class AppShell extends ConsumerWidget {
           final items = visibleShellItems(session.role);
           final currentPath = GoRouterState.of(context).uri.path;
           final selectedIndex = items.indexWhere(
-            (item) =>
-                item.path == currentPath ||
-                currentPath.startsWith('${item.path}/'),
+            (item) => _isSelected(item.path, currentPath),
           );
           final safeSelectedIndex = selectedIndex < 0 ? 0 : selectedIndex;
 
@@ -45,28 +43,7 @@ class AppShell extends ConsumerWidget {
                       ),
                     ]),
                     actions: [
-                      const Padding(
-                        padding:
-                            EdgeInsets.symmetric(horizontal: AppTheme.space2),
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Icon(Icons.notifications_none_outlined,
-                                color: AppTheme.muted),
-                            Positioned(
-                              right: -1,
-                              top: -1,
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  color: AppTheme.dangerBase,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: SizedBox(width: 7, height: 7),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      _notificationButton(),
                       Padding(
                         padding: const EdgeInsets.only(right: AppTheme.space3),
                         child: CircleAvatar(
@@ -95,11 +72,14 @@ class AppShell extends ConsumerWidget {
                   )
                 : null,
             bottomNavigationBar: size == WindowSizeClass.compacto
-                ? _mobileNavigation(context, items, currentPath)
+                ? Builder(
+                    builder: (scaffoldContext) =>
+                        _mobileNavigation(scaffoldContext, items, currentPath))
                 : null,
             body: Row(children: [
               if (size == WindowSizeClass.expandido)
                 SizedBox(
+                  key: const Key('expanded-sidebar'),
                   width: 252,
                   child: _fullNavigation(
                     context,
@@ -115,7 +95,7 @@ class AppShell extends ConsumerWidget {
               Expanded(
                 child: Column(children: [
                   if (size != WindowSizeClass.compacto)
-                    _desktopTopBar(context, ref, session),
+                    _desktopTopBar(context, session),
                   Expanded(child: child),
                 ]),
               ),
@@ -204,41 +184,10 @@ class AppShell extends ConsumerWidget {
           context.go(primaryPaths[index]);
           return;
         }
-        _showMoreNavigation(context, items);
+        Scaffold.of(context).openDrawer();
       },
     );
   }
-
-  Future<void> _showMoreNavigation(
-    BuildContext context,
-    List<ShellItem> items,
-  ) =>
-      showModalBottomSheet<void>(
-        context: context,
-        backgroundColor: AppTheme.surface,
-        showDragHandle: true,
-        builder: (context) => SafeArea(
-          child: ListView(
-            shrinkWrap: true,
-            padding: const EdgeInsets.only(bottom: AppTheme.space4),
-            children: [
-              for (final section in ShellSection.values)
-                for (final item in items.where((item) =>
-                    item.section == section &&
-                    !const ['/dashboard', '/clientes', '/servicios', '/pagos']
-                        .contains(item.path)))
-                  ListTile(
-                    leading: Icon(item.icon),
-                    title: Text(item.label),
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.go(item.path);
-                    },
-                  ),
-            ],
-          ),
-        ),
-      );
 
   Widget _fullNavigation(
     BuildContext context,
@@ -283,8 +232,7 @@ class AppShell extends ConsumerWidget {
                     _navigationItem(
                       context,
                       item,
-                      selected: item.path == currentPath ||
-                          currentPath.startsWith('${item.path}/'),
+                      selected: _isSelected(item.path, currentPath),
                       compact: compact,
                     ),
                 ],
@@ -468,7 +416,9 @@ class AppShell extends ConsumerWidget {
           style: TextButton.styleFrom(
             foregroundColor: AppTheme.white.withValues(alpha: .78),
             alignment: Alignment.centerLeft,
-            minimumSize: const Size(48, 44),
+            minimumSize: const Size(48, 48),
+            backgroundColor: Colors.transparent,
+            overlayColor: AppTheme.secondary,
           ),
           icon: const Icon(Icons.logout, size: 19),
           label: const Text('Cerrar sesión'),
@@ -511,28 +461,6 @@ class AppShell extends ConsumerWidget {
                 ],
               ),
             ),
-            if (AppEnv.demoMode)
-              PopupMenuButton<UserRole>(
-                tooltip: 'Cambiar perfil',
-                icon: Icon(
-                  Icons.expand_more,
-                  color: AppTheme.white.withValues(alpha: .68),
-                ),
-                onSelected: (role) => ref
-                    .read(authControllerProvider.notifier)
-                    .changeDemoRole(role),
-                itemBuilder: (context) => const [
-                  PopupMenuItem(
-                    value: UserRole.administrador,
-                    child: Text('Administrador'),
-                  ),
-                  PopupMenuItem(
-                    value: UserRole.administradorFinanciero,
-                    child: Text('Admin. financiero'),
-                  ),
-                  PopupMenuItem(value: UserRole.asesor, child: Text('Asesor')),
-                ],
-              ),
           ]),
         ),
       ]),
@@ -541,7 +469,6 @@ class AppShell extends ConsumerWidget {
 
   Widget _desktopTopBar(
     BuildContext context,
-    WidgetRef ref,
     AuthSessionModel user,
   ) {
     final roleText = switch (user.role) {
@@ -550,6 +477,7 @@ class AppShell extends ConsumerWidget {
       UserRole.asesor => 'Asesor',
     };
     return Container(
+      key: const Key('desktop-shell-header'),
       height: 65,
       padding: const EdgeInsets.symmetric(horizontal: AppTheme.space6),
       decoration: BoxDecoration(
@@ -566,11 +494,7 @@ class AppShell extends ConsumerWidget {
             style: TextStyle(color: AppTheme.faint, fontSize: 15),
           ),
         ),
-        const IconButton(
-          tooltip: 'Notificaciones',
-          onPressed: null,
-          icon: Icon(Icons.notifications_none_outlined),
-        ),
+        _notificationButton(),
         const SizedBox(width: AppTheme.space3),
         const VerticalDivider(indent: 14, endIndent: 14),
         const SizedBox(width: AppTheme.space3),
@@ -591,23 +515,6 @@ class AppShell extends ConsumerWidget {
                 style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
           ],
         ),
-        if (AppEnv.demoMode)
-          PopupMenuButton<UserRole>(
-            tooltip: 'Cambiar perfil',
-            onSelected: (role) =>
-                ref.read(authControllerProvider.notifier).changeDemoRole(role),
-            itemBuilder: (context) => const [
-              PopupMenuItem(
-                value: UserRole.administrador,
-                child: Text('Administrador'),
-              ),
-              PopupMenuItem(
-                value: UserRole.administradorFinanciero,
-                child: Text('Admin. financiero'),
-              ),
-              PopupMenuItem(value: UserRole.asesor, child: Text('Asesor')),
-            ],
-          ),
       ]),
     );
   }
@@ -620,12 +527,114 @@ class AppShell extends ConsumerWidget {
         .toUpperCase();
   }
 
+  Widget _notificationButton() => PopupMenuButton<void>(
+        tooltip: 'Notificaciones',
+        offset: const Offset(0, 46),
+        icon: const Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Icon(Icons.notifications_none_outlined, color: AppTheme.muted),
+            Positioned(
+              right: -1,
+              top: -1,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: AppTheme.dangerBase,
+                  shape: BoxShape.circle,
+                ),
+                child: SizedBox(width: 7, height: 7),
+              ),
+            ),
+          ],
+        ),
+        itemBuilder: (context) => [
+          PopupMenuItem<void>(
+            enabled: false,
+            padding: EdgeInsets.zero,
+            child: SizedBox(
+              width: 360,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(AppTheme.space4),
+                    child: Row(
+                      children: [
+                        Text(
+                          'Notificaciones',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        const Spacer(),
+                        const AppBadge(
+                          label: '3 nuevas',
+                          tone: AppBadgeTone.warning,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  _notificationLine(
+                      '8 pagos requieren revisión', 'Hace 12 min'),
+                  _notificationLine(
+                    '4 cobros se encuentran vencidos',
+                    'Hace 1 h',
+                  ),
+                  _notificationLine(
+                    '17 contratos finalizan este mes',
+                    'Hoy',
+                    last: true,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+
+  Widget _notificationLine(String title, String time, {bool last = false}) =>
+      Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppTheme.space4,
+          vertical: AppTheme.space3,
+        ),
+        decoration: BoxDecoration(
+          border: last
+              ? null
+              : const Border(bottom: BorderSide(color: AppTheme.line)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.circle, size: 9, color: AppTheme.secondaryDark),
+            const SizedBox(width: AppTheme.space3),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: AppTheme.space1),
+                  Text(time, style: const TextStyle(color: AppTheme.muted)),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right),
+          ],
+        ),
+      );
+
   String _sectionLabel(ShellSection section) => switch (section) {
         ShellSection.general => 'General',
         ShellSection.seguimiento => 'Seguimiento',
         ShellSection.finanzas => 'Finanzas',
         ShellSection.administracion => 'Administración',
       };
+
+  bool _isSelected(String path, String currentPath) => path == '/servicios'
+      ? currentPath == path
+      : currentPath == path || currentPath.startsWith('$path/');
 
   void _logout(WidgetRef ref) =>
       ref.read(authControllerProvider.notifier).logout();

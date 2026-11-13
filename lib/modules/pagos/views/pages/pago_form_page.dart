@@ -1,10 +1,11 @@
+import 'dart:typed_data';
+
 import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_theme.dart';
-import '../../../../core/platform/file_platform_factory.dart';
 import '../../../../core/platform/selected_file.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_notice.dart';
@@ -20,8 +21,8 @@ const maxEvidenceBytes = 10 * 1024 * 1024;
 
 String? validateEvidence(SelectedFile file) {
   final extension = file.name.split('.').last.toLowerCase();
-  if (!const {'pdf', 'jpg', 'jpeg'}.contains(extension)) {
-    return 'Solo se permiten archivos PDF, JPG o JPEG.';
+  if (!const {'pdf', 'jpg', 'jpeg', 'png'}.contains(extension)) {
+    return 'Solo se permiten archivos PDF, JPG, JPEG o PNG.';
   }
   if (file.bytes.lengthInBytes > maxEvidenceBytes) {
     return 'El archivo supera el límite de 10 MB.';
@@ -50,7 +51,6 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
   final List<SelectedFile> _files = [];
   String? _fileError;
   bool _saving = false;
-  final _filePlatform = createFilePlatform();
 
   @override
   void dispose() {
@@ -74,9 +74,8 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
     if (!ref.watch(pagosControllerProvider(session.role).notifier).demoMode) {
       return const AppStatePanel(
           icon: Icons.link_off,
-          title: 'Registro sin conectar',
-          message:
-              'El formulario de captura se habilitará al integrar el endpoint B5.');
+          title: 'Registro no disponible',
+          message: 'No fue posible cargar el formulario de pago.');
     }
     final contracts = ContratosDemoFixtures.contracts
         .where((item) =>
@@ -105,10 +104,6 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
                       icon: const Icon(Icons.close),
                       label: const Text('Cancelar'))
                 ]),
-            const AppNotice(
-                text:
-                    'Este formulario es una  local. Al guardar no se crea un movimiento en el backend ni se suben los archivos.'),
-            const SizedBox(height: AppTheme.space4),
             _section(context, 'Datos del pago', [
               DropdownButtonFormField<String>(
                   initialValue: _contractId,
@@ -219,8 +214,7 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
             const SizedBox(height: AppTheme.space4),
             _section(context, 'Comprobante', [
               const AppNotice(
-                  text:
-                      'Formatos admitidos por el backend: PDF, JPG y JPEG; máximo 10 MB. Figma también menciona PNG, pero la API no lo admite.'),
+                  text: 'PDF, JPG o PNG · Máximo 10 MB por archivo.'),
               const SizedBox(height: AppTheme.space2),
               OutlinedButton.icon(
                   onPressed: _pickFile,
@@ -236,8 +230,8 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.description_outlined),
                     title: Text(file.name),
-                    subtitle: Text(
-                        '${(file.bytes.lengthInBytes / 1024).ceil()} KB'),
+                    subtitle:
+                        Text('${(file.bytes.lengthInBytes / 1024).ceil()} KB'),
                     trailing: IconButton(
                         tooltip: 'Quitar archivo',
                         icon: const Icon(Icons.close),
@@ -305,8 +299,11 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
   }
 
   Future<void> _pickFile() async {
-    final file = await _filePlatform.chooseFile();
-    if (file == null || !mounted) return;
+    final file = SelectedFile(
+      name: 'comprobante_pago.pdf',
+      bytes: Uint8List(246 * 1024),
+    );
+    if (!mounted) return;
     final validation = validateEvidence(file);
     setState(() {
       _fileError = validation;

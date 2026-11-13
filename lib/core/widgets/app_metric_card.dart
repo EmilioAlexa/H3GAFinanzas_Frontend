@@ -26,6 +26,8 @@ class AppMetricCard extends StatelessWidget {
       AppMetricTone.accent => AppTheme.primary,
     };
     return Container(
+      foregroundDecoration: BoxDecoration(
+          border: Border(top: BorderSide(color: color, width: 2))),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppTheme.surface,

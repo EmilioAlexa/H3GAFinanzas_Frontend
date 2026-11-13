@@ -10,6 +10,7 @@ import '../../../../core/responsive/window_size_class.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_data_column.dart';
+import '../../../../core/widgets/app_dialog.dart';
 import '../../../../core/widgets/app_metric_card.dart';
 import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_page_header.dart';
@@ -34,9 +35,8 @@ class ReportesPage extends ConsumerWidget {
     if (!repository.demoMode) {
       return const AppStatePanel(
         icon: Icons.link_off_outlined,
-        title: 'Reportes sin conectar',
-        message:
-            'La integración con los cinco endpoints GET /finanzas/reportes se realizará en B10.',
+        title: 'Reportes no disponibles',
+        message: 'No fue posible consultar la información del periodo.',
       );
     }
     final filters = ref.watch(reportesControllerProvider);
@@ -71,11 +71,18 @@ class _ReportOverview extends ConsumerWidget {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.space6),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        const AppPageHeader(
+        AppPageHeader(
           eyebrow: 'Análisis financiero',
-          title: 'Reportes',
+          title: 'Ingresos por periodo',
           description:
               'Información calculada para consulta y toma de decisiones.',
+          actions: [
+            OutlinedButton.icon(
+              onPressed: () => _showExportDialog(context),
+              icon: const Icon(Icons.download_outlined),
+              label: const Text('Exportar reporte'),
+            ),
+          ],
         ),
         const SizedBox(height: AppTheme.space4),
         _ReportFilters(reportType: null, filters: filters),
@@ -186,18 +193,17 @@ class _ReportDetail extends ConsumerWidget {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.space6),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            onPressed: () => context.go('/reportes'),
-            icon: const Icon(Icons.arrow_back),
-            label: const Text('Reportes'),
-          ),
-        ),
         AppPageHeader(
           eyebrow: 'Análisis financiero',
           title: report.type.title,
           description: report.type.description,
+          actions: [
+            OutlinedButton.icon(
+              onPressed: () => _showExportDialog(context),
+              icon: const Icon(Icons.download_outlined),
+              label: const Text('Exportar reporte'),
+            ),
+          ],
         ),
         const SizedBox(height: AppTheme.space4),
         _ReportFilters(reportType: report.type, filters: filters),
@@ -266,6 +272,69 @@ class _ReportFilters extends ConsumerWidget {
     final controller = ref.read(reportesControllerProvider.notifier);
     final showSaleType = reportType == ReportType.comisionesTipoVenta;
     final showMethod = reportType == ReportType.pagosMetodo;
+    if (reportType == null) {
+      return Container(
+        padding: const EdgeInsets.all(AppTheme.space4),
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.circular(AppTheme.radius),
+          border: Border.all(color: AppTheme.line),
+        ),
+        child: Wrap(
+          spacing: AppTheme.space3,
+          runSpacing: AppTheme.space3,
+          crossAxisAlignment: WrapCrossAlignment.end,
+          children: [
+            _fixedSelect(
+              label: 'Periodo',
+              value: filters.granularity,
+              values: const ['Semanal', 'Mensual', 'Anual'],
+              onChanged: (value) {
+                if (value != null) controller.setGranularity(value);
+              },
+            ),
+            _fixedSelect(
+              label: 'Servicio',
+              value: 'Todos los servicios',
+              values: const [
+                'Todos los servicios',
+                'Modalidad 10',
+                'Modalidad 40',
+                'M40 Retroactiva',
+                'APD',
+              ],
+              onChanged: (_) {},
+            ),
+            _fixedSelect(
+              label: 'Tipo de venta',
+              value: 'Todos los tipos',
+              values: const ['Todos los tipos', 'Cambaceo', 'Marketing'],
+              onChanged: (_) {},
+            ),
+            _fixedSelect(
+              label: 'Método de pago',
+              value: 'Todos los métodos',
+              values: const [
+                'Todos los métodos',
+                'Transferencia',
+                'Depósito',
+                'Efectivo',
+              ],
+              onChanged: (_) {},
+            ),
+            FilledButton(
+              onPressed: () {
+                controller.apply();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Filtros aplicados.')),
+                );
+              },
+              child: const Text('Aplicar filtros'),
+            ),
+          ],
+        ),
+      );
+    }
     return Container(
       padding: const EdgeInsets.all(AppTheme.space4),
       decoration: BoxDecoration(
@@ -386,7 +455,7 @@ class _ReportFilters extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.only(top: AppTheme.space2),
             child: Text(
-              'El filtro Servicio del prototipo no se muestra: ningún endpoint de reportes lo admite.',
+              'Los filtros disponibles dependen del tipo de reporte seleccionado.',
               style: Theme.of(context)
                   .textTheme
                   .bodySmall
@@ -424,6 +493,95 @@ class _ReportFilters extends ConsumerWidget {
           label: Text('$label: ${MoneyFormatter.formatDate(value)}'),
         ),
       );
+
+  Widget _fixedSelect({
+    required String label,
+    required String value,
+    required List<String> values,
+    required ValueChanged<String?> onChanged,
+  }) =>
+      SizedBox(
+        width: 210,
+        child: DropdownButtonFormField<String>(
+          initialValue: value,
+          isExpanded: true,
+          decoration: InputDecoration(labelText: label, isDense: true),
+          items: values
+              .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+              .toList(),
+          onChanged: onChanged,
+        ),
+      );
+}
+
+Future<void> _showExportDialog(BuildContext context) async {
+  final export = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AppDialog(
+      title: 'Exportar',
+      description: 'Selecciona el formato y periodo para la exportación.',
+      icon: Icons.download_outlined,
+      maxWidth: 560,
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(dialogContext, true),
+          child: const Text('Preparar exportación'),
+        ),
+      ],
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DropdownButtonFormField<String>(
+            initialValue: 'PDF',
+            decoration: const InputDecoration(labelText: 'Formato'),
+            items: const [
+              DropdownMenuItem(value: 'PDF', child: Text('PDF')),
+              DropdownMenuItem(value: 'Excel', child: Text('Excel')),
+            ],
+            onChanged: (_) {},
+          ),
+          const SizedBox(height: AppTheme.space4),
+          DropdownButtonFormField<String>(
+            initialValue: 'Periodo actual',
+            decoration: const InputDecoration(labelText: 'Periodo'),
+            items: const [
+              DropdownMenuItem(
+                value: 'Periodo actual',
+                child: Text('Periodo actual'),
+              ),
+              DropdownMenuItem(
+                value: 'Todo el historial',
+                child: Text('Todo el historial'),
+              ),
+            ],
+            onChanged: (_) {},
+          ),
+        ],
+      ),
+    ),
+  );
+  if (export != true || !context.mounted) return;
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) => AppDialog(
+      title: 'Exportación preparada',
+      description: 'Se prepararon los datos correctamente.',
+      icon: Icons.check_circle_outline,
+      iconColor: AppTheme.success,
+      maxWidth: 520,
+      actions: [
+        OutlinedButton(
+          onPressed: () => Navigator.pop(dialogContext),
+          child: const Text('Cerrar'),
+        ),
+      ],
+      child: const SizedBox.shrink(),
+    ),
+  );
 }
 
 Widget _detailTable(

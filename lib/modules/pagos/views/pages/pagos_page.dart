@@ -9,10 +9,10 @@ import '../../../../core/responsive/window_size_class.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_data_column.dart';
-import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_responsive_collection.dart';
 import '../../../../core/widgets/app_state_panel.dart';
+import '../../../../core/widgets/app_tab_strip.dart';
 import '../../../auth/auth.dart';
 import '../../controllers/pagos_controller.dart';
 import '../../models/pago_model.dart';
@@ -63,9 +63,8 @@ class _PagosPageState extends ConsumerState<PagosPage> {
       data: (state) => state == null
           ? const AppStatePanel(
               icon: Icons.link_off,
-              title: 'Pagos sin conectar',
-              message:
-                  'La integración con la API se realizará en B5. No se muestran registros  en sesión real.')
+              title: 'Sin pagos disponibles',
+              message: 'No fue posible consultar los pagos.')
           : _content(context, state.payments),
     );
   }
@@ -97,22 +96,12 @@ class _PagosPageState extends ConsumerState<PagosPage> {
             title: 'Pagos',
             description: 'Consulta y registra pagos de contratos.',
             actions: [
-              OutlinedButton.icon(
-                  onPressed: () => context.go('/pagos-programados'),
-                  icon: const Icon(Icons.event_note_outlined),
-                  label: const Text('Programados')),
               if (AppEnv.demoMode)
                 FilledButton.icon(
                     onPressed: () => context.go('/pagos/nuevo'),
                     icon: const Icon(Icons.add),
                     label: const Text('Registrar pago')),
             ]),
-        if (AppEnv.demoMode) ...[
-          const AppNotice(
-              text:
-                  'Datos. El registro y los archivos seleccionados se mantienen solo en memoria; no se envían al backend.'),
-          const SizedBox(height: AppTheme.space4),
-        ],
         _statusFilters(payments),
         const SizedBox(height: AppTheme.space3),
         _panel(context, filtered),
@@ -137,19 +126,11 @@ class _PagosPageState extends ConsumerState<PagosPage> {
               _ => true,
             })
         .length;
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(children: [
-        for (final group in groups)
-          Padding(
-            padding: const EdgeInsets.only(right: AppTheme.space2),
-            child: ChoiceChip(
-              label: Text('$group  ${count(group)}'),
-              selected: _statusGroup == group,
-              onSelected: (_) => setState(() => _statusGroup = group),
-            ),
-          ),
-      ]),
+    return AppTabStrip(
+      labels: groups,
+      counts: [for (final group in groups) count(group)],
+      selectedIndex: groups.indexOf(_statusGroup),
+      onSelected: (index) => setState(() => _statusGroup = groups[index]),
     );
   }
 

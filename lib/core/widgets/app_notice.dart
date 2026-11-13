@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../app/theme/app_theme.dart';
 
 enum AppNoticeType { info, success, warning, error }
@@ -15,33 +16,26 @@ class AppNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final normalizedText = text.toLowerCase();
-    if (RegExp(
-      r'demo|demostraci[oó]n|fictici|muestra|local|prototipo|fixtures|en la etapa|en b[0-9]|no se env[ií]an|no se guarda|datos \.|son ;',
-    ).hasMatch(normalizedText)) {
-      return const SizedBox.shrink();
-    }
-
     final (foreground, background, icon) = switch (type) {
       AppNoticeType.info => (
           AppTheme.secondaryDark,
           AppTheme.secondarySoft,
-          Icons.info_outline
+          Icons.info_outline,
         ),
       AppNoticeType.success => (
           AppTheme.success,
           AppTheme.successBackground,
-          Icons.check_circle_outline
+          Icons.check_circle_outline,
         ),
       AppNoticeType.warning => (
           AppTheme.warning,
           AppTheme.warningBackground,
-          Icons.warning_amber_outlined
+          Icons.warning_amber_outlined,
         ),
       AppNoticeType.error => (
           AppTheme.danger,
           AppTheme.dangerBackground,
-          Icons.error_outline
+          Icons.error_outline,
         ),
     };
 

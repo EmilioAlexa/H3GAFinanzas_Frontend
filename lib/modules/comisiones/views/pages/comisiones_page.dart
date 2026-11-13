@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../app/config/env.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/responsive/window_size_class.dart';
@@ -11,7 +10,6 @@ import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_data_column.dart';
 import '../../../../core/widgets/app_metric_card.dart';
-import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_responsive_collection.dart';
 import '../../../../core/widgets/app_state_panel.dart';
@@ -67,9 +65,8 @@ class _ComisionesPageState extends ConsumerState<ComisionesPage> {
       data: (state) => state == null
           ? const AppStatePanel(
               icon: Icons.link_off,
-              title: 'Comisiones sin conectar',
-              message:
-                  'Los datos reales se conectarán a los endpoints de comisiones en B7.',
+              title: 'Sin comisiones disponibles',
+              message: 'No fue posible consultar las comisiones.',
             )
           : _content(context, state.payments, session.role),
     );
@@ -127,21 +124,8 @@ class _ComisionesPageState extends ConsumerState<ComisionesPage> {
           description: isAdvisor
               ? 'Consulta tu comisión y los movimientos asociados a tus contratos.'
               : 'Consulta la distribución de cada pago y administra la dispersión.',
-          actions: [
-            if (!isAdvisor)
-              OutlinedButton.icon(
-                onPressed: () => context.go('/comisiones/receptores'),
-                icon: const Icon(Icons.people_alt_outlined),
-                label: const Text('Receptores'),
-              ),
-          ],
+          actions: const [],
         ),
-        if (AppEnv.demoMode) ...[
-          const AppNotice(
-            text: '',
-          ),
-          const SizedBox(height: AppTheme.space4),
-        ],
         LayoutBuilder(builder: (context, constraints) {
           final compact = Responsive.of(context) == WindowSizeClass.compacto;
           final cards = isAdvisor

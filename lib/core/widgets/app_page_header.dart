@@ -31,6 +31,7 @@ class AppPageHeader extends StatelessWidget {
                     eyebrow!.toUpperCase(),
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
                           color: AppTheme.secondaryDark,
+                          fontSize: 10.5,
                           letterSpacing: 1.2,
                           fontWeight: FontWeight.w700,
                         ),
@@ -50,6 +51,7 @@ class AppPageHeader extends StatelessWidget {
                     description!,
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                           color: AppTheme.muted,
+                          fontSize: 13,
                         ),
                   ),
                 ],

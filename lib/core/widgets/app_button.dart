@@ -84,7 +84,7 @@ class AppButton extends StatelessWidget {
                   ? AppTheme.black
                   : AppTheme.white,
             ),
-            minimumSize: const WidgetStatePropertyAll(Size(48, 54)),
+            minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
             shape: WidgetStatePropertyAll(
               RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(

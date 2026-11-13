@@ -66,17 +66,17 @@ const shellItems = <ShellItem>[
     roles: {UserRole.administrador, UserRole.administradorFinanciero},
   ),
   ShellItem(
-    label: 'Comisiones',
-    path: '/comisiones',
-    icon: Icons.bar_chart_outlined,
-    section: ShellSection.finanzas,
-  ),
-  ShellItem(
     label: 'Cortes',
     path: '/cortes',
     icon: Icons.calendar_month_outlined,
     section: ShellSection.finanzas,
     roles: {UserRole.administrador, UserRole.administradorFinanciero},
+  ),
+  ShellItem(
+    label: 'Comisiones',
+    path: '/comisiones',
+    icon: Icons.bar_chart_outlined,
+    section: ShellSection.finanzas,
   ),
   ShellItem(
     label: 'Prenómina',

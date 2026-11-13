@@ -38,7 +38,10 @@ void main() {
 
       expect(find.text('Clientes'), findsOneWidget);
       expect(find.text('Elena Robles Vargas'), findsWidgets);
-      expect(find.text('ROVE680214MDFBLN08'), findsNothing);
+      expect(
+        find.text('ROVE680214MDFBLN08'),
+        size.width < 1024 ? findsNothing : findsOneWidget,
+      );
       expect(tester.takeException(), isNull, reason: 'viewport $size');
     }
     tester.view.resetPhysicalSize();

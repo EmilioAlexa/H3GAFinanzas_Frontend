@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/config/env.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/widgets/app_badge.dart';
-import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_state_panel.dart';
 import '../../../auth/auth.dart';
@@ -54,9 +53,8 @@ class ContratoDetallePage extends ConsumerWidget {
             if (contracts == null) {
               return const AppStatePanel(
                 icon: Icons.description_outlined,
-                title: 'Detalle sin conectar',
-                message:
-                    'El detalle se conectará con GET /finanzas/contratos/{id} en la etapa B4.',
+                title: 'Detalle no disponible',
+                message: 'No fue posible consultar el contrato.',
               );
             }
             final contract =
@@ -113,12 +111,6 @@ class ContratoDetallePage extends ConsumerWidget {
               ),
             ],
           ),
-          const AppNotice(
-            type: AppNoticeType.warning,
-            text:
-                'El contrato no contiene importes, mensualidades realizadas, documentos ni historial. El seguimiento específico M10/M40/APD no está definido en la API.',
-          ),
-          const SizedBox(height: AppTheme.space4),
           Wrap(
             spacing: AppTheme.space4,
             runSpacing: AppTheme.space4,

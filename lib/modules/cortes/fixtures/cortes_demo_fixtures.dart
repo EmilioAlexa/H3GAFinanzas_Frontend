@@ -180,7 +180,7 @@ abstract final class CortesDemoFixtures {
           status: 'Cancelado',
           actor: 'Lucía Méndez',
           at: DateTime(2025, 5, 9, 11),
-          comment: 'Cancelación de demostración.',
+          comment: 'Cancelación administrativa.',
         ),
       ],
     ),

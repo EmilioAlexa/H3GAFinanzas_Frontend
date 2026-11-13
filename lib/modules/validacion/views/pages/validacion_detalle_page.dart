@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../app/config/env.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_badge.dart';
@@ -73,12 +72,6 @@ class ValidacionDetallePage extends ConsumerWidget {
             ),
           ],
         ),
-        if (AppEnv.demoMode)
-          const AppNotice(
-            text:
-                'Las decisiones se aplican solo a los datos en memoria; no se modifica el backend.',
-          ),
-        const SizedBox(height: AppTheme.space4),
         _section(context, 'Estado actual', [
           AppBadge(
               label: payment.estado,
@@ -129,8 +122,7 @@ class ValidacionDetallePage extends ConsumerWidget {
                         subtitle:
                             Text('${file.mimeType} · ${_size(file.sizeBytes)}'),
                         trailing: const Tooltip(
-                          message:
-                              'La vista/descarga se conecta al endpoint de evidencias en B5.',
+                          message: 'Selecciona la evidencia para consultarla.',
                           child: Icon(Icons.visibility_outlined),
                         ),
                       ))
@@ -175,7 +167,7 @@ class ValidacionDetallePage extends ConsumerWidget {
               const AppNotice(
                 type: AppNoticeType.warning,
                 text:
-                    'La API exige evidencia tipificada según el método para validar este pago.',
+                    'Se requiere una evidencia compatible con el método de pago.',
               ),
             ],
             const SizedBox(height: AppTheme.space2),

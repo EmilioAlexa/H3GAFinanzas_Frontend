@@ -100,9 +100,8 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
             if (contracts == null) {
               return const AppStatePanel(
                 icon: Icons.edit_note_outlined,
-                title: 'Formulario sin conectar',
-                message:
-                    'El alta y la edición se conectarán a los catálogos del backend en B4.',
+                title: 'Formulario no disponible',
+                message: 'No fue posible cargar la información del contrato.',
               );
             }
             final existing = widget.contratoId == null

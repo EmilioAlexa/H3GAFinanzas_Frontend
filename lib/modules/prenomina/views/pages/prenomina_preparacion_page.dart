@@ -7,7 +7,6 @@ import '../../../../app/theme/app_theme.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_metric_card.dart';
-import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_state_panel.dart';
 import '../../controllers/prenomina_controller.dart';
@@ -59,9 +58,8 @@ class _PrenominaPreparacionPageState
         if (allItems == null) {
           return const AppStatePanel(
             icon: Icons.link_off_outlined,
-            title: 'Preparación sin conectar',
-            message:
-                'La vista previa GET /cortes/{corteId}/prenomina/preparacion se integrará en B9.',
+            title: 'Preparación no disponible',
+            message: 'No fue posible cargar la preparación de prenómina.',
           );
         }
         final items =
@@ -86,12 +84,6 @@ class _PrenominaPreparacionPageState
               title: 'Preparación de prenómina',
               description: cut.period,
             ),
-            const AppNotice(
-              type: AppNoticeType.warning,
-              text:
-                  'Vista previa ilustrativa. Solo se incluyen comisiones personales elegibles; IMSS, remanente de Empresa y comisiones ya ligadas se excluyen.',
-            ),
-            const SizedBox(height: AppTheme.space4),
             LayoutBuilder(builder: (context, constraints) {
               final cards = [
                 AppMetricCard(
@@ -198,11 +190,6 @@ class _PrenominaPreparacionPageState
           Text('Generar prenómina',
               style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: AppTheme.space2),
-          const AppNotice(
-            text:
-                'Los estados y el resultado de este formulario son. En backend debe elegirse un estado real de estados_prenomina.',
-          ),
-          const SizedBox(height: AppTheme.space3),
           DropdownButtonFormField<String>(
             initialValue: _selectedState,
             decoration: const InputDecoration(labelText: 'Estado de ejemplo'),
@@ -244,8 +231,8 @@ class _PrenominaPreparacionPageState
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Generar prenómina'),
-        content: Text(
-            '¿Confirmas generar la prenómina con estado $_selectedState?'),
+        content:
+            Text('¿Confirmas generar la prenómina con estado $_selectedState?'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -260,7 +247,7 @@ class _PrenominaPreparacionPageState
     try {
       ref.read(prenominaControllerProvider.notifier).generateDemo(widget.cutId);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Prenómina generada en memoria.')),
+        const SnackBar(content: Text('Prenómina generada.')),
       );
     } on StateError catch (error) {
       ScaffoldMessenger.of(context)

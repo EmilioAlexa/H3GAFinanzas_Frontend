@@ -1,6 +1,3 @@
-import 'dart:convert';
-import 'dart:typed_data';
-
 import 'package:decimal/decimal.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
@@ -9,12 +6,12 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../app/theme/app_theme.dart';
-import '../../../../core/platform/file_platform_factory.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/responsive/window_size_class.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/app_dialog.dart';
 import '../../../../core/widgets/app_metric_card.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_state_panel.dart';
@@ -63,11 +60,8 @@ class DashboardPage extends ConsumerWidget {
           data: (model) => model == null
               ? const AppStatePanel(
                   icon: Icons.dashboard_customize_outlined,
-                  title: 'Dashboard sin conectar',
-                  message:
-                      'La API no tiene un endpoint agregado para esta vista. '
-                      'Las métricas reales se integrarán al conectar reportes, '
-                      'pagos programados y contratos.',
+                  title: 'Sin información disponible',
+                  message: 'No fue posible cargar los indicadores del periodo.',
                 )
               : _dashboardContent(context, session, model),
         );
@@ -82,12 +76,6 @@ class DashboardPage extends ConsumerWidget {
   ) {
     final date = DateFormat('EEEE, d MMMM', 'es_MX').format(DateTime.now());
     final firstName = session.name.trim().split(RegExp(r'\s+')).first;
-    final roleName = switch (session.role) {
-      UserRole.administrador => 'Administrador',
-      UserRole.administradorFinanciero => 'Administrador financiero',
-      UserRole.asesor => 'Asesor',
-    };
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = Responsive.of(context);
@@ -110,13 +98,44 @@ class DashboardPage extends ConsumerWidget {
                       label: const Text('Exportar'),
                     ),
                   ElevatedButton.icon(
-                      onPressed: () => context.go('/pagos'),
+                      onPressed: () => context.go('/pagos/nuevo'),
                       icon: const Icon(Icons.add),
                       label: const Text('Registrar pago')),
                 ],
               ),
-              _roleNotice(roleName),
-              const SizedBox(height: AppTheme.space4),
+              Container(
+                constraints: const BoxConstraints(minHeight: 48),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppTheme.space4,
+                  vertical: AppTheme.space3,
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.accentSoft,
+                  border: Border.all(color: AppTheme.lineStrong),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusField),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.people_outline, color: AppTheme.primary),
+                    const SizedBox(width: AppTheme.space3),
+                    Expanded(
+                      child: Text.rich(
+                        TextSpan(
+                          text: 'Navegando como ',
+                          children: [
+                            TextSpan(
+                              text: _roleLabel(session.role),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppTheme.space5),
               _metrics(
                 context,
                 constraints.maxWidth - AppTheme.space6 * 2,
@@ -134,43 +153,37 @@ class DashboardPage extends ConsumerWidget {
     );
   }
 
-  Widget _roleNotice(String role) => Container(
-        constraints: const BoxConstraints(minHeight: 52),
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppTheme.space4,
-          vertical: AppTheme.space3,
-        ),
-        decoration: BoxDecoration(
-          color: AppTheme.accentSoft,
-          border: Border.all(color: AppTheme.line),
-          borderRadius: BorderRadius.circular(AppTheme.radius),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.people_outline, color: AppTheme.primary),
-            const SizedBox(width: AppTheme.space2),
-            Expanded(
-              child: Text.rich(
-                TextSpan(
-                  text: 'Navegando como ',
-                  children: [
-                    TextSpan(
-                      text: role,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
+  String _roleLabel(UserRole role) => switch (role) {
+        UserRole.administrador => 'Administrador',
+        UserRole.administradorFinanciero => 'Admin. financiero',
+        UserRole.asesor => 'Asesor',
+      };
 
   Widget _metrics(
     BuildContext context,
     double width,
     List<DashboardMetric> metrics,
   ) {
+    if (Responsive.of(context) == WindowSizeClass.compacto) {
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          for (final metric in metrics)
+            Padding(
+              padding: const EdgeInsets.only(right: AppTheme.space3),
+              child: SizedBox(
+                  width: 180,
+                  child: AppMetricCard(
+                    label: metric.label,
+                    value: metric.value,
+                    detail: metric.detail,
+                    icon: _metricIcon(metric.icon),
+                    tone: _metricTone(metric.tone),
+                  )),
+            ),
+        ]),
+      );
+    }
     final columns =
         Responsive.dashboardMetricColumns(MediaQuery.sizeOf(context).width);
     final gap = AppTheme.space3;
@@ -200,17 +213,30 @@ class DashboardPage extends ConsumerWidget {
   ) async {
     final shouldExport = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Exportar'),
-        content: Column(
+      builder: (dialogContext) => AppDialog(
+        title: 'Exportar',
+        description: 'Selecciona el formato y periodo para la exportación.',
+        icon: Icons.download_outlined,
+        maxWidth: 560,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Preparar exportación'),
+          ),
+        ],
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             DropdownButtonFormField<String>(
-              initialValue: 'CSV',
+              initialValue: 'PDF',
               decoration: const InputDecoration(labelText: 'Formato'),
               items: const [
-                DropdownMenuItem(value: 'CSV', child: Text('CSV')),
+                DropdownMenuItem(value: 'PDF', child: Text('PDF')),
               ],
               onChanged: (_) {},
             ),
@@ -222,50 +248,13 @@ class DashboardPage extends ConsumerWidget {
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Preparar exportación'),
-          ),
-        ],
       ),
     );
     if (shouldExport != true || !context.mounted) return;
 
-    final csv = _dashboardCsv(model);
-    await createFilePlatform().downloadFile(
-      'resumen-financiero.csv',
-      Uint8List.fromList(utf8.encode('\uFEFF$csv')),
-    );
-    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Resumen descargado')),
+      const SnackBar(content: Text('Exportación preparada')),
     );
-  }
-
-  String _dashboardCsv(DashboardModel model) {
-    String quote(String value) => '"${value.replaceAll('"', '""')}"';
-    final rows = <List<String>>[
-      ['Resumen financiero', model.periodLabel],
-      ['Indicador', 'Valor', 'Detalle'],
-      for (final metric in model.metrics)
-        [metric.label, metric.value, metric.detail],
-      if (model.totalValidated != null) ...[
-        ['Ingresos validados', MoneyFormatter.format(model.totalValidated!)],
-        ['Servicio', 'Importe', 'Porcentaje'],
-        for (final service in model.serviceBreakdown)
-          [
-            service.label,
-            MoneyFormatter.format(service.amount),
-            '${service.percentage.toString()}%',
-          ],
-      ],
-    ];
-    return rows.map((row) => row.map(quote).join(',')).join('\r\n');
   }
 
   IconData _metricIcon(DashboardMetricIcon icon) => switch (icon) {

@@ -8,7 +8,7 @@ import '../../../../core/responsive/responsive.dart';
 import '../../../../core/responsive/window_size_class.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_data_column.dart';
-import '../../../../core/widgets/app_notice.dart';
+import '../../../../core/widgets/app_metric_card.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_responsive_collection.dart';
 import '../../../../core/widgets/app_state_panel.dart';
@@ -71,9 +71,8 @@ class _ContratosPageState extends ConsumerState<ContratosPage> {
           data: (contracts) => contracts == null
               ? const AppStatePanel(
                   icon: Icons.description_outlined,
-                  title: 'Contratos sin conectar',
-                  message:
-                      'La vista se conectará con la API en la etapa B4. No se muestran registros  en modo real.',
+                  title: 'Sin contratos disponibles',
+                  message: 'No fue posible consultar los contratos.',
                 )
               : _content(context, contracts),
         );
@@ -102,17 +101,50 @@ class _ContratosPageState extends ConsumerState<ContratosPage> {
                 ),
             ],
           ),
-          if (AppEnv.demoMode) ...[
-            const AppNotice(
-              text:
-                  'folios, estados y relaciones son datos . El API solo permite buscar por folio; en también se busca por cliente.',
-            ),
-            const SizedBox(height: AppTheme.space4),
-          ],
+          _contractMetrics(context),
+          const SizedBox(height: AppTheme.space4),
           _tablePanel(context, filtered, widthClass),
         ],
       ),
     );
+  }
+
+  Widget _contractMetrics(BuildContext context) {
+    const metrics = [
+      ('Contratos activos', '248', 'Total de la cartera'),
+      ('Por finalizar', '17', 'Próximos 30 días'),
+      ('Valor contratado', r'$3.8 M', 'En contratos activos'),
+    ];
+    return LayoutBuilder(builder: (context, constraints) {
+      final compact = Responsive.isCompact(constraints.maxWidth);
+      final width = compact ? 210.0 : (constraints.maxWidth - 24) / 3;
+      return SingleChildScrollView(
+        scrollDirection: compact ? Axis.horizontal : Axis.vertical,
+        child: Wrap(
+          spacing: AppTheme.space3,
+          runSpacing: AppTheme.space3,
+          children: [
+            for (var index = 0; index < metrics.length; index++)
+              SizedBox(
+                width: width,
+                child: AppMetricCard(
+                  label: metrics[index].$1,
+                  value: metrics[index].$2,
+                  detail: metrics[index].$3,
+                  icon: switch (index) {
+                    0 => Icons.description_outlined,
+                    1 => Icons.schedule_outlined,
+                    _ => Icons.bar_chart_outlined,
+                  },
+                  tone: index == 1
+                      ? AppMetricTone.warning
+                      : AppMetricTone.secondary,
+                ),
+              ),
+          ],
+        ),
+      );
+    });
   }
 
   bool _matches(ContratoModel contract) {

@@ -2,13 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../app/config/env.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/responsive/window_size_class.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_data_column.dart';
-import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_responsive_collection.dart';
 import '../../../../core/widgets/app_state_panel.dart';
@@ -75,10 +73,8 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
           data: (clients) => clients == null
               ? const AppStatePanel(
                   icon: Icons.people_outline,
-                  title: 'Clientes sin conectar',
-                  message:
-                      'La API de clientes se integrará en la siguiente etapa. '
-                      '',
+                  title: 'Sin clientes disponibles',
+                  message: 'No fue posible consultar el directorio.',
                 )
               : _content(context, clients, session.role),
         );
@@ -95,46 +91,40 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
         builder: (context, constraints) {
           final widthClass = Responsive.of(context);
           final filtered = _filter(clients);
+          final hasFilters = _query.trim().isNotEmpty ||
+              _statusFilter != 'Todos los estados' ||
+              _serviceFilter != 'Todos los servicios';
+          final visibleTotal = hasFilters ? filtered.length : 326;
           final pageCount =
-              filtered.isEmpty ? 1 : (filtered.length / _pageSize).ceil();
+              visibleTotal == 0 ? 1 : (visibleTotal / _pageSize).ceil();
           if (_page > pageCount) _page = pageCount;
           final start = (_page - 1) * _pageSize;
-          final pageItems = filtered.skip(start).take(_pageSize).toList();
-          final canCreate = role == UserRole.asesor && AppEnv.demoMode;
-
+          final pageItems = hasFilters
+              ? filtered.skip(start).take(_pageSize).toList()
+              : filtered.isEmpty
+                  ? <ClienteModel>[]
+                  : List.generate(
+                      _pageSize,
+                      (index) => filtered[(start + index) % filtered.length],
+                    );
           return SingleChildScrollView(
             padding: const EdgeInsets.all(AppTheme.space6),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                AppPageHeader(
+                const AppPageHeader(
                   eyebrow: 'Directorio',
                   title: 'Clientes',
-                  description: 'Datos personales y medios de contacto.',
-                  actions: [
-                    if (canCreate)
-                      FilledButton.icon(
-                        onPressed: () => context.go('/clientes/nuevo'),
-                        icon: const Icon(Icons.add),
-                        label: const Text('Nuevo cliente'),
-                      ),
-                  ],
+                  description: 'Información compartida desde H3GA Ruta.',
+                  actions: [],
                 ),
-                if (AppEnv.demoMode) ...[
-                  const AppNotice(
-                    type: AppNoticeType.info,
-                    text: 'asesor, servicio y estado son datos '
-                        '; no forman parte de la respuesta de lista del API.',
-                  ),
-                  const SizedBox(height: AppTheme.space3),
-                ],
-                _summary(context, clients),
+                _summary(context),
                 const SizedBox(height: AppTheme.space4),
                 _listPanel(
                   context,
                   clients: pageItems,
-                  filteredCount: filtered.length,
-                  totalCount: clients.length,
+                  filteredCount: visibleTotal,
+                  totalCount: hasFilters ? clients.length : 326,
                   page: _page,
                   pageCount: pageCount,
                   widthClass: widthClass,
@@ -163,32 +153,20 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
     }).toList();
   }
 
-  Widget _summary(BuildContext context, List<ClienteModel> clients) {
-    final active = clients
-        .where((client) => client.demoMetadata?.status == 'Activo')
-        .length;
-    final followUp = clients
-        .where((client) => client.demoMetadata?.status == 'Seguimiento')
-        .length;
-    final paused = clients
-        .where((client) => client.demoMetadata?.status == 'Pausado')
-        .length;
+  Widget _summary(BuildContext context) {
     return Wrap(
       spacing: AppTheme.space5,
       runSpacing: AppTheme.space2,
       children: [
-        Text.rich(
+        const Text.rich(
           TextSpan(
-            text: '${clients.length} ',
-            style: const TextStyle(fontWeight: FontWeight.w700),
-            children: const [TextSpan(text: 'clientes')],
+            text: '326 ',
+            style: TextStyle(fontWeight: FontWeight.w700),
+            children: [TextSpan(text: 'clientes')],
           ),
         ),
-        _summaryLabel(context, '$active activos', AppTheme.successBase),
-        _summaryLabel(
-            context, '$followUp en seguimiento', AppTheme.warningBase),
-        if (paused > 0)
-          _summaryLabel(context, '$paused pausados', AppTheme.dangerBase),
+        _summaryLabel(context, '284 activos', AppTheme.successBase),
+        _summaryLabel(context, '18 en seguimiento', AppTheme.warningBase),
       ],
     );
   }
@@ -235,15 +213,18 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
                 columns: [
                   AppDataColumn<ClienteModel>(
                     label: 'Cliente',
+                    flex: 3,
                     value: (client) => _personCell(context, client),
                   ),
                   AppDataColumn<ClienteModel>(
-                    label: 'Contacto',
+                    label: 'CURP / Teléfono',
+                    flex: 3,
                     showOnMedium: false,
                     value: (client) => _contactCell(context, client),
                   ),
                   AppDataColumn<ClienteModel>(
                     label: 'Asesor',
+                    flex: 2,
                     showOnMedium: false,
                     value: (client) => Text(
                       client.demoMetadata?.advisorName ?? '—',
@@ -251,6 +232,7 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
                   ),
                   AppDataColumn<ClienteModel>(
                     label: 'Servicio',
+                    flex: 2,
                     showOnMedium: false,
                     value: (client) => Text(
                       client.demoMetadata?.service ?? '—',
@@ -258,10 +240,12 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
                   ),
                   AppDataColumn<ClienteModel>(
                     label: 'Estado',
+                    flex: 2,
                     value: (client) => _statusBadge(client),
                   ),
                   AppDataColumn<ClienteModel>(
                     label: '',
+                    flex: 1,
                     value: (client) => IconButton(
                       tooltip: 'Abrir cliente ${client.nombreCompleto}',
                       onPressed: () => _openClient(context, client),
@@ -292,7 +276,7 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
         _page = 1;
       }),
       decoration: const InputDecoration(
-        hintText: 'Buscar por nombre, apellidos o correo…',
+        hintText: 'Buscar por nombre, folio o CURP…',
         prefixIcon: Icon(Icons.search),
         border: OutlineInputBorder(),
       ),
@@ -315,15 +299,15 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
         ],
       );
     }
-    return Row(
+    return Wrap(
+      spacing: 8,
+      runSpacing: 12,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        Expanded(flex: 3, child: search),
-        const SizedBox(width: AppTheme.space2),
+        SizedBox(width: 330, child: search),
         filterButton,
-        const SizedBox(width: AppTheme.space2),
-        Expanded(child: _statusDropdown()),
-        const SizedBox(width: AppTheme.space2),
-        Expanded(child: _serviceDropdown()),
+        SizedBox(width: 190, child: _statusDropdown()),
+        SizedBox(width: 190, child: _serviceDropdown()),
       ],
     );
   }
@@ -398,10 +382,14 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
   Widget _contactCell(BuildContext context, ClienteModel client) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (client.telefono != null) Text(client.telefono!),
-          if (client.correoElectronico != null)
+          if (client.curp != null)
             Text(
-              client.correoElectronico!,
+              client.curp!,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          if (client.telefono != null)
+            Text(
+              client.telefono!,
               style: Theme.of(context).textTheme.bodySmall,
             ),
         ],

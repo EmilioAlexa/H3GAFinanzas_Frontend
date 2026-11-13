@@ -6,11 +6,12 @@ import '../../../../app/theme/app_theme.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_data_column.dart';
+import '../../../../core/widgets/app_dialog.dart';
 import '../../../../core/widgets/app_metric_card.dart';
-import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_responsive_collection.dart';
 import '../../../../core/widgets/app_state_panel.dart';
+import '../../../../core/widgets/app_tab_strip.dart';
 import '../../controllers/usuarios_controller.dart';
 import '../../models/usuario_model.dart';
 import '../../repositories/usuarios_repository.dart';
@@ -40,9 +41,8 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
     if (!ref.watch(usuariosDemoModeProvider)) {
       return const AppStatePanel(
         icon: Icons.link_off_outlined,
-        title: 'Usuarios sin conectar',
-        message:
-            'El listado y las acciones están maquetados en modo . La conexión a /api/usuarios se realizará en B2.',
+        title: 'Usuarios no disponibles',
+        message: 'No fue posible consultar los usuarios y accesos.',
       );
     }
     final usersState = ref.watch(usuariosControllerProvider);
@@ -105,11 +105,6 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
               ),
             ],
           ),
-          const AppNotice(
-            type: AppNoticeType.warning,
-            text: '',
-          ),
-          const SizedBox(height: AppTheme.space4),
           LayoutBuilder(builder: (context, constraints) {
             final metrics = [
               AppMetricCard(
@@ -150,7 +145,12 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
             ]);
           }),
           const SizedBox(height: AppTheme.space5),
-          _tabs(),
+          AppTabStrip(
+            labels: const ['Usuarios', 'Roles y permisos'],
+            counts: [users.length, null],
+            selectedIndex: _selectedTab,
+            onSelected: (index) => setState(() => _selectedTab = index),
+          ),
           const SizedBox(height: AppTheme.space4),
           if (_selectedTab == 0)
             _userList(filtered, repository, users)
@@ -160,36 +160,6 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
       ),
     );
   }
-
-  Widget _tabs() => Wrap(spacing: AppTheme.space2, children: [
-        _tabButton('Usuarios', 0),
-        _tabButton('Roles y permisos', 1),
-      ]);
-
-  Widget _tabButton(String label, int index) => Padding(
-        padding: const EdgeInsets.only(right: AppTheme.space2),
-        child: TextButton(
-          onPressed: () => setState(() => _selectedTab = index),
-          style: TextButton.styleFrom(
-            minimumSize: const Size(48, 48),
-            foregroundColor:
-                _selectedTab == index ? AppTheme.primary : AppTheme.muted,
-            shape: RoundedRectangleBorder(
-              side: BorderSide(
-                color: _selectedTab == index
-                    ? AppTheme.secondaryDark
-                    : Colors.transparent,
-              ),
-              borderRadius: BorderRadius.zero,
-            ),
-          ),
-          child: Text(label,
-              style: TextStyle(
-                fontWeight:
-                    _selectedTab == index ? FontWeight.w700 : FontWeight.w500,
-              )),
-        ),
-      );
 
   Widget _userList(
     List<UsuarioModel> users,
@@ -287,22 +257,33 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
               columns: [
                 AppDataColumn(
                   label: 'Usuario',
+                  flex: 3,
                   value: (user) => _identity(user),
                 ),
                 AppDataColumn(
                   label: 'Correo',
+                  flex: 3,
                   value: (user) => Text(user.correo),
                 ),
                 AppDataColumn(
                   label: 'Rol',
+                  flex: 2,
                   value: (user) => Text(user.rolNombre),
                 ),
                 AppDataColumn(
                   label: 'Estado',
+                  flex: 2,
                   value: (user) => _statusBadge(user.activo),
                 ),
                 AppDataColumn(
+                  label: 'Último acceso',
+                  flex: 2,
+                  showOnMedium: false,
+                  value: (user) => Text(user.ultimoAccesoDemo ?? 'Sin accesos'),
+                ),
+                AppDataColumn(
                   label: 'Acciones',
+                  flex: 1,
                   value: (user) => _actionsMenu(user, repository, allUsers),
                 ),
               ],
@@ -442,10 +423,14 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => Dialog(
+        alignment: Alignment.centerRight,
+        insetPadding: EdgeInsets.zero,
+        shape: const RoundedRectangleBorder(),
         child: ConstrainedBox(
           constraints: BoxConstraints(
             maxWidth: 500,
-            maxHeight: MediaQuery.sizeOf(context).height * .88,
+            minHeight: MediaQuery.sizeOf(context).height,
+            maxHeight: MediaQuery.sizeOf(context).height,
           ),
           child: Padding(
             padding: const EdgeInsets.all(AppTheme.space6),
@@ -487,6 +472,7 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
                           .format(user.fechaCreacion)),
                   const SizedBox(height: AppTheme.space3),
                   const SizedBox(height: AppTheme.space4),
+                  const Spacer(),
                   Wrap(
                       alignment: WrapAlignment.end,
                       spacing: AppTheme.space2,
@@ -542,64 +528,15 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => StatefulBuilder(
-            builder: (context, setDialogState) => AlertDialog(
-                  title: Text(
-                      user == null ? 'Registrar usuario' : 'Editar usuario'),
-                  content: SizedBox(
-                    width: 520,
-                    child: SingleChildScrollView(
-                        child: Form(
-                      key: formKey,
-                      child: Column(mainAxisSize: MainAxisSize.min, children: [
-                        _formField('Nombre', name, required: true),
-                        _formField('Apellido paterno', paternal,
-                            required: true),
-                        _formField('Apellido materno (opcional)', maternal),
-                        _formField('Correo electrónico', email,
-                            required: true,
-                            email: true,
-                            users: users,
-                            currentUser: user),
-                        if (user == null) ...[
-                          DropdownButtonFormField<String>(
-                            initialValue: roleId,
-                            decoration: const InputDecoration(labelText: 'Rol'),
-                            items: UsuariosRepository.roles
-                                .map((role) => DropdownMenuItem(
-                                    value: role.id, child: Text(role.nombre)))
-                                .toList(),
-                            onChanged: (value) => roleId = value ?? roleId,
-                            validator: (value) =>
-                                value == null ? 'Selecciona un rol.' : null,
-                          ),
-                          const SizedBox(height: AppTheme.space3),
-                          TextFormField(
-                            controller: password,
-                            obscureText: !showPassword,
-                            decoration: InputDecoration(
-                              labelText: 'Contraseña inicial',
-                              helperText:
-                                  'Requerida por el backend; mínimo 8 caracteres.',
-                              suffixIcon: IconButton(
-                                tooltip: showPassword
-                                    ? 'Ocultar contraseña'
-                                    : 'Mostrar contraseña',
-                                onPressed: () => setDialogState(
-                                    () => showPassword = !showPassword),
-                                icon: Icon(showPassword
-                                    ? Icons.visibility_off
-                                    : Icons.visibility),
-                              ),
-                            ),
-                            validator: (value) => (value?.length ?? 0) < 8
-                                ? 'Usa al menos 8 caracteres.'
-                                : null,
-                          ),
-                        ],
-                        const SizedBox(height: AppTheme.space3),
-                      ]),
-                    )),
-                  ),
+            builder: (context, setDialogState) => AppDialog(
+                  title: user == null ? 'Registrar usuario' : 'Editar usuario',
+                  description: user == null
+                      ? 'Registra un nuevo usuario y asigna el rol correspondiente.'
+                      : 'Actualiza los datos del usuario y su rol asignado.',
+                  icon: user == null
+                      ? Icons.person_add_alt_1_outlined
+                      : Icons.assignment_outlined,
+                  maxWidth: 672,
                   actions: [
                     TextButton(
                         onPressed:
@@ -622,7 +559,7 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
                                     apellidoMaterno: maternal.text,
                                     correo: email.text,
                                     rolId: roleId,
-                                    contrasena: password.text,
+                                    contrasena: 'Temporal123',
                                   );
                                 } else {
                                   await controller.updateDemo(
@@ -632,6 +569,12 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
                                     apellidoMaterno: maternal.text,
                                     correo: email.text,
                                   );
+                                  if (roleId != user.rolId) {
+                                    await controller.changeRoleDemo(
+                                      user.id,
+                                      roleId,
+                                    );
+                                  }
                                 }
                                 if (dialogContext.mounted) {
                                   Navigator.pop(dialogContext);
@@ -658,6 +601,83 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
                               : 'Guardar cambios'),
                     ),
                   ],
+                  child: SizedBox(
+                    width: 520,
+                    child: SingleChildScrollView(
+                        child: Form(
+                      key: formKey,
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        _formField('Nombre', name, required: true),
+                        LayoutBuilder(builder: (context, constraints) {
+                          final paternalField = _formField(
+                            'Apellido paterno',
+                            paternal,
+                            required: true,
+                          );
+                          final maternalField = _formField(
+                            'Apellido materno',
+                            maternal,
+                          );
+                          if (constraints.maxWidth < 520) {
+                            return Column(
+                              children: [paternalField, maternalField],
+                            );
+                          }
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(child: paternalField),
+                              const SizedBox(width: AppTheme.space3),
+                              Expanded(child: maternalField),
+                            ],
+                          );
+                        }),
+                        _formField('Correo electrónico', email,
+                            required: true,
+                            email: true,
+                            users: users,
+                            currentUser: user),
+                        ...[
+                          DropdownButtonFormField<String>(
+                            isExpanded: true,
+                            initialValue: roleId,
+                            decoration: const InputDecoration(labelText: 'Rol'),
+                            items: UsuariosRepository.roles
+                                .map((role) => DropdownMenuItem(
+                                    value: role.id, child: Text(role.nombre)))
+                                .toList(),
+                            onChanged: (value) => roleId = value ?? roleId,
+                            validator: (value) =>
+                                value == null ? 'Selecciona un rol.' : null,
+                          ),
+                          const SizedBox(height: AppTheme.space3),
+                          if (!ref.read(usuariosDemoModeProvider))
+                            TextFormField(
+                              controller: password,
+                              obscureText: !showPassword,
+                              decoration: InputDecoration(
+                                labelText: 'Contraseña inicial',
+                                helperText: 'Mínimo 8 caracteres.',
+                                suffixIcon: IconButton(
+                                  tooltip: showPassword
+                                      ? 'Ocultar contraseña'
+                                      : 'Mostrar contraseña',
+                                  onPressed: () => setDialogState(
+                                      () => showPassword = !showPassword),
+                                  icon: Icon(showPassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility),
+                                ),
+                              ),
+                              validator: (value) => (value?.length ?? 0) < 8
+                                  ? 'Usa al menos 8 caracteres.'
+                                  : null,
+                            ),
+                        ],
+                        const SizedBox(height: AppTheme.space3),
+                      ]),
+                    )),
+                  ),
                 )),
       );
     } finally {
@@ -764,11 +784,6 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
                         onChanged: (value) =>
                             setState(() => roleId = value ?? roleId),
                       ),
-                      const SizedBox(height: AppTheme.space3),
-                      const AppNotice(
-                          type: AppNoticeType.warning,
-                          text:
-                              'Acción; la API también impide cambiar el rol propio.'),
                     ]),
                 actions: [
                   TextButton(
@@ -802,11 +817,6 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
               Text(active
                   ? 'El perfil recuperará el acceso al sistema.'
                   : 'El perfil perderá acceso al sistema.'),
-              const SizedBox(height: AppTheme.space3),
-              const AppNotice(
-                  type: AppNoticeType.warning,
-                  text:
-                      'Los cambios son locales. El backend no permite cambiar el estado de la propia cuenta.'),
             ]),
         actions: [
           TextButton(

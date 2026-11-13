@@ -8,6 +8,8 @@ class AppDialog extends StatelessWidget {
     this.description,
     this.actions = const [],
     this.maxWidth = 560,
+    this.icon,
+    this.iconColor = AppTheme.secondaryDark,
     super.key,
   });
 
@@ -16,6 +18,8 @@ class AppDialog extends StatelessWidget {
   final Widget child;
   final List<Widget> actions;
   final double maxWidth;
+  final IconData? icon;
+  final Color iconColor;
 
   @override
   Widget build(BuildContext context) => Dialog(
@@ -26,6 +30,7 @@ class AppDialog extends StatelessWidget {
           side: const BorderSide(color: AppTheme.line),
         ),
         child: ConstrainedBox(
+          key: const Key('app-dialog-content'),
           constraints: BoxConstraints(
               maxWidth: maxWidth,
               maxHeight: MediaQuery.sizeOf(context).height * .9),
@@ -35,6 +40,21 @@ class AppDialog extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (icon != null) ...[
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: iconColor.withValues(alpha: .10),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(icon, color: iconColor, size: 22),
+                    ),
+                  ),
+                  const SizedBox(height: AppTheme.space4),
+                ],
                 Text(title,
                     style: Theme.of(context)
                         .textTheme

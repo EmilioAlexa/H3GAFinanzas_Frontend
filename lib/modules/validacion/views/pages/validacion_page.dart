@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../app/config/env.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/responsive/window_size_class.dart';
@@ -13,6 +12,7 @@ import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_responsive_collection.dart';
 import '../../../../core/widgets/app_state_panel.dart';
+import '../../../../core/widgets/app_tab_strip.dart';
 import '../../../auth/auth.dart';
 import '../../../pagos/pagos.dart';
 
@@ -70,9 +70,8 @@ class _ValidacionPageState extends ConsumerState<ValidacionPage> {
       data: (state) => state == null
           ? const AppStatePanel(
               icon: Icons.link_off,
-              title: 'Validación sin conectar',
-              message:
-                  'La bandeja real se conectará en B6. No se muestran pagos  en sesión real.',
+              title: 'Sin pagos por validar',
+              message: 'No fue posible consultar la bandeja de validación.',
             )
           : _content(context, state.payments),
     );
@@ -98,14 +97,12 @@ class _ValidacionPageState extends ConsumerState<ValidacionPage> {
           description:
               'Consulta el avance de cada pago desde su registro hasta la validación.',
         ),
-        if (AppEnv.demoMode) ...[
-          AppNotice(
-            type: AppNoticeType.warning,
-            text:
-                '$pending pagos esperan revisión financiera; $waiting esperan autorización administrativa. Conteos locales.',
-          ),
-          const SizedBox(height: AppTheme.space4),
-        ],
+        AppNotice(
+          type: AppNoticeType.warning,
+          text: '$pending pagos requieren revisión y $waiting esperan '
+              'autorización administrativa.',
+        ),
+        const SizedBox(height: AppTheme.space4),
         _stageTabs(payments),
         const SizedBox(height: AppTheme.space3),
         _list(context, visible),
@@ -116,19 +113,11 @@ class _ValidacionPageState extends ConsumerState<ValidacionPage> {
   Widget _stageTabs(List<PagoModel> payments) {
     const stages = ['Pendientes', 'Por autorizar', 'Concluidos'];
     int count(String stage) => _forStage(payments, stage: stage).length;
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(children: [
-        for (final stage in stages)
-          Padding(
-            padding: const EdgeInsets.only(right: AppTheme.space2),
-            child: ChoiceChip(
-              label: Text('$stage  ${count(stage)}'),
-              selected: _stage == stage,
-              onSelected: (_) => setState(() => _stage = stage),
-            ),
-          ),
-      ]),
+    return AppTabStrip(
+      labels: stages,
+      counts: [for (final stage in stages) count(stage)],
+      selectedIndex: stages.indexOf(_stage),
+      onSelected: (index) => setState(() => _stage = stages[index]),
     );
   }
 
