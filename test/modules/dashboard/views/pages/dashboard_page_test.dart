@@ -42,6 +42,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
 
       expect(find.text('Ingresos por servicio'), findsOneWidget);
+      expect(find.text('Exportar'), findsOneWidget);
       expect(find.byType(BarChart), findsOneWidget);
       expect(tester.takeException(), isNull, reason: 'viewport $size');
     }
@@ -73,6 +74,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('Mis clientes prioritarios'), findsOneWidget);
+    expect(find.text('Exportar'), findsNothing);
     expect(find.text('Ingresos por servicio'), findsNothing);
     expect(find.text('Actividad reciente'), findsNothing);
     expect(tester.takeException(), isNull);

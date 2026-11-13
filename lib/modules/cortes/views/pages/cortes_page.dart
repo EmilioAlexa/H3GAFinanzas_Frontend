@@ -102,7 +102,7 @@ class _CortesPageState extends ConsumerState<CortesPage> {
         if (ref.read(cortesControllerProvider.notifier).demoMode) ...[
           const AppNotice(
             text:
-                'Cortes de muestra. Crear, generar, cerrar y cancelar solo cambia datos locales; no reserva pagos reales.',
+                'Cortes . Crear, generar, cerrar y cancelar solo cambia datos locales; no reserva pagos reales.',
           ),
           const SizedBox(height: AppTheme.space4),
         ],
@@ -234,8 +234,7 @@ class _CortesPageState extends ConsumerState<CortesPage> {
 
   Widget _currentCutCard(CutModel cut) => LayoutBuilder(
         builder: (context, constraints) {
-          final compact = Responsive.classify(constraints.maxWidth) ==
-              WindowSizeClass.compacto;
+          final compact = Responsive.of(context) == WindowSizeClass.compacto;
           return Material(
             color: AppTheme.primary,
             borderRadius: BorderRadius.circular(AppTheme.radius + 4),
@@ -450,7 +449,7 @@ class _CortesPageState extends ConsumerState<CortesPage> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Crear corte demo'),
+            child: const Text('Crear corte'),
           ),
         ],
       ),

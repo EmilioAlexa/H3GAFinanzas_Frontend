@@ -72,7 +72,7 @@ class _ValidacionPageState extends ConsumerState<ValidacionPage> {
               icon: Icons.link_off,
               title: 'Validación sin conectar',
               message:
-                  'La bandeja real se conectará en B6. No se muestran pagos ficticios en sesión real.',
+                  'La bandeja real se conectará en B6. No se muestran pagos  en sesión real.',
             )
           : _content(context, state.payments),
     );
@@ -102,7 +102,7 @@ class _ValidacionPageState extends ConsumerState<ValidacionPage> {
           AppNotice(
             type: AppNoticeType.warning,
             text:
-                '$pending pagos esperan revisión financiera; $waiting esperan autorización administrativa. Conteos locales de demostración.',
+                '$pending pagos esperan revisión financiera; $waiting esperan autorización administrativa. Conteos locales.',
           ),
           const SizedBox(height: AppTheme.space4),
         ],
@@ -166,8 +166,7 @@ class _ValidacionPageState extends ConsumerState<ValidacionPage> {
         child:
             Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           LayoutBuilder(builder: (context, constraints) {
-            final compact = Responsive.classify(constraints.maxWidth) ==
-                WindowSizeClass.compacto;
+            final compact = Responsive.of(context) == WindowSizeClass.compacto;
             final search = TextField(
               controller: _search,
               onChanged: (value) => setState(() => _query = value),

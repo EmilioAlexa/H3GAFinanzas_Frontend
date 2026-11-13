@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_theme.dart';
-import '../../../../core/demo/demo_mode_banner.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_badge.dart';
@@ -77,8 +76,6 @@ class _PrenominaPageState extends ConsumerState<PrenominaPage> {
             description:
                 'Preparación de importes por persona: asesores y receptores externos.',
           ),
-          const DemoModeBanner(),
-          const SizedBox(height: AppTheme.space4),
           const AppNotice(
             type: AppNoticeType.warning,
             text:
@@ -193,7 +190,7 @@ class _PrenominaPageState extends ConsumerState<PrenominaPage> {
                   amount,
                   const SizedBox(height: AppTheme.space3),
                   AppBadge(
-                    label: generated ? 'Preparada (demo)' : 'En preparación',
+                    label: generated ? 'Preparada' : 'En preparación',
                     tone:
                         generated ? AppBadgeTone.success : AppBadgeTone.warning,
                   ),
@@ -203,7 +200,7 @@ class _PrenominaPageState extends ConsumerState<PrenominaPage> {
                 Expanded(child: period),
                 Expanded(child: amount),
                 AppBadge(
-                  label: generated ? 'Preparada (demo)' : 'En preparación',
+                  label: generated ? 'Preparada' : 'En preparación',
                   tone: generated ? AppBadgeTone.success : AppBadgeTone.warning,
                 ),
               ]);

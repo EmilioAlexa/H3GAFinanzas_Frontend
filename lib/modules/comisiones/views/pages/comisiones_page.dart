@@ -138,20 +138,18 @@ class _ComisionesPageState extends ConsumerState<ComisionesPage> {
         ),
         if (AppEnv.demoMode) ...[
           const AppNotice(
-            text:
-                'Muestra local. Los receptores, importes, conceptos e IDs son ficticios; las configuraciones y dispersiones no se envían al backend.',
+            text: '',
           ),
           const SizedBox(height: AppTheme.space4),
         ],
         LayoutBuilder(builder: (context, constraints) {
-          final compact = Responsive.classify(constraints.maxWidth) ==
-              WindowSizeClass.compacto;
+          final compact = Responsive.of(context) == WindowSizeClass.compacto;
           final cards = isAdvisor
               ? [
                   AppMetricCard(
                       label: 'Mi comisión',
                       value: MoneyFormatter.format(advisorTotal),
-                      detail: '${payments.length} pagos demo',
+                      detail: '${payments.length} pagos',
                       icon: Icons.account_balance_wallet_outlined),
                   AppMetricCard(
                       label: 'Pagos comisionables',
@@ -168,14 +166,14 @@ class _ComisionesPageState extends ConsumerState<ComisionesPage> {
                 ]
               : [
                   AppMetricCard(
-                      label: 'Pagos del conjunto demo',
+                      label: 'Pagos del conjunto',
                       value: MoneyFormatter.format(paidTotal),
                       detail: '${payments.length} pagos con snapshot',
                       icon: Icons.bar_chart_outlined),
                   AppMetricCard(
                       label: 'Comisiones asignadas',
                       value: MoneyFormatter.format(assignedTotal),
-                      detail: 'Suma de los destinos del conjunto demo',
+                      detail: 'Suma de los destinos del conjunto',
                       icon: Icons.groups_outlined,
                       tone: AppMetricTone.info),
                   AppMetricCard(
@@ -226,8 +224,7 @@ class _ComisionesPageState extends ConsumerState<ComisionesPage> {
         child:
             Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           LayoutBuilder(builder: (context, constraints) {
-            final compact = Responsive.classify(constraints.maxWidth) ==
-                WindowSizeClass.compacto;
+            final compact = Responsive.of(context) == WindowSizeClass.compacto;
             final search = TextField(
               controller: _searchController,
               onChanged: (value) => setState(() => _query = value),

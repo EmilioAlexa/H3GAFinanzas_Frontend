@@ -78,7 +78,7 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
                   title: 'Clientes sin conectar',
                   message:
                       'La API de clientes se integrará en la siguiente etapa. '
-                      'Esta sesión no muestra datos ficticios.',
+                      '',
                 )
               : _content(context, clients, session.role),
         );
@@ -93,7 +93,7 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
   ) =>
       LayoutBuilder(
         builder: (context, constraints) {
-          final widthClass = Responsive.classify(constraints.maxWidth);
+          final widthClass = Responsive.of(context);
           final filtered = _filter(clients);
           final pageCount =
               filtered.isEmpty ? 1 : (filtered.length / _pageSize).ceil();
@@ -123,9 +123,8 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
                 if (AppEnv.demoMode) ...[
                   const AppNotice(
                     type: AppNoticeType.info,
-                    text:
-                        'Muestra de Figma: asesor, servicio y estado son datos '
-                        'ficticios; no forman parte de la respuesta de lista del API.',
+                    text: 'asesor, servicio y estado son datos '
+                        '; no forman parte de la respuesta de lista del API.',
                   ),
                   const SizedBox(height: AppTheme.space3),
                 ],
@@ -441,9 +440,9 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
             if (client.correoElectronico != null)
               _detailLine('Correo', client.correoElectronico!),
             if (client.demoMetadata?.advisorName case final advisor?)
-              _detailLine('Asesor · demo', advisor),
+              _detailLine('Asesor', advisor),
             if (client.demoMetadata?.service case final service?)
-              _detailLine('Servicio · demo', service),
+              _detailLine('Servicio', service),
             Align(
               alignment: Alignment.centerRight,
               child: TextButton.icon(

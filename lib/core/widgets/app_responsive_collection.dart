@@ -33,7 +33,7 @@ class AppResponsiveCollection<T> extends StatelessWidget {
               message: emptyMessage,
             );
           }
-          final size = Responsive.classify(constraints.maxWidth);
+          final size = Responsive.of(context);
           if (size == WindowSizeClass.compacto) {
             return ListView.separated(
               shrinkWrap: true,
@@ -51,38 +51,68 @@ class AppResponsiveCollection<T> extends StatelessWidget {
           final visibleColumns = size == WindowSizeClass.medio
               ? columns.where((column) => column.showOnMedium).toList()
               : columns;
-          final tableMinWidth =
+          final viewportWidth =
               constraints.maxWidth.isFinite ? constraints.maxWidth : 0.0;
+          final tableWidth = viewportWidth < 850 ? 850.0 : viewportWidth;
           return SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minWidth: tableMinWidth),
-              child: DataTable(
-                headingRowColor:
-                    const WidgetStatePropertyAll(AppTheme.surfaceSecondary),
-                horizontalMargin: AppTheme.space4,
-                columnSpacing: AppTheme.space6,
-                columns: [
-                  for (final column in visibleColumns)
-                    DataColumn(
-                        label: Text(column.label), numeric: column.numeric),
-                ],
-                rows: [
-                  for (final row in rows)
-                    DataRow(
-                      cells: [
-                        for (final column in visibleColumns)
-                          DataCell(
-                            InkWell(
-                              onTap: onRowTap == null
-                                  ? null
-                                  : () => onRowTap!(row),
-                              child: column.value(row),
+            child: SizedBox(
+              width: tableWidth,
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minWidth: 850),
+                  child: DataTable(
+                    headingRowColor:
+                        const WidgetStatePropertyAll(AppTheme.surfaceSecondary),
+                    headingRowHeight: 40,
+                    dataRowMinHeight: 52,
+                    dataRowMaxHeight: 64,
+                    horizontalMargin: 12,
+                    columnSpacing: 13,
+                    headingTextStyle:
+                        Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: AppTheme.accentMid,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: .25,
                             ),
-                          ),
-                      ],
-                    ),
-                ],
+                    dataTextStyle:
+                        Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppTheme.inkSecondary,
+                              fontSize: 13,
+                            ),
+                    columns: [
+                      for (final column in visibleColumns)
+                        DataColumn(
+                            label: Text(
+                              column.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            numeric: column.numeric),
+                    ],
+                    rows: [
+                      for (final row in rows)
+                        DataRow(
+                          color: WidgetStateProperty.resolveWith((states) =>
+                              states.contains(WidgetState.hovered)
+                                  ? const Color(0xFFF4F9FA)
+                                  : null),
+                          cells: [
+                            for (final column in visibleColumns)
+                              DataCell(
+                                InkWell(
+                                  onTap: onRowTap == null
+                                      ? null
+                                      : () => onRowTap!(row),
+                                  child: column.value(row),
+                                ),
+                              ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
               ),
             ),
           );

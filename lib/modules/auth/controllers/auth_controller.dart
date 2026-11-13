@@ -91,7 +91,7 @@ class AuthController extends StateNotifier<AsyncValue<AuthSessionModel?>> {
 
   AuthSessionModel _demoSession() => AuthSessionModel(
         id: 'demo-${demoRole.name}',
-        name: 'Usuario de demostración',
+        name: 'Joyce Mabel',
         email: 'demo@h3ga.local',
         role: demoRole,
       );

@@ -57,10 +57,6 @@ class PagoDetallePage extends ConsumerWidget {
                     icon: const Icon(Icons.arrow_back),
                     label: const Text('Volver a pagos'))
               ]),
-          const AppNotice(
-              text:
-                  'Vista de demostración. El historial y los archivos son muestras; las acciones de revisión corresponden a la etapa A7.'),
-          const SizedBox(height: AppTheme.space4),
           _section(context, 'Resumen', [
             _item(
                 'Estado',
@@ -95,10 +91,7 @@ class PagoDetallePage extends ConsumerWidget {
             context,
             'Evidencias',
             payment.evidencias.isEmpty
-                ? [
-                    const Text(
-                        'Este movimiento no tiene evidencias de muestra.')
-                  ]
+                ? [const Text('Este movimiento no tiene evidencias .')]
                 : payment.evidencias
                     .map(
                       (file) => ListTile(
@@ -106,7 +99,7 @@ class PagoDetallePage extends ConsumerWidget {
                         leading: const Icon(Icons.attach_file),
                         title: Text(file.name),
                         subtitle: Text(
-                          '${file.mimeType} · ${_size(file.sizeBytes)} · muestra local',
+                          '${file.mimeType} · ${_size(file.sizeBytes)}',
                         ),
                         trailing: const Tooltip(
                           message:
@@ -128,7 +121,7 @@ class PagoDetallePage extends ConsumerWidget {
                           contentPadding: EdgeInsets.zero,
                           leading: const Icon(Icons.history),
                           title: Text(item),
-                          subtitle: const Text('Evento de demostración')))
+                          subtitle: const Text('Evento')))
                       .toList()),
           const SizedBox(height: AppTheme.space4),
           const AppNotice(

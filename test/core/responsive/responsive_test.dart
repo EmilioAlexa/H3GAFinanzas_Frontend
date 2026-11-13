@@ -17,5 +17,12 @@ void main() {
       expect(Responsive.usesDenseLayout(1150), isTrue);
       expect(Responsive.usesDenseLayout(1151), isFalse);
     });
+
+    test('dashboard metrics follow the Figma window breakpoints', () {
+      expect(Responsive.dashboardMetricColumns(860), 2);
+      expect(Responsive.dashboardMetricColumns(861), 3);
+      expect(Responsive.dashboardMetricColumns(1150), 3);
+      expect(Responsive.dashboardMetricColumns(1151), 5);
+    });
   });
 }

@@ -64,12 +64,14 @@ class ServiciosPage extends ConsumerWidget {
             const SizedBox(height: AppTheme.space4),
             LayoutBuilder(
               builder: (context, constraints) {
-                final size = Responsive.classify(constraints.maxWidth);
+                final size = Responsive.of(context);
                 final columns = size == WindowSizeClass.compacto
                     ? 1
                     : size == WindowSizeClass.medio
                         ? 2
-                        : Responsive.usesDenseLayout(constraints.maxWidth)
+                        : Responsive.usesDenseLayout(
+                            MediaQuery.sizeOf(context).width,
+                          )
                             ? 3
                             : 4;
                 final spacing = AppTheme.space4;
@@ -124,8 +126,7 @@ class ServiciosPage extends ConsumerWidget {
             const SizedBox(height: AppTheme.space3),
             const Align(
               alignment: Alignment.centerLeft,
-              child:
-                  AppBadge(label: 'Catálogo · demo', tone: AppBadgeTone.info),
+              child: AppBadge(label: 'Catálogo', tone: AppBadgeTone.info),
             ),
             const SizedBox(height: AppTheme.space3),
             Text(service.nombre, style: Theme.of(context).textTheme.titleLarge),

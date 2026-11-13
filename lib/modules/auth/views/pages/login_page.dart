@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../app/config/env.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/network/api_error_model.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/responsive/window_size_class.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../controllers/auth_controller.dart';
-import '../../models/user_role_model.dart';
 import 'password_recovery_dialog.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
@@ -124,10 +122,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                 _buildIntro(compact),
                                 SizedBox(height: compact ? 34 : 48),
                                 _buildForm(error, isLoading),
-                                if (AppEnv.demoMode) ...[
-                                  const SizedBox(height: 18),
-                                  _buildDemoRoleSelector(),
-                                ],
                               ],
                             ),
                           ),
@@ -239,17 +233,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               ),
             ),
           ),
-          if (AppEnv.demoMode) ...[
-            const SizedBox(height: 2),
-            Text(
-              'Modo demostración · no se consulta el backend',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppTheme.white.withValues(alpha: .72),
-                fontSize: 12,
-              ),
-            ),
-          ],
           if (error != null) ...[
             const SizedBox(height: 12),
             Semantics(
@@ -324,49 +307,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           ),
         ),
       );
-
-  Widget _buildDemoRoleSelector() {
-    final selectedRole = ref.watch(demoRoleProvider);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const Text(
-          'Rol para probar la navegación',
-          style: TextStyle(color: Color(0xFFA9C2C6), fontSize: 12),
-        ),
-        const SizedBox(height: 6),
-        DropdownButtonFormField<UserRole>(
-          initialValue: selectedRole,
-          dropdownColor: AppTheme.accentDark,
-          style: const TextStyle(color: AppTheme.white),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: AppTheme.white.withValues(alpha: .08),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 8,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(9),
-              borderSide: BorderSide(
-                color: AppTheme.white.withValues(alpha: .18),
-              ),
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(9),
-            ),
-          ),
-          items: [
-            for (final role in UserRole.values)
-              DropdownMenuItem(value: role, child: Text(role.apiName)),
-          ],
-          onChanged: (role) {
-            if (role != null) ref.read(demoRoleProvider.notifier).state = role;
-          },
-        ),
-      ],
-    );
-  }
 
   Future<void> _openRecovery() => showDialog<void>(
         context: context,

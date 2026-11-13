@@ -116,7 +116,7 @@ class ServicioDetallePage extends ConsumerWidget {
             style: TextButton.styleFrom(alignment: Alignment.centerLeft),
           ),
           AppPageHeader(
-            eyebrow: 'Seguimiento de servicio · demo',
+            eyebrow: 'Seguimiento de servicio',
             title: service.nombre,
             description: service.descripcionDemo,
             actions: [
@@ -136,9 +136,9 @@ class ServicioDetallePage extends ConsumerWidget {
           if (items.isEmpty)
             const AppStatePanel(
               icon: Icons.description_outlined,
-              title: 'Sin contratos de muestra',
+              title: 'Sin contratos ',
               message:
-                  'No hay contratos asignados a este servicio en esta sesión demo.',
+                  'No hay contratos asignados a este servicio en esta sesión.',
             )
           else
             for (final contract in items)

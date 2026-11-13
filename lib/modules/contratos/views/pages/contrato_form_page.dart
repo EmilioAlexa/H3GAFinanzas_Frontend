@@ -6,7 +6,6 @@ import 'package:intl/intl.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/responsive/window_size_class.dart';
-import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_state_panel.dart';
 import '../../../auth/auth.dart';
@@ -115,8 +114,7 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
               return const AppStatePanel(
                 icon: Icons.lock_outline,
                 title: 'Contrato no disponible',
-                message:
-                    'No existe en la muestra o no está asignado a esta sesión.',
+                message: '',
               );
             }
             if (existing != null) _initializeEdit(existing);
@@ -180,17 +178,12 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
                   style: TextButton.styleFrom(alignment: Alignment.centerLeft),
                 ),
                 AppPageHeader(
-                  eyebrow: editing ? 'Edición demo' : 'Nuevo registro · demo',
+                  eyebrow: editing ? 'Edición' : 'Nuevo registro',
                   title: editing ? 'Editar observaciones' : 'Crear contrato',
                   description: editing
                       ? 'Observaciones es el único campo actualizable por PATCH.'
                       : 'Captura las condiciones generales del contrato.',
                 ),
-                const AppNotice(
-                  text:
-                      'Esta operación modifica solo la muestra local. Los IDs y las opciones de catálogos son ficticios; el backend debe proporcionar las opciones vigentes.',
-                ),
-                const SizedBox(height: AppTheme.space4),
                 if (editing)
                   _formCard(
                     context,
@@ -335,9 +328,8 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
                     FilledButton.icon(
                       onPressed: () => _save(context, session, existing),
                       icon: const Icon(Icons.save_outlined),
-                      label: Text(editing
-                          ? 'Guardar observaciones demo'
-                          : 'Crear contrato demo'),
+                      label: Text(
+                          editing ? 'Guardar observaciones' : 'Crear contrato'),
                     ),
                   ],
                 ),

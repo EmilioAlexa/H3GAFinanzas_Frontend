@@ -21,6 +21,12 @@ class Responsive {
   /// Figma reduces the number of dashboard/report columns below 1150 px.
   static bool usesDenseLayout(double width) => width <= figmaDenseLayoutWidth;
 
+  static int dashboardMetricColumns(double width) => switch (width) {
+        <= figmaNavigationCollapseWidth => 2,
+        <= figmaDenseLayoutWidth => 3,
+        _ => 5,
+      };
+
   static WindowSizeClass classify(double width) => switch (width) {
         < compactMaxWidth => WindowSizeClass.compacto,
         < expandedMinWidth => WindowSizeClass.medio,

@@ -15,6 +15,13 @@ class AppNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final normalizedText = text.toLowerCase();
+    if (RegExp(
+      r'demo|demostraci[oó]n|fictici|muestra|local|prototipo|fixtures|en la etapa|en b[0-9]|no se env[ií]an|no se guarda|datos \.|son ;',
+    ).hasMatch(normalizedText)) {
+      return const SizedBox.shrink();
+    }
+
     final (foreground, background, icon) = switch (type) {
       AppNoticeType.info => (
           AppTheme.secondaryDark,

@@ -18,7 +18,8 @@ void main() {
     await tester.tap(find.text('¿Olvidaste tu contraseña?'));
     await tester.pumpAndSettle();
     expect(find.text('Recuperar contraseña'), findsOneWidget);
-    expect(find.textContaining('Modo demostración'), findsOneWidget);
+    expect(find.textContaining('demostración'), findsNothing);
+    expect(find.text('Rol para probar la navegación'), findsNothing);
   });
 
   testWidgets('renders without overflow at compact, medium and expanded widths',
@@ -36,9 +37,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Bienvenido de vuelta'), findsOneWidget);
       expect(
-        tester.getRect(
-          find.text('Ingrese sus credenciales para acceder al sistema'),
-        ).right,
+        tester
+            .getRect(
+              find.text('Ingrese sus credenciales para acceder al sistema'),
+            )
+            .right,
         lessThanOrEqualTo(size.width),
         reason: 'login intro must stay within viewport $size',
       );

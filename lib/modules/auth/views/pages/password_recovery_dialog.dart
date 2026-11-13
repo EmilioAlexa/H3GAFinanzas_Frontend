@@ -226,7 +226,6 @@ class _PasswordRecoveryDialogState extends State<PasswordRecoveryDialog> {
   @override
   Widget build(BuildContext context) {
     final compact = Responsive.of(context) == WindowSizeClass.compacto;
-    final isSuccess = _step == RecoveryStep.success;
     return PopScope(
       canPop: !_loading,
       child: Dialog(
@@ -247,57 +246,17 @@ class _PasswordRecoveryDialogState extends State<PasswordRecoveryDialog> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (!isSuccess) ...[
-                    Semantics(
-                      label: 'Paso ${_stepIndex + 1} de 3',
-                      child: Row(
-                        children: [
-                          for (var index = 0; index < 3; index++) ...[
-                            if (index > 0) const SizedBox(width: 6),
-                            Expanded(
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                height: 4,
-                                decoration: BoxDecoration(
-                                  color: index <= _stepIndex
-                                      ? AppTheme.secondaryDark
-                                      : AppTheme.line,
-                                  borderRadius: BorderRadius.circular(99),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      IconButton(
+                        tooltip: 'Cerrar',
+                        onPressed:
+                            _loading ? null : () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close),
                       ),
-                    ),
-                    const SizedBox(height: 22),
-                  ],
-                  Align(
-                    child: Container(
-                      width: isSuccess ? 58 : 48,
-                      height: isSuccess ? 58 : 48,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isSuccess
-                            ? AppTheme.successBackground
-                            : AppTheme.secondarySoft,
-                      ),
-                      child: Icon(
-                        isSuccess
-                            ? Icons.check_rounded
-                            : _step == RecoveryStep.code
-                                ? Icons.verified_user_outlined
-                                : _step == RecoveryStep.password
-                                    ? Icons.lock_outline_rounded
-                                    : Icons.mark_email_read_outlined,
-                        size: isSuccess ? 28 : 22,
-                        color: isSuccess
-                            ? AppTheme.success
-                            : AppTheme.secondaryDark,
-                      ),
-                    ),
+                    ],
                   ),
-                  const SizedBox(height: 14),
                   Text(
                     _title,
                     textAlign: TextAlign.center,
@@ -306,20 +265,21 @@ class _PasswordRecoveryDialogState extends State<PasswordRecoveryDialog> {
                           fontWeight: FontWeight.w700,
                         ),
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 16),
+                  LinearProgressIndicator(
+                    value: (_stepIndex + 1) / RecoveryStep.values.length,
+                    minHeight: 3,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+                    backgroundColor: AppTheme.line,
+                    color: AppTheme.secondaryDark,
+                  ),
+                  const SizedBox(height: 20),
                   _buildStepBody(context),
                   if (_requestError != null) ...[
                     const SizedBox(height: 14),
                     AppNotice(
                       text: _requestError!,
                       type: AppNoticeType.error,
-                    ),
-                  ],
-                  if (!isSuccess) ...[
-                    const SizedBox(height: 16),
-                    const AppNotice(
-                      text: 'Modo demostración: no se envía correo ni se '
-                          'modifica una contraseña real.',
                     ),
                   ],
                   const SizedBox(height: 20),
@@ -453,12 +413,6 @@ class _PasswordRecoveryDialogState extends State<PasswordRecoveryDialog> {
           ),
         ],
         const SizedBox(height: 8),
-        Text(
-          'Modo demo · código $_demoCode · $_expiredDemoCode simula expiración',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppTheme.faint,
-              ),
-        ),
       ],
     );
   }
@@ -553,10 +507,6 @@ class _PasswordRecoveryDialogState extends State<PasswordRecoveryDialog> {
                 ),
           ),
           const SizedBox(height: 12),
-          const AppNotice(
-            text:
-                'Demostración visual: esta contraseña no se guardó en el servidor.',
-          ),
         ],
       );
 

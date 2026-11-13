@@ -50,8 +50,7 @@ class ReceptoresPage extends ConsumerWidget {
           children: [
             AppPageHeader(
               title: 'Receptores de dispersión',
-              description:
-                  'Catálogo demo. No se guardan cambios en el backend.',
+              description: 'Catálogo. No se guardan cambios en el backend.',
               actions: [
                 FilledButton.icon(
                   onPressed: () => _showCreate(context, ref, session.role),
@@ -111,7 +110,7 @@ class ReceptoresPage extends ConsumerWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Desactivar receptor'),
-        content: Text('¿Desactivar a ${receiver.name} en la maqueta demo?'),
+        content: Text('¿Desactivar a ${receiver.name} en la maqueta?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -149,7 +148,7 @@ class ReceptoresPage extends ConsumerWidget {
     );
     if (created == true && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Receptor demo agregado.')),
+        const SnackBar(content: Text('Receptor agregado.')),
       );
     }
   }
@@ -187,7 +186,7 @@ class _CreateReceiverDialogState extends ConsumerState<_CreateReceiverDialog> {
         ? <DispersionReceiverModel>[]
         : controller.activeReceiversFor(selectedConcept.id);
     return AlertDialog(
-      title: const Text('Agregar receptor demo'),
+      title: const Text('Agregar receptor'),
       content: SizedBox(
         width: 420,
         child: Column(mainAxisSize: MainAxisSize.min, children: [

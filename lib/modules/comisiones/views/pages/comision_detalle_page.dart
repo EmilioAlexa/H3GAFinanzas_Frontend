@@ -90,7 +90,7 @@ class ComisionDetallePage extends ConsumerWidget {
         if (AppEnv.demoMode)
           const AppNotice(
             text:
-                'Detalle local de demostración. Los snapshots ya generados no cambian al editar la configuración del contrato.',
+                'Detalle local. Los snapshots ya generados no cambian al editar la configuración del contrato.',
           ),
         const SizedBox(height: AppTheme.space4),
         _section(context, 'Estado', [
@@ -188,7 +188,7 @@ class ComisionDetallePage extends ConsumerWidget {
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.history),
                 title: Text(entry),
-                subtitle: const Text('Evento de demostración'),
+                subtitle: const Text('Evento'),
               ),
           ]),
         ],
@@ -262,7 +262,7 @@ class ComisionDetallePage extends ConsumerWidget {
                 onPressed: () =>
                     _confirmDispersion(context, ref, session, payment, item),
                 icon: const Icon(Icons.account_balance_outlined),
-                label: const Text('Confirmar dispersión demo'),
+                label: const Text('Confirmar dispersión'),
               ),
             ),
           if (item.history.isNotEmpty)
@@ -323,8 +323,8 @@ class ComisionDetallePage extends ConsumerWidget {
             actor: session.name,
           );
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Estado actualizado en la demostración.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Estado actualizado en la .')));
       }
     } on StateError catch (error) {
       if (context.mounted) {

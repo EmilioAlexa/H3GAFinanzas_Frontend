@@ -93,7 +93,7 @@ class PrenominaDetallePage extends ConsumerWidget {
               label: 'Incluido en prenómina',
               value: MoneyFormatter.format(included),
               detail:
-                  '${model.movements.where((movement) => movement.status == 'Incluida').length} movimientos incluidos (demo)',
+                  '${model.movements.where((movement) => movement.status == 'Incluida').length} movimientos incluidos',
               icon: Icons.check_circle_outline,
               tone: AppMetricTone.info,
             ),

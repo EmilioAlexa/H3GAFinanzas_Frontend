@@ -68,8 +68,7 @@ class ClienteFormPage extends ConsumerWidget {
                 return const AppStatePanel(
                   icon: Icons.person_search_outlined,
                   title: 'Cliente no disponible',
-                  message:
-                      'No existe en la muestra o está fuera del alcance de esta sesión.',
+                  message: '',
                 );
               }
               client = matches.first;
@@ -116,8 +115,7 @@ class ClienteFormPage extends ConsumerWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final compact = Responsive.classify(constraints.maxWidth) ==
-            WindowSizeClass.compacto;
+        final compact = Responsive.of(context) == WindowSizeClass.compacto;
         final contentWidth = constraints.maxWidth.clamp(0, 880).toDouble();
         final fieldWidth =
             compact ? contentWidth : (contentWidth - AppTheme.space4) / 2;
@@ -134,17 +132,14 @@ class ClienteFormPage extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     AppPageHeader(
-                      eyebrow: editing
-                          ? 'Directorio · edición demo'
-                          : 'Directorio · demo',
+                      eyebrow: editing ? 'Directorio · edición' : 'Directorio',
                       title: editing ? 'Editar cliente' : 'Nuevo cliente',
                       description:
                           'Completa únicamente los campos definidos por el API de Clientes.',
                     ),
                     const AppNotice(
                       type: AppNoticeType.info,
-                      text:
-                          'Esta acción modifica solo la muestra local y no guarda datos en el backend.',
+                      text: '',
                     ),
                     const SizedBox(height: AppTheme.space4),
                     Container(
@@ -309,9 +304,8 @@ class ClienteFormPage extends ConsumerWidget {
                             }
                           },
                           icon: const Icon(Icons.save_outlined),
-                          label: Text(editing
-                              ? 'Guardar cambios demo'
-                              : 'Crear cliente demo'),
+                          label: Text(
+                              editing ? 'Guardar cambios' : 'Crear cliente'),
                         ),
                       ],
                     ),

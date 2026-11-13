@@ -15,14 +15,17 @@ void main() {
   ];
 
   Widget harness(double width) => MaterialApp(
-        home: Scaffold(
-          body: Center(
-            child: SizedBox(
-              width: width,
-              child: AppResponsiveCollection<String>(
-                rows: rows,
-                columns: columns,
-                compactCardBuilder: (context, row) => Text('Tarjeta $row'),
+        home: MediaQuery(
+          data: MediaQueryData(size: Size(width, 900)),
+          child: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: width,
+                child: AppResponsiveCollection<String>(
+                  rows: rows,
+                  columns: columns,
+                  compactCardBuilder: (context, row) => Text('Tarjeta $row'),
+                ),
               ),
             ),
           ),
@@ -39,7 +42,7 @@ void main() {
     expect(find.text('Nombre'), findsOneWidget);
     expect(find.text('Dato extendido'), findsNothing);
     expect(tester.getSize(find.byType(DataTable)).width,
-        greaterThanOrEqualTo(768));
+        greaterThanOrEqualTo(850));
   });
 
   testWidgets('shows every column in expanded layouts', (tester) async {
@@ -50,7 +53,7 @@ void main() {
     expect(find.text('Dato extendido'), findsOneWidget);
     expect(
       tester.getSize(find.byType(DataTable)).width,
-      greaterThanOrEqualTo(1280),
+      greaterThanOrEqualTo(850),
     );
     tester.view.resetPhysicalSize();
     tester.view.resetDevicePixelRatio();

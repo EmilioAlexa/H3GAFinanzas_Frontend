@@ -51,7 +51,7 @@ class CortePreparacionPage extends ConsumerWidget {
               return const AppStatePanel(
                 icon: Icons.search_off_outlined,
                 title: 'Corte no disponible',
-                message: 'El corte no existe en el conjunto demo.',
+                message: 'El corte no existe en el conjunto.',
               );
             }
             return _content(context, ref, session, cut);
@@ -82,7 +82,7 @@ class CortePreparacionPage extends ConsumerWidget {
             cut.periodStart,
             cut.periodEndExclusive,
           ),
-          description: 'Periodo viernes a jueves · Información de demostración',
+          description: 'Periodo viernes a jueves · Información',
           actions: [
             AppBadge(label: cut.status, tone: AppBadgeTone.warning),
           ],
@@ -95,8 +95,7 @@ class CortePreparacionPage extends ConsumerWidget {
         _metrics(cut),
         const SizedBox(height: AppTheme.space4),
         LayoutBuilder(builder: (context, constraints) {
-          final expanded = Responsive.classify(constraints.maxWidth) ==
-              WindowSizeClass.expandido;
+          final expanded = Responsive.of(context) == WindowSizeClass.expandido;
           final includedPanel = _movementPanel(
             context,
             title: 'Movimientos incluidos',
@@ -241,7 +240,7 @@ class CortePreparacionPage extends ConsumerWidget {
               padding: const EdgeInsets.all(AppTheme.space6),
               child: Text(
                 included
-                    ? 'No hay movimientos incluidos en este corte demo.'
+                    ? 'No hay movimientos incluidos en este corte.'
                     : 'No hay exclusiones para mostrar.',
                 style: const TextStyle(color: AppTheme.muted),
               ),
@@ -330,7 +329,7 @@ class CortePreparacionPage extends ConsumerWidget {
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Confirmación demostrativa',
+                        Text('Confirmaciónstrativa',
                             style: TextStyle(fontWeight: FontWeight.w700)),
                         SizedBox(height: AppTheme.space1),
                         Text(
@@ -346,10 +345,10 @@ class CortePreparacionPage extends ConsumerWidget {
                 session,
                 cut,
                 action: 'generar',
-                title: 'Generar corte demo',
+                title: 'Generar corte',
                 description:
                     'El estado pasará a Abierto solo en esta maqueta; no se guardará en el backend.',
-                successMessage: 'Corte demo abierto.',
+                successMessage: 'Corte abierto.',
               ),
               icon: const Icon(Icons.check),
               label: const Text('Confirmar preparación'),
@@ -363,8 +362,8 @@ class CortePreparacionPage extends ConsumerWidget {
                 action: 'cancelar',
                 title: 'Cancelar corte',
                 description:
-                    'El corte demo quedará cancelado. En el backend se liberarían las reservas del periodo.',
-                successMessage: 'Corte demo cancelado.',
+                    'El corte quedará cancelado. En el backend se liberarían las reservas del periodo.',
+                successMessage: 'Corte cancelado.',
               ),
               icon: const Icon(Icons.close),
               label: const Text('Cancelar corte'),

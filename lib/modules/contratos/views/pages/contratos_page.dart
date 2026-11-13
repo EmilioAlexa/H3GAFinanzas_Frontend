@@ -73,7 +73,7 @@ class _ContratosPageState extends ConsumerState<ContratosPage> {
                   icon: Icons.description_outlined,
                   title: 'Contratos sin conectar',
                   message:
-                      'La vista se conectará con la API en la etapa B4. No se muestran registros ficticios en modo real.',
+                      'La vista se conectará con la API en la etapa B4. No se muestran registros  en modo real.',
                 )
               : _content(context, contracts),
         );
@@ -105,7 +105,7 @@ class _ContratosPageState extends ConsumerState<ContratosPage> {
           if (AppEnv.demoMode) ...[
             const AppNotice(
               text:
-                  'Muestra de Figma: folios, estados y relaciones son datos ficticios. El API solo permite buscar por folio; en demo también se busca por cliente.',
+                  'folios, estados y relaciones son datos . El API solo permite buscar por folio; en también se busca por cliente.',
             ),
             const SizedBox(height: AppTheme.space4),
           ],
@@ -198,7 +198,7 @@ class _ContratosPageState extends ConsumerState<ContratosPage> {
                 onRowTap: (item) => context.go('/contratos/${item.id}'),
               ),
             const Divider(height: AppTheme.space6),
-            Text('Mostrando ${contracts.length} registros de demostración'),
+            Text('Mostrando ${contracts.length} registros'),
           ],
         ),
       );

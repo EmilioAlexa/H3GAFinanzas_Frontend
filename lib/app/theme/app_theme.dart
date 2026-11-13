@@ -208,20 +208,88 @@ abstract final class AppTheme {
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: secondaryDark,
-          foregroundColor: white,
-          minimumSize: const Size(48, 48),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(radiusField),
+        style: ButtonStyle(
+          backgroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.disabled)) {
+              return secondaryDark.withValues(alpha: .48);
+            }
+            if (states.contains(WidgetState.pressed)) return secondaryDark;
+            if (states.contains(WidgetState.hovered)) return secondaryHover;
+            return secondaryDark;
+          }),
+          foregroundColor: const WidgetStatePropertyAll(white),
+          overlayColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.focused)) {
+              return secondary.withValues(alpha: .22);
+            }
+            return Colors.transparent;
+          }),
+          elevation: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.pressed)) return 1;
+            if (states.contains(WidgetState.hovered)) return 5;
+            return 2;
+          }),
+          shadowColor: const WidgetStatePropertyAll(Color(0x382C5761)),
+          minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
+          padding: const WidgetStatePropertyAll(
+            EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           ),
-          textStyle: const TextStyle(fontWeight: FontWeight.w600),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(radiusField),
+            ),
+          ),
+          textStyle: const WidgetStatePropertyAll(
+            TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+          animationDuration: const Duration(milliseconds: 150),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: ButtonStyle(
+          backgroundColor: WidgetStateProperty.resolveWith((states) =>
+              states.contains(WidgetState.hovered) ? secondarySoft : surface),
+          foregroundColor: WidgetStateProperty.resolveWith((states) =>
+              states.contains(WidgetState.hovered) ? secondaryHover : accent),
+          side: WidgetStateProperty.resolveWith((states) => BorderSide(
+                color: states.contains(WidgetState.hovered)
+                    ? secondaryDark
+                    : lineStrong,
+              )),
+          overlayColor: const WidgetStatePropertyAll(Color(0x0A4ECAD4)),
+          minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
+          padding: const WidgetStatePropertyAll(
+            EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          ),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(radiusField),
+            ),
+          ),
+          textStyle: const WidgetStatePropertyAll(
+            TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+          animationDuration: const Duration(milliseconds: 150),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(
-          foregroundColor: secondaryDark,
-          minimumSize: const Size(48, 48),
+        style: ButtonStyle(
+          foregroundColor: WidgetStateProperty.resolveWith((states) =>
+              states.contains(WidgetState.hovered)
+                  ? secondaryHover
+                  : secondaryDark),
+          backgroundColor: WidgetStateProperty.resolveWith((states) =>
+              states.contains(WidgetState.hovered)
+                  ? accentSoft
+                  : Colors.transparent),
+          minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
+          padding: const WidgetStatePropertyAll(
+            EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          ),
+          textStyle: const WidgetStatePropertyAll(
+            TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+          animationDuration: const Duration(milliseconds: 150),
         ),
       ),
       progressIndicatorTheme: const ProgressIndicatorThemeData(

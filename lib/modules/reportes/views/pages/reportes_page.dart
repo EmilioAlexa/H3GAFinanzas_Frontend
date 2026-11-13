@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_theme.dart';
-import '../../../../core/demo/demo_mode_banner.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/responsive/window_size_class.dart';
 import '../../../../core/utils/money_formatter.dart';
@@ -78,13 +77,6 @@ class _ReportOverview extends ConsumerWidget {
           description:
               'Información calculada para consulta y toma de decisiones.',
         ),
-        const DemoModeBanner(),
-        const SizedBox(height: AppTheme.space3),
-        const AppNotice(
-          type: AppNoticeType.warning,
-          text:
-              'Cifras de demostración. Los filtros son ilustrativos y no representan datos financieros reales.',
-        ),
         const SizedBox(height: AppTheme.space4),
         _ReportFilters(reportType: null, filters: filters),
         const SizedBox(height: AppTheme.space4),
@@ -94,19 +86,19 @@ class _ReportOverview extends ConsumerWidget {
               label:
                   'Ingresos validados · ${filters.granularity.toLowerCase()}',
               value: _compactMoney(income.total),
-              detail: 'Últimas 8 semanas (demo)',
+              detail: 'Últimas 8 semanas',
               icon: Icons.show_chart_outlined,
             ),
             AppMetricCard(
               label: 'Variación',
               value:
                   '${variation >= Decimal.zero ? '+' : ''}${variation.toStringAsFixed(1)}%',
-              detail: 'vs. periodo anterior (demo)',
+              detail: 'vs. periodo anterior',
               icon: Icons.trending_up,
               tone: AppMetricTone.info,
             ),
             AppMetricCard(
-              label: 'Pagos al IMSS (muestra)',
+              label: 'Pagos al IMSS',
               value: MoneyFormatter.format(imss.total),
               detail: 'M10, M40 y M40 Retroactiva',
               icon: Icons.access_time,
@@ -115,7 +107,7 @@ class _ReportOverview extends ConsumerWidget {
             AppMetricCard(
               label: 'Comisiones a personas',
               value: MoneyFormatter.format(_personalCommissions(commissions)),
-              detail: 'Solo muestra ficticia',
+              detail: 'Periodo actual',
               icon: Icons.work_outline,
               tone: AppMetricTone.accent,
             ),
@@ -145,7 +137,7 @@ class _ReportOverview extends ConsumerWidget {
           final chart = _panel(
             context,
             title: 'Ingresos validados por periodo',
-            subtitle: '${filters.granularity} · pagos validados · muestra',
+            subtitle: '${filters.granularity} · pagos validados',
             child: _incomeChart(
               context,
               income,
@@ -156,7 +148,7 @@ class _ReportOverview extends ConsumerWidget {
           final service = _panel(
             context,
             title: 'Distribución por servicio',
-            subtitle: 'Ingresos de la muestra',
+            subtitle: 'Ingresos del periodo',
             child: _serviceChart(context, income),
           );
           if (!Responsive.isExpanded(constraints.maxWidth)) {
@@ -203,16 +195,9 @@ class _ReportDetail extends ConsumerWidget {
           ),
         ),
         AppPageHeader(
-          eyebrow: 'Análisis financiero · demostración',
+          eyebrow: 'Análisis financiero',
           title: report.type.title,
           description: report.type.description,
-        ),
-        const DemoModeBanner(),
-        const SizedBox(height: AppTheme.space3),
-        const AppNotice(
-          type: AppNoticeType.warning,
-          text:
-              'Los importes son ficticios. Al integrar B10, los resultados vendrán de pagos y comisiones del backend.',
         ),
         const SizedBox(height: AppTheme.space4),
         _ReportFilters(reportType: report.type, filters: filters),
@@ -221,7 +206,7 @@ class _ReportDetail extends ConsumerWidget {
           final metric = AppMetricCard(
             label: _totalLabel(report.type),
             value: MoneyFormatter.format(total),
-            detail: '${rows.length} filas visibles · demo',
+            detail: '${rows.length} filas visibles',
             icon: report.type.icon,
           );
           final variation = AppMetricCard(
@@ -251,7 +236,7 @@ class _ReportDetail extends ConsumerWidget {
           _panel(
             context,
             title: 'Ingresos validados por periodo',
-            subtitle: 'Totales de muestra · solo pagos validados',
+            subtitle: 'Totales  · solo pagos validados',
             child: _incomeChart(
               context,
               report,
@@ -386,8 +371,7 @@ class _ReportFilters extends ConsumerWidget {
               onPressed: () {
                 controller.apply();
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text('Filtros aplicados a la vista demo.')),
+                  const SnackBar(content: Text('Filtros aplicados.')),
                 );
               },
               icon: const Icon(Icons.tune),
@@ -397,11 +381,6 @@ class _ReportFilters extends ConsumerWidget {
         ),
         if (filters.applied) ...[
           const SizedBox(height: AppTheme.space2),
-          const AppNotice(
-            type: AppNoticeType.success,
-            text:
-                'Filtros aplicados. Las cifras visibles siguen siendo fixtures de demostración.',
-          ),
         ],
         if (reportType == null)
           Padding(
@@ -550,7 +529,7 @@ Widget _detailTable(
       rows: rows,
       columns: columns,
       compactCardBuilder: (context, row) => _rowCard(context, type, row),
-      emptyTitle: 'Sin resultados demo',
+      emptyTitle: 'Sin resultados',
       emptyMessage: 'No hay registros para los filtros seleccionados.',
     ),
   );
@@ -593,7 +572,7 @@ Widget _incomeChart(BuildContext context, ReportDataModel report, bool compare,
       1.2;
   return Semantics(
     label:
-        'Ingresos de muestra por periodo: ${points.map((point) => '${point.label}, ${MoneyFormatter.format(point.amount)}').join('; ')}',
+        'Ingresos  por periodo: ${points.map((point) => '${point.label}, ${MoneyFormatter.format(point.amount)}').join('; ')}',
     child: SizedBox(
       height: 240,
       child: LineChart(
@@ -710,9 +689,9 @@ Widget _commissionStrip(BuildContext context, ReportDataModel report) => _panel(
       context,
       title: 'Distribución por destino',
       subtitle:
-          '${report.rows.length} destinos · ${MoneyFormatter.format(report.total)} · muestra demo',
+          '${report.rows.length} destinos · ${MoneyFormatter.format(report.total)}',
       child: LayoutBuilder(builder: (context, constraints) {
-        final size = Responsive.classify(constraints.maxWidth);
+        final size = Responsive.of(context);
         final columns = switch (size) {
           WindowSizeClass.compacto => 2,
           WindowSizeClass.medio => 3,
@@ -759,7 +738,11 @@ Widget _commissionStrip(BuildContext context, ReportDataModel report) => _panel(
 
 Widget _reportLinks(BuildContext context, List<ReportDataModel> reports) =>
     LayoutBuilder(builder: (context, constraints) {
-      final columns = Responsive.usesDenseLayout(constraints.maxWidth) ? 1 : 2;
+      final columns = Responsive.usesDenseLayout(
+        MediaQuery.sizeOf(context).width,
+      )
+          ? 1
+          : 2;
       final width = columns == 1
           ? constraints.maxWidth
           : (constraints.maxWidth - AppTheme.space3) / 2;

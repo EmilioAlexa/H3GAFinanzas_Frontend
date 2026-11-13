@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../app/config/env.dart';
 import '../../app/theme/app_theme.dart';
 import '../../modules/auth/auth.dart';
-import '../demo/demo_mode_banner.dart';
 import '../responsive/responsive.dart';
 import '../responsive/window_size_class.dart';
 import 'shell_item.dart';
@@ -117,7 +116,6 @@ class AppShell extends ConsumerWidget {
                 child: Column(children: [
                   if (size != WindowSizeClass.compacto)
                     _desktopTopBar(context, ref, session),
-                  if (AppEnv.demoMode) const DemoModeBanner(),
                   Expanded(child: child),
                 ]),
               ),
@@ -515,7 +513,7 @@ class AppShell extends ConsumerWidget {
             ),
             if (AppEnv.demoMode)
               PopupMenuButton<UserRole>(
-                tooltip: 'Cambiar perfil de demostración',
+                tooltip: 'Cambiar perfil',
                 icon: Icon(
                   Icons.expand_more,
                   color: AppTheme.white.withValues(alpha: .68),
@@ -589,13 +587,13 @@ class AppShell extends ConsumerWidget {
           children: [
             Text(user.name,
                 style: const TextStyle(fontWeight: FontWeight.w700)),
-            Text('Perfil de demostración · $roleText',
+            Text(roleText,
                 style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
           ],
         ),
         if (AppEnv.demoMode)
           PopupMenuButton<UserRole>(
-            tooltip: 'Cambiar perfil de demostración',
+            tooltip: 'Cambiar perfil',
             onSelected: (role) =>
                 ref.read(authControllerProvider.notifier).changeDemoRole(role),
             itemBuilder: (context) => const [

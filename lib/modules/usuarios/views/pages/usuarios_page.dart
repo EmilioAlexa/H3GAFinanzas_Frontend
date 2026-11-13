@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../app/theme/app_theme.dart';
-import '../../../../core/demo/demo_mode_banner.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_data_column.dart';
@@ -43,7 +42,7 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
         icon: Icons.link_off_outlined,
         title: 'Usuarios sin conectar',
         message:
-            'El listado y las acciones están maquetados en modo demostración. La conexión a /api/usuarios se realizará en B2.',
+            'El listado y las acciones están maquetados en modo . La conexión a /api/usuarios se realizará en B2.',
       );
     }
     final usersState = ref.watch(usuariosControllerProvider);
@@ -106,12 +105,9 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
               ),
             ],
           ),
-          const DemoModeBanner(),
-          const SizedBox(height: AppTheme.space4),
           const AppNotice(
             type: AppNoticeType.warning,
-            text:
-                'Usuarios, roles y cambios de estado son una demostración local. No se envían solicitudes al backend.',
+            text: '',
           ),
           const SizedBox(height: AppTheme.space4),
           LayoutBuilder(builder: (context, constraints) {
@@ -119,7 +115,7 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
               AppMetricCard(
                 label: 'Usuarios activos',
                 value: '$active',
-                detail: 'Con acceso al sistema · demo',
+                detail: 'Con acceso al sistema',
                 icon: Icons.people_outline,
               ),
               AppMetricCard(
@@ -132,7 +128,7 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
               AppMetricCard(
                 label: 'Total de usuarios',
                 value: '${users.length}',
-                detail: '$admins perfiles administrativos · demo',
+                detail: '$admins perfiles administrativos',
                 icon: Icons.settings_outlined,
                 tone: AppMetricTone.info,
               ),
@@ -306,11 +302,6 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
                   value: (user) => _statusBadge(user.activo),
                 ),
                 AppDataColumn(
-                  label: 'Último acceso · demo',
-                  showOnMedium: false,
-                  value: (user) => Text(user.ultimoAccesoDemo ?? '—'),
-                ),
-                AppDataColumn(
                   label: 'Acciones',
                   value: (user) => _actionsMenu(user, repository, allUsers),
                 ),
@@ -339,12 +330,6 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
                             Chip(label: Text(user.rolNombre)),
                             _statusBadge(user.activo),
                           ]),
-                      Text(
-                          'Último acceso · demo: ${user.ultimoAccesoDemo ?? '—'}',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(color: AppTheme.muted)),
                     ]),
               ),
             ),
@@ -362,11 +347,12 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
         Flexible(
           child:
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(user.nombreCompleto,
-                style: const TextStyle(fontWeight: FontWeight.w700)),
-            if (user.rolId == 'demo-role-asesor')
-              const Text('Perfil de asesor',
-                  style: TextStyle(color: AppTheme.muted, fontSize: 12)),
+            Text(
+              user.nombreCompleto,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
           ]),
         ),
       ]);
@@ -427,11 +413,6 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
       'Usuarios y accesos': [true, false, false],
     };
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      const AppNotice(
-        type: AppNoticeType.info,
-        text:
-            'Matriz ilustrativa de Figma. El backend determina los permisos efectivos; esta tabla no procede de un endpoint.',
-      ),
       const SizedBox(height: AppTheme.space3),
       Card(
           child: SingleChildScrollView(
@@ -501,16 +482,10 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
                   _detailLine('Correo electrónico', user.correo),
                   _detailLine('Rol', user.rolNombre),
                   _detailLine(
-                      'Último acceso · demo', user.ultimoAccesoDemo ?? '—'),
-                  _detailLine(
                       'Fecha de creación',
                       DateFormat('dd/MM/yyyy', 'es_MX')
                           .format(user.fechaCreacion)),
                   const SizedBox(height: AppTheme.space3),
-                  const AppNotice(
-                      type: AppNoticeType.info,
-                      text:
-                          'El detalle de nombre, correo, estado, rol y fecha de creación sigue el DTO. “Último acceso” es una muestra ficticia.'),
                   const SizedBox(height: AppTheme.space4),
                   Wrap(
                       alignment: WrapAlignment.end,
@@ -622,10 +597,6 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
                           ),
                         ],
                         const SizedBox(height: AppTheme.space3),
-                        const AppNotice(
-                            type: AppNoticeType.info,
-                            text:
-                                'Cambios ficticios guardados únicamente en esta sesión de demostración.'),
                       ]),
                     )),
                   ),
@@ -669,8 +640,7 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
                                   if (createdUser != null) {
                                     await _showCreateSuccess(createdUser!);
                                   } else {
-                                    _message(
-                                        'Datos actualizados en la muestra demo.');
+                                    _message('Datos actualizados.');
                                   }
                                 }
                               } catch (error) {
@@ -754,11 +724,6 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppTheme.space4),
-            const AppNotice(
-              type: AppNoticeType.info,
-              text:
-                  'Alta ficticia, guardada solo en esta sesión de demostración.',
-            ),
           ]),
           actions: [
             SizedBox(
@@ -803,7 +768,7 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
                       const AppNotice(
                           type: AppNoticeType.warning,
                           text:
-                              'Acción de demostración; la API también impide cambiar el rol propio.'),
+                              'Acción; la API también impide cambiar el rol propio.'),
                     ]),
                 actions: [
                   TextButton(
@@ -819,7 +784,7 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
     await ref
         .read(usuariosControllerProvider.notifier)
         .changeRoleDemo(user.id, next);
-    if (mounted) _message('Rol actualizado en la muestra demo.');
+    if (mounted) _message('Rol actualizado.');
   }
 
   Future<void> _showStatusDialog(UsuarioModel user) async {
@@ -835,8 +800,8 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
               Text('${user.nombreCompleto} · ${user.correo}'),
               const SizedBox(height: AppTheme.space3),
               Text(active
-                  ? 'El perfil volverá a aparecer como activo en esta muestra.'
-                  : 'El perfil aparecerá suspendido y sin acceso en esta muestra.'),
+                  ? 'El perfil recuperará el acceso al sistema.'
+                  : 'El perfil perderá acceso al sistema.'),
               const SizedBox(height: AppTheme.space3),
               const AppNotice(
                   type: AppNoticeType.warning,
@@ -864,9 +829,7 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
         .read(usuariosControllerProvider.notifier)
         .changeStatusDemo(user.id, active);
     if (mounted) {
-      _message(active
-          ? 'Usuario activado en la muestra demo.'
-          : 'Usuario suspendido en la muestra demo.');
+      _message(active ? 'Usuario activado.' : 'Usuario suspendido.');
     }
   }
 

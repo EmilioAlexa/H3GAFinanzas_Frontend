@@ -26,7 +26,7 @@ class AppMetricCard extends StatelessWidget {
       AppMetricTone.accent => AppTheme.primary,
     };
     return Container(
-      padding: const EdgeInsets.all(AppTheme.space5),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppTheme.surface,
         borderRadius: BorderRadius.circular(AppTheme.radius),
@@ -43,6 +43,7 @@ class AppMetricCard extends StatelessWidget {
                   label,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         color: AppTheme.muted,
+                        fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
                 ),
@@ -54,8 +55,8 @@ class AppMetricCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(AppTheme.radiusField),
                   ),
                   child: SizedBox(
-                    width: 44,
-                    height: 44,
+                    width: 32,
+                    height: 32,
                     child: Icon(icon, color: AppTheme.primary),
                   ),
                 ),
@@ -67,6 +68,7 @@ class AppMetricCard extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontSize: 20,
                   color: AppTheme.ink,
                   fontWeight: FontWeight.w700,
                 ),

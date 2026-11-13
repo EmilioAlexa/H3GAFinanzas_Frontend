@@ -130,7 +130,7 @@ Future<void> main() async {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Crear contrato'), findsOneWidget);
+    expect(find.text('Crear contrato'), findsNWidgets(2));
     expect(find.text('Folio'), findsOneWidget);
     expect(find.text('Cliente'), findsOneWidget);
     expect(find.text('Servicio'), findsOneWidget);

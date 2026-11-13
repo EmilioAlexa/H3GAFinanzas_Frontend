@@ -81,8 +81,8 @@ class _ComisionConfiguracionPageState
         if (state == null || payment == null) {
           return const AppStatePanel(
             icon: Icons.search_off_outlined,
-            title: 'Contrato sin configuración demo',
-            message: 'No hay una configuración de muestra para este contrato.',
+            title: 'Contrato sin configuración',
+            message: 'No hay una configuración  para este contrato.',
           );
         }
         if (_initializedContract != payment.contractId) {
@@ -135,7 +135,7 @@ class _ComisionConfiguracionPageState
         ),
         const AppNotice(
           text:
-              'Empresa se calcula como remanente y no se captura. Los receptores se seleccionan del catálogo demo; sus IDs deben reemplazarse por los del backend.',
+              'Empresa se calcula como remanente y no se captura. Los receptores se seleccionan del catálogo; sus IDs deben reemplazarse por los del backend.',
         ),
         const SizedBox(height: AppTheme.space4),
         _section(context, 'Distribución del pago de referencia', [
@@ -222,7 +222,7 @@ class _ComisionConfiguracionPageState
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.save_outlined),
-            label: const Text('Guardar configuración demo'),
+            label: const Text('Guardar configuración'),
           ),
         ]),
         const SizedBox(height: AppTheme.space4),
@@ -232,7 +232,7 @@ class _ComisionConfiguracionPageState
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.history),
               title: Text(entry),
-              subtitle: const Text('Registro local de demostración'),
+              subtitle: const Text('Registro local'),
             ),
         ]),
       ]),
@@ -391,7 +391,7 @@ class _ComisionConfiguracionPageState
       builder: (context) => AlertDialog(
         title: const Text('Quitar comisión'),
         content: Text(
-            'Se eliminará ${line.concept} de la configuración demo. Se guardará el listado completo actualizado.'),
+            'Se eliminará ${line.concept} de la configuración. Se guardará el listado completo actualizado.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -434,14 +434,14 @@ class _ComisionConfiguracionPageState
           .saveConfigurationDemo(
             contractId: contractId,
             lines: List.unmodifiable(_draft),
-            actor: ref.read(authControllerProvider).valueOrNull?.name ??
-                'Usuario demo',
+            actor:
+                ref.read(authControllerProvider).valueOrNull?.name ?? 'Usuario',
           );
       if (mounted) {
         setState(() => _saving = false);
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text(
-                'Configuración demo guardada; los snapshots previos no cambiaron.')));
+                'Configuración guardada; los snapshots previos no cambiaron.')));
       }
     } on StateError catch (error) {
       if (mounted) {

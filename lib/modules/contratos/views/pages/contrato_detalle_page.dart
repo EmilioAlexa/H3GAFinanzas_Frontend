@@ -65,8 +65,7 @@ class ContratoDetallePage extends ConsumerWidget {
               return const AppStatePanel(
                 icon: Icons.search_off_outlined,
                 title: 'Contrato no disponible',
-                message:
-                    'No existe en la muestra o está fuera del alcance de esta sesión.',
+                message: '',
               );
             }
             return _content(context, contract, session.role);

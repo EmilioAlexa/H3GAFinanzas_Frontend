@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../app/theme/app_theme.dart';
 import '../responsive/responsive.dart';
+import '../responsive/window_size_class.dart';
 
 class AppPageHeader extends StatelessWidget {
   const AppPageHeader({
@@ -20,8 +21,8 @@ class AppPageHeader extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: AppTheme.space6),
         child: LayoutBuilder(
-          builder: (context, constraints) {
-            final compact = Responsive.isCompact(constraints.maxWidth);
+          builder: (context, _) {
+            final compact = Responsive.of(context) == WindowSizeClass.compacto;
             final heading = Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

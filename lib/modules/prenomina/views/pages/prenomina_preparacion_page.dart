@@ -27,7 +27,7 @@ class PrenominaPreparacionPage extends ConsumerStatefulWidget {
 class _PrenominaPreparacionPageState
     extends ConsumerState<PrenominaPreparacionPage> {
   final _observations = TextEditingController();
-  String _selectedState = 'En preparación (demo)';
+  String _selectedState = 'En preparación';
 
   @override
   void dispose() {
@@ -200,13 +200,13 @@ class _PrenominaPreparacionPageState
           const SizedBox(height: AppTheme.space2),
           const AppNotice(
             text:
-                'Los estados y el resultado de este formulario son de demostración. En backend debe elegirse un estado real de estados_prenomina.',
+                'Los estados y el resultado de este formulario son. En backend debe elegirse un estado real de estados_prenomina.',
           ),
           const SizedBox(height: AppTheme.space3),
           DropdownButtonFormField<String>(
             initialValue: _selectedState,
             decoration: const InputDecoration(labelText: 'Estado de ejemplo'),
-            items: const ['En preparación (demo)', 'Preparada (demo)']
+            items: const ['En preparación', 'Preparada']
                 .map((value) =>
                     DropdownMenuItem(value: value, child: Text(value)))
                 .toList(),
@@ -232,9 +232,8 @@ class _PrenominaPreparacionPageState
             child: FilledButton.icon(
               onPressed: generated ? null : _confirmGeneration,
               icon: const Icon(Icons.playlist_add_check),
-              label: Text(generated
-                  ? 'Prenómina demo generada'
-                  : 'Generar prenómina demo'),
+              label:
+                  Text(generated ? 'Prenómina generada' : 'Generar prenómina'),
             ),
           ),
         ]),
@@ -244,9 +243,9 @@ class _PrenominaPreparacionPageState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Generar prenómina de demostración'),
+        title: const Text('Generar prenómina'),
         content: Text(
-            'Se actualizarán los movimientos solo en esta sesión local. Estado: $_selectedState.'),
+            '¿Confirmas generar la prenómina con estado $_selectedState?'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -261,7 +260,7 @@ class _PrenominaPreparacionPageState
     try {
       ref.read(prenominaControllerProvider.notifier).generateDemo(widget.cutId);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Prenómina demo generada en memoria.')),
+        const SnackBar(content: Text('Prenómina generada en memoria.')),
       );
     } on StateError catch (error) {
       ScaffoldMessenger.of(context)

@@ -76,7 +76,7 @@ class ValidacionDetallePage extends ConsumerWidget {
         if (AppEnv.demoMode)
           const AppNotice(
             text:
-                'Las decisiones se aplican solo a los datos de demostración en memoria; no se modifica el backend.',
+                'Las decisiones se aplican solo a los datos en memoria; no se modifica el backend.',
           ),
         const SizedBox(height: AppTheme.space4),
         _section(context, 'Estado actual', [
@@ -145,7 +145,7 @@ class ValidacionDetallePage extends ConsumerWidget {
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.history),
                     title: Text(entry),
-                    subtitle: const Text('Movimiento de demostración'),
+                    subtitle: const Text('Movimiento'),
                   ))
               .toList(),
         ),
@@ -221,10 +221,10 @@ class ValidacionDetallePage extends ConsumerWidget {
           children: [
             Text(switch (action) {
               'rechazar' =>
-                'La decisión quedará registrada en el historial demo del pago.',
+                'La decisión quedará registrada en el historial del pago.',
               'enviar_a_autorizacion' =>
                 'El pago pasará a Pendiente de autorización.',
-              _ => 'El pago quedará como Validado en la demostración.',
+              _ => 'El pago quedará como Validado en la .',
             }),
             const SizedBox(height: AppTheme.space3),
             TextField(
@@ -265,8 +265,7 @@ class ValidacionDetallePage extends ConsumerWidget {
           );
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Estado actualizado en la demostración.')),
+          const SnackBar(content: Text('Estado actualizado en la .')),
         );
       }
     } on StateError catch (error) {

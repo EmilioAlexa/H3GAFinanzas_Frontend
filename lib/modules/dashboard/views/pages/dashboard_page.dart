@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:decimal/decimal.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
@@ -6,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../app/theme/app_theme.dart';
+import '../../../../core/platform/file_platform_factory.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/responsive/window_size_class.dart';
 import '../../../../core/utils/money_formatter.dart';
@@ -46,7 +50,7 @@ class DashboardPage extends ConsumerWidget {
           error: (error, stackTrace) => AppStatePanel(
             icon: Icons.cloud_off_outlined,
             title: 'No se pudo cargar el Dashboard',
-            message: 'Inténtalo de nuevo. Los datos demo no se han modificado.',
+            message: 'Inténtalo de nuevo.',
             action: AppButton(
               label: 'Reintentar',
               variant: AppButtonVariant.secondary,
@@ -86,7 +90,7 @@ class DashboardPage extends ConsumerWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final size = Responsive.classify(constraints.maxWidth);
+        final size = Responsive.of(context);
         return SingleChildScrollView(
           padding: const EdgeInsets.all(AppTheme.space6),
           child: Column(
@@ -99,11 +103,16 @@ class DashboardPage extends ConsumerWidget {
                     ? 'Resumen de tus clientes y operaciones asignadas.'
                     : 'Este es el estado financiero y operativo de hoy.',
                 actions: [
+                  if (!model.isAdvisor)
+                    OutlinedButton.icon(
+                      onPressed: () => _exportDashboard(context, model),
+                      icon: const Icon(Icons.download_outlined),
+                      label: const Text('Exportar'),
+                    ),
                   ElevatedButton.icon(
-                    onPressed: () => context.go('/pagos'),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Registrar pago'),
-                  ),
+                      onPressed: () => context.go('/pagos'),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Registrar pago')),
                 ],
               ),
               _roleNotice(roleName),
@@ -162,11 +171,8 @@ class DashboardPage extends ConsumerWidget {
     double width,
     List<DashboardMetric> metrics,
   ) {
-    final size = Responsive.classify(width);
     final columns =
-        size == WindowSizeClass.expandido && !Responsive.usesDenseLayout(width)
-            ? 5
-            : 2;
+        Responsive.dashboardMetricColumns(MediaQuery.sizeOf(context).width);
     final gap = AppTheme.space3;
     final itemWidth = (width - gap * (columns - 1)) / columns;
     return Wrap(
@@ -186,6 +192,80 @@ class DashboardPage extends ConsumerWidget {
           ),
       ],
     );
+  }
+
+  Future<void> _exportDashboard(
+    BuildContext context,
+    DashboardModel model,
+  ) async {
+    final shouldExport = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Exportar'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DropdownButtonFormField<String>(
+              initialValue: 'CSV',
+              decoration: const InputDecoration(labelText: 'Formato'),
+              items: const [
+                DropdownMenuItem(value: 'CSV', child: Text('CSV')),
+              ],
+              onChanged: (_) {},
+            ),
+            const SizedBox(height: AppTheme.space3),
+            TextFormField(
+              initialValue: model.periodLabel,
+              readOnly: true,
+              decoration: const InputDecoration(labelText: 'Periodo'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Preparar exportación'),
+          ),
+        ],
+      ),
+    );
+    if (shouldExport != true || !context.mounted) return;
+
+    final csv = _dashboardCsv(model);
+    await createFilePlatform().downloadFile(
+      'resumen-financiero.csv',
+      Uint8List.fromList(utf8.encode('\uFEFF$csv')),
+    );
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Resumen descargado')),
+    );
+  }
+
+  String _dashboardCsv(DashboardModel model) {
+    String quote(String value) => '"${value.replaceAll('"', '""')}"';
+    final rows = <List<String>>[
+      ['Resumen financiero', model.periodLabel],
+      ['Indicador', 'Valor', 'Detalle'],
+      for (final metric in model.metrics)
+        [metric.label, metric.value, metric.detail],
+      if (model.totalValidated != null) ...[
+        ['Ingresos validados', MoneyFormatter.format(model.totalValidated!)],
+        ['Servicio', 'Importe', 'Porcentaje'],
+        for (final service in model.serviceBreakdown)
+          [
+            service.label,
+            MoneyFormatter.format(service.amount),
+            '${service.percentage.toString()}%',
+          ],
+      ],
+    ];
+    return rows.map((row) => row.map(quote).join(',')).join('\r\n');
   }
 
   IconData _metricIcon(DashboardMetricIcon icon) => switch (icon) {
@@ -415,7 +495,7 @@ class DashboardPage extends ConsumerWidget {
   }
 
   String _chartDescription(List<DashboardChartPoint> points) =>
-      'Ingresos semanales de demostración: ${points.map((point) => '${point.label}, ${MoneyFormatter.format(point.amount)}').join('; ')}.';
+      'Ingresos semanales: ${points.map((point) => '${point.label}, ${MoneyFormatter.format(point.amount)}').join('; ')}.';
 
   Widget _serviceLegend(
     BuildContext context,
@@ -600,7 +680,7 @@ class DashboardPage extends ConsumerWidget {
       _panel(
         context,
         title: 'Próximos cobros',
-        description: 'Siguientes 7 días · muestra de demostración',
+        description: 'Siguientes 7 días',
         action: TextButton.icon(
           onPressed: () => context.go('/pagos'),
           icon: const Icon(Icons.arrow_forward, size: 18),
@@ -681,7 +761,7 @@ class DashboardPage extends ConsumerWidget {
       _panel(
         context,
         title: 'Actividad reciente',
-        description: 'Últimos movimientos · muestra de demostración',
+        description: 'Últimos movimientos',
         action: TextButton.icon(
           onPressed: () => context.go('/pagos'),
           icon: const Icon(Icons.arrow_forward, size: 18),

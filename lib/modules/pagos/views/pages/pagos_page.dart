@@ -65,7 +65,7 @@ class _PagosPageState extends ConsumerState<PagosPage> {
               icon: Icons.link_off,
               title: 'Pagos sin conectar',
               message:
-                  'La integración con la API se realizará en B5. No se muestran registros ficticios en sesión real.')
+                  'La integración con la API se realizará en B5. No se muestran registros  en sesión real.')
           : _content(context, state.payments),
     );
   }
@@ -110,7 +110,7 @@ class _PagosPageState extends ConsumerState<PagosPage> {
         if (AppEnv.demoMode) ...[
           const AppNotice(
               text:
-                  'Datos de demostración. El registro y los archivos seleccionados se mantienen solo en memoria; no se envían al backend.'),
+                  'Datos. El registro y los archivos seleccionados se mantienen solo en memoria; no se envían al backend.'),
           const SizedBox(height: AppTheme.space4),
         ],
         _statusFilters(payments),
@@ -163,8 +163,7 @@ class _PagosPageState extends ConsumerState<PagosPage> {
         child:
             Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           LayoutBuilder(builder: (context, constraints) {
-            final compact = Responsive.classify(constraints.maxWidth) ==
-                WindowSizeClass.compacto;
+            final compact = Responsive.of(context) == WindowSizeClass.compacto;
             final search = TextField(
                 controller: _search,
                 onChanged: (v) => setState(() => _query = v),
@@ -207,8 +206,7 @@ class _PagosPageState extends ConsumerState<PagosPage> {
             const AppStatePanel(
                 icon: Icons.search_off_outlined,
                 title: 'No hay pagos para mostrar',
-                message:
-                    'Cambia los filtros o registra un pago de demostración.')
+                message: 'Cambia los filtros o registra un pago.')
           else
             AppResponsiveCollection<PagoModel>(
               rows: payments,
@@ -258,7 +256,7 @@ class _PagosPageState extends ConsumerState<PagosPage> {
               onRowTap: (p) => context.go('/pagos/${p.id}'),
             ),
           const Divider(height: AppTheme.space6),
-          Text('Mostrando ${payments.length} movimientos de demostración'),
+          Text('Mostrando ${payments.length} movimientos'),
         ]),
       );
 

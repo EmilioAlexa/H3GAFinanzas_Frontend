@@ -63,8 +63,7 @@ class ClienteDetallePage extends ConsumerWidget {
                   return const AppStatePanel(
                     icon: Icons.person_search_outlined,
                     title: 'Cliente no disponible',
-                    message:
-                        'No existe en la muestra o está fuera del alcance de esta sesión.',
+                    message: '',
                   );
                 }
                 return _page(context, matches.first, session.role);
@@ -120,9 +119,7 @@ class ClienteDetallePage extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            AppEnv.demoMode
-                                ? 'Cliente · Muestra Figma'
-                                : 'Cliente',
+                            'Cliente',
                             style: Theme.of(context)
                                 .textTheme
                                 .labelLarge
@@ -148,14 +145,14 @@ class ClienteDetallePage extends ConsumerWidget {
                             children: [
                               if (metadata != null)
                                 AppBadge(
-                                  label: '${metadata.status} · demo',
+                                  label: metadata.status,
                                   tone: metadata.status == 'Activo'
                                       ? AppBadgeTone.success
                                       : AppBadgeTone.warning,
                                 ),
                               if (metadata?.advisorName != null)
                                 Text(
-                                  'Asesor · demo: ${metadata!.advisorName}',
+                                  'Asesor: ${metadata!.advisorName}',
                                   style: Theme.of(context)
                                       .textTheme
                                       .bodySmall
@@ -241,7 +238,7 @@ class ClienteDetallePage extends ConsumerWidget {
   ) =>
       LayoutBuilder(
         builder: (context, constraints) {
-          final size = Responsive.classify(constraints.maxWidth);
+          final size = Responsive.of(context);
           final info = _informationCard(context, client, metadata);
           final references = _referencesCard(context, metadata);
           return SingleChildScrollView(
@@ -287,7 +284,7 @@ class ClienteDetallePage extends ConsumerWidget {
             _field('CURP', client.curp),
             _field('RFC', client.rfc),
             if (metadata?.service != null)
-              _field('Servicio · demo', metadata!.service),
+              _field('Servicio', metadata!.service),
           ],
         ),
       );
@@ -332,7 +329,7 @@ class ClienteDetallePage extends ConsumerWidget {
             const SizedBox(height: AppTheme.space4),
             _panel(
               context,
-              title: 'Asignación de demo',
+              title: 'Asignación de',
               child: Text('Asesor de referencia: ${metadata!.advisorName}'),
             ),
           ],

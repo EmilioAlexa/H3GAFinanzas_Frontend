@@ -135,7 +135,7 @@ class _PagoProgramadoFormPageState
             FilledButton.icon(
                 onPressed: () => _save(session.role, contracts),
                 icon: const Icon(Icons.event_available),
-                label: const Text('Guardar programación demo')),
+                label: const Text('Guardar programación')),
           ]),
         ));
   }

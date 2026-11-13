@@ -107,7 +107,7 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
                 ]),
             const AppNotice(
                 text:
-                    'Este formulario es una demostración local. Al guardar no se crea un movimiento en el backend ni se suben los archivos.'),
+                    'Este formulario es una  local. Al guardar no se crea un movimiento en el backend ni se suben los archivos.'),
             const SizedBox(height: AppTheme.space4),
             _section(context, 'Datos del pago', [
               DropdownButtonFormField<String>(
@@ -198,10 +198,10 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
                     items: const [
                       DropdownMenuItem(
                           value: '00000000-0000-4000-8000-000000000001',
-                          child: Text('Mariana López (demo)')),
+                          child: Text('Mariana López')),
                       DropdownMenuItem(
                           value: '00000000-0000-4000-8000-000000000002',
-                          child: Text('Ricardo Pérez (demo)')),
+                          child: Text('Ricardo Pérez')),
                     ],
                     onChanged: (value) => setState(() => _receivedById = value),
                     validator: (value) => value == null
@@ -237,7 +237,7 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
                     leading: const Icon(Icons.description_outlined),
                     title: Text(file.name),
                     subtitle: Text(
-                        '${(file.bytes.lengthInBytes / 1024).ceil()} KB · solo local'),
+                        '${(file.bytes.lengthInBytes / 1024).ceil()} KB'),
                     trailing: IconButton(
                         tooltip: 'Quitar archivo',
                         icon: const Icon(Icons.close),
@@ -253,7 +253,7 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
                         height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.save),
-                label: const Text('Registrar pago de demostración')),
+                label: const Text('Registrar pago')),
           ]),
         ));
   }
