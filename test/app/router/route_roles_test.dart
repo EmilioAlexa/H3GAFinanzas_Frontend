@@ -29,4 +29,17 @@ void main() {
     expect(allowedRolesForLocation('/validacion'), management);
     expect(allowedRolesForLocation('/validacion/demo-payment-1'), management);
   });
+
+  test('commission configuration and receiver management are restricted', () {
+    const management = {
+      UserRole.administrador,
+      UserRole.administradorFinanciero,
+    };
+    expect(allowedRolesForLocation('/comisiones/receptores'), management);
+    expect(
+      allowedRolesForLocation('/comisiones/contratos/demo/configuracion'),
+      management,
+    );
+    expect(allowedRolesForLocation('/comisiones/demo-payment'), isEmpty);
+  });
 }

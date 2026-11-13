@@ -131,6 +131,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const comisiones.ComisionesPage(),
           ),
           GoRoute(
+            path: '/comisiones/receptores',
+            builder: (context, state) => const comisiones.ReceptoresPage(),
+          ),
+          GoRoute(
+            path: '/comisiones/contratos/:id/configuracion',
+            builder: (context, state) => comisiones.ComisionConfiguracionPage(
+              contractId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
+            path: '/comisiones/:id',
+            builder: (context, state) => comisiones.ComisionDetallePage(
+              paymentId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
             path: '/cortes',
             builder: (context, state) => const cortes.CortesPage(),
           ),
