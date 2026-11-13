@@ -42,4 +42,14 @@ void main() {
     );
     expect(allowedRolesForLocation('/comisiones/demo-payment'), isEmpty);
   });
+
+  test('all cut screens require management roles', () {
+    const management = {
+      UserRole.administrador,
+      UserRole.administradorFinanciero,
+    };
+    expect(allowedRolesForLocation('/cortes'), management);
+    expect(allowedRolesForLocation('/cortes/demo-cut'), management);
+    expect(allowedRolesForLocation('/cortes/demo-cut/preparacion'), management);
+  });
 }

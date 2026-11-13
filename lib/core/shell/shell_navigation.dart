@@ -23,6 +23,30 @@ const shellItems = <ShellItem>[
     section: ShellSection.general,
   ),
   ShellItem(
+    label: 'Modalidad 10',
+    path: '/servicios/m10',
+    icon: Icons.calendar_month_outlined,
+    section: ShellSection.seguimiento,
+  ),
+  ShellItem(
+    label: 'Modalidad 40',
+    path: '/servicios/m40',
+    icon: Icons.calendar_month_outlined,
+    section: ShellSection.seguimiento,
+  ),
+  ShellItem(
+    label: 'M40 Retroactiva',
+    path: '/servicios/m40-retroactiva',
+    icon: Icons.access_time,
+    section: ShellSection.seguimiento,
+  ),
+  ShellItem(
+    label: 'APD',
+    path: '/servicios/apd',
+    icon: Icons.business_center_outlined,
+    section: ShellSection.seguimiento,
+  ),
+  ShellItem(
     label: 'Contratos',
     path: '/contratos',
     icon: Icons.description_outlined,
