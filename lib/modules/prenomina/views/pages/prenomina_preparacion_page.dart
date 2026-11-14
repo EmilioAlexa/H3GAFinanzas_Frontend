@@ -7,7 +7,6 @@ import '../../../../app/theme/app_theme.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_metric_card.dart';
-import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_state_panel.dart';
 import '../../controllers/prenomina_controller.dart';
@@ -27,7 +26,7 @@ class PrenominaPreparacionPage extends ConsumerStatefulWidget {
 class _PrenominaPreparacionPageState
     extends ConsumerState<PrenominaPreparacionPage> {
   final _observations = TextEditingController();
-  String _selectedState = 'En preparación (demo)';
+  String _selectedState = 'En preparación';
 
   @override
   void dispose() {
@@ -59,9 +58,8 @@ class _PrenominaPreparacionPageState
         if (allItems == null) {
           return const AppStatePanel(
             icon: Icons.link_off_outlined,
-            title: 'Preparación sin conectar',
-            message:
-                'La vista previa GET /cortes/{corteId}/prenomina/preparacion se integrará en B9.',
+            title: 'Preparación no disponible',
+            message: 'No fue posible cargar la preparación de prenómina.',
           );
         }
         final items =
@@ -86,12 +84,6 @@ class _PrenominaPreparacionPageState
               title: 'Preparación de prenómina',
               description: cut.period,
             ),
-            const AppNotice(
-              type: AppNoticeType.warning,
-              text:
-                  'Vista previa ilustrativa. Solo se incluyen comisiones personales elegibles; IMSS, remanente de Empresa y comisiones ya ligadas se excluyen.',
-            ),
-            const SizedBox(height: AppTheme.space4),
             LayoutBuilder(builder: (context, constraints) {
               final cards = [
                 AppMetricCard(
@@ -198,15 +190,10 @@ class _PrenominaPreparacionPageState
           Text('Generar prenómina',
               style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: AppTheme.space2),
-          const AppNotice(
-            text:
-                'Los estados y el resultado de este formulario son de demostración. En backend debe elegirse un estado real de estados_prenomina.',
-          ),
-          const SizedBox(height: AppTheme.space3),
           DropdownButtonFormField<String>(
             initialValue: _selectedState,
             decoration: const InputDecoration(labelText: 'Estado de ejemplo'),
-            items: const ['En preparación (demo)', 'Preparada (demo)']
+            items: const ['En preparación', 'Preparada']
                 .map((value) =>
                     DropdownMenuItem(value: value, child: Text(value)))
                 .toList(),
@@ -232,9 +219,8 @@ class _PrenominaPreparacionPageState
             child: FilledButton.icon(
               onPressed: generated ? null : _confirmGeneration,
               icon: const Icon(Icons.playlist_add_check),
-              label: Text(generated
-                  ? 'Prenómina demo generada'
-                  : 'Generar prenómina demo'),
+              label:
+                  Text(generated ? 'Prenómina generada' : 'Generar prenómina'),
             ),
           ),
         ]),
@@ -244,9 +230,9 @@ class _PrenominaPreparacionPageState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Generar prenómina de demostración'),
-        content: Text(
-            'Se actualizarán los movimientos solo en esta sesión local. Estado: $_selectedState.'),
+        title: const Text('Generar prenómina'),
+        content:
+            Text('¿Confirmas generar la prenómina con estado $_selectedState?'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -261,7 +247,7 @@ class _PrenominaPreparacionPageState
     try {
       ref.read(prenominaControllerProvider.notifier).generateDemo(widget.cutId);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Prenómina demo generada en memoria.')),
+        const SnackBar(content: Text('Prenómina generada.')),
       );
     } on StateError catch (error) {
       ScaffoldMessenger.of(context)

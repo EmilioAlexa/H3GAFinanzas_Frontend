@@ -24,10 +24,38 @@ class AppButton extends StatelessWidget {
     final Widget button = switch (variant) {
       AppButtonVariant.secondary => OutlinedButton(
           onPressed: loading ? null : onPressed,
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppTheme.accent,
-            side: const BorderSide(color: AppTheme.lineStrong),
-            minimumSize: const Size(48, 48),
+          style: ButtonStyle(
+            backgroundColor: WidgetStateProperty.resolveWith((states) => loading
+                ? AppTheme.secondarySoft
+                : states.contains(WidgetState.disabled)
+                    ? AppTheme.surfaceSecondary
+                    : states.contains(WidgetState.hovered)
+                        ? AppTheme.secondarySoft
+                        : AppTheme.surface),
+            foregroundColor: WidgetStateProperty.resolveWith((states) => loading
+                ? AppTheme.secondaryDark
+                : states.contains(WidgetState.disabled)
+                    ? AppTheme.muted
+                    : states.contains(WidgetState.hovered)
+                        ? AppTheme.secondaryHover
+                        : AppTheme.accent),
+            side: WidgetStateProperty.resolveWith((states) => BorderSide(
+                  color: states.contains(WidgetState.disabled)
+                      ? AppTheme.lineStrong
+                      : states.contains(WidgetState.hovered)
+                          ? AppTheme.secondaryDark
+                          : AppTheme.lineStrong,
+                )),
+            minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
+            padding: const WidgetStatePropertyAll(
+              EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+            shape: WidgetStatePropertyAll(
+              RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusField),
+              ),
+            ),
+            animationDuration: const Duration(milliseconds: 150),
           ),
           child: _content(context),
         ),
@@ -36,22 +64,65 @@ class AppButton extends StatelessWidget {
       AppButtonVariant.gold =>
         ElevatedButton(
           onPressed: loading ? null : onPressed,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: switch (variant) {
-              AppButtonVariant.danger => AppTheme.danger,
-              AppButtonVariant.gold => AppTheme.gold,
-              _ => AppTheme.secondaryDark,
-            },
-            foregroundColor: variant == AppButtonVariant.gold
-                ? AppTheme.black
-                : AppTheme.white,
-            minimumSize: const Size(48, 54),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(
-                variant == AppButtonVariant.gold ? 6 : 9,
+          style: ButtonStyle(
+            backgroundColor: WidgetStateProperty.resolveWith((states) {
+              if (loading) {
+                return switch (variant) {
+                  AppButtonVariant.danger => AppTheme.danger,
+                  AppButtonVariant.gold => AppTheme.goldHover,
+                  _ => AppTheme.secondaryHover,
+                };
+              }
+              if (states.contains(WidgetState.disabled)) {
+                return AppTheme.surfaceSecondary;
+              }
+              if (states.contains(WidgetState.hovered)) {
+                return switch (variant) {
+                  AppButtonVariant.danger => const Color(0xFF96223A),
+                  AppButtonVariant.gold => AppTheme.goldHover,
+                  _ => AppTheme.secondaryHover,
+                };
+              }
+              return switch (variant) {
+                AppButtonVariant.danger => AppTheme.danger,
+                AppButtonVariant.gold => AppTheme.gold,
+                _ => AppTheme.secondaryDark,
+              };
+            }),
+            foregroundColor: WidgetStateProperty.resolveWith((states) {
+              if (loading) {
+                return variant == AppButtonVariant.gold
+                    ? AppTheme.black
+                    : AppTheme.white;
+              }
+              if (states.contains(WidgetState.disabled)) return AppTheme.muted;
+              return variant == AppButtonVariant.gold
+                  ? AppTheme.black
+                  : AppTheme.white;
+            }),
+            side: WidgetStateProperty.resolveWith((states) =>
+                states.contains(WidgetState.disabled)
+                    ? const BorderSide(color: AppTheme.lineStrong)
+                    : BorderSide.none),
+            minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
+            shape: WidgetStatePropertyAll(
+              RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(
+                  variant == AppButtonVariant.gold ? 6 : 9,
+                ),
               ),
             ),
-            elevation: variant == AppButtonVariant.gold ? 3 : 1,
+            elevation: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.pressed)) return 1;
+              if (states.contains(WidgetState.hovered)) return 5;
+              return variant == AppButtonVariant.gold ? 3 : 2;
+            }),
+            shadowColor: const WidgetStatePropertyAll(Color(0x382C5761)),
+            overlayColor: const WidgetStatePropertyAll(Color(0x0A4ECAD4)),
+            padding: const WidgetStatePropertyAll(
+              EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+            animationDuration: const Duration(milliseconds: 150),
           ),
           child: _content(context),
         ),
@@ -66,9 +137,11 @@ class AppButton extends StatelessWidget {
           height: 20,
           child: CircularProgressIndicator(
             strokeWidth: 2,
-            color: variant == AppButtonVariant.gold
-                ? AppTheme.black
-                : AppTheme.white,
+            color: switch (variant) {
+              AppButtonVariant.secondary => AppTheme.secondaryDark,
+              AppButtonVariant.gold => AppTheme.black,
+              _ => AppTheme.white,
+            },
           ),
         )
       : Text(label, textAlign: TextAlign.center);

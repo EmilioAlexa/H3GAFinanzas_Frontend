@@ -41,12 +41,12 @@ class PagosRepository {
       throw StateError('El asesor no puede validar pagos.');
     }
     if (role == UserRole.administradorFinanciero &&
-        payment.estado != 'Pendiente de revisión financiera') {
+        payment.estado != 'Por revisar') {
       throw StateError(
           'Solo puedes revisar pagos pendientes de revisión financiera.');
     }
     if (role == UserRole.administrador &&
-        payment.estado != 'Pendiente de revisión financiera' &&
+        payment.estado != 'Por revisar' &&
         payment.estado != 'Pendiente de autorización') {
       throw StateError(
           'El pago no está disponible para una decisión administrativa.');
@@ -111,7 +111,7 @@ class PagosRepository {
       formaPagoId: methodId,
       formaPago: method,
       estadoPagoId: 1,
-      estado: 'Pendiente de revisión financiera',
+      estado: 'Por revisar',
       monto: amount,
       fechaPago: date,
       numeroPago: scheduleId == null
@@ -134,9 +134,10 @@ class PagosRepository {
                 mimeType: _mimeType(file.name),
                 sizeBytes: file.bytes.lengthInBytes,
                 uploadedAt: DateTime.now(),
+                previewBytes: file.bytes,
               ))
           .toList(),
-      historial: ['Pendiente de revisión financiera · ${_shortDate(date)}'],
+      historial: ['Por revisar · ${_shortDate(date)}'],
     );
     _payments.insert(0, created);
     return created;

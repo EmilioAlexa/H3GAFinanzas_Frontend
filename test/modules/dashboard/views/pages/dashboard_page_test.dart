@@ -15,7 +15,11 @@ void main() {
 
   testWidgets('management dashboard adapts to compact and expanded widths',
       (tester) async {
-    for (final size in [const Size(390, 844), const Size(1280, 900)]) {
+    for (final size in [
+      const Size(390, 844),
+      const Size(768, 1024),
+      const Size(1280, 900),
+    ]) {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = size;
       await tester.pumpWidget(
@@ -38,6 +42,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
 
       expect(find.text('Ingresos por servicio'), findsOneWidget);
+      expect(find.text('Exportar'), findsOneWidget);
       expect(find.byType(BarChart), findsOneWidget);
       expect(tester.takeException(), isNull, reason: 'viewport $size');
     }
@@ -69,6 +74,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('Mis clientes prioritarios'), findsOneWidget);
+    expect(find.text('Exportar'), findsNothing);
     expect(find.text('Ingresos por servicio'), findsNothing);
     expect(find.text('Actividad reciente'), findsNothing);
     expect(tester.takeException(), isNull);

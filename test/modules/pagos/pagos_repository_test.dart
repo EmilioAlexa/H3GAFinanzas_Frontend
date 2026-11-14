@@ -44,7 +44,7 @@ void main() {
     expect(payload, isNot(contains('evidencias')));
   });
 
-  test('evidence validation allows PDF/JPEG up to 10 MB only', () {
+  test('evidence validation allows API file types up to 10 MB only', () {
     SelectedFile file(String name, int size) => SelectedFile(
           name: name,
           bytes: Uint8List(size),

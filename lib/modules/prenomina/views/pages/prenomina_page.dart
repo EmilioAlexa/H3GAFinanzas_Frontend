@@ -4,11 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_theme.dart';
-import '../../../../core/demo/demo_mode_banner.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_data_column.dart';
+import '../../../../core/widgets/app_filter_dropdown.dart';
 import '../../../../core/widgets/app_metric_card.dart';
 import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_page_header.dart';
@@ -48,9 +48,8 @@ class _PrenominaPageState extends ConsumerState<PrenominaPage> {
       data: (items) => items == null
           ? const AppStatePanel(
               icon: Icons.link_off_outlined,
-              title: 'Prenómina sin conectar',
-              message:
-                  'La integración con GET /finanzas/prenominas se realizará en B9.',
+              title: 'Sin prenómina disponible',
+              message: 'No fue posible consultar la prenómina del periodo.',
             )
           : _content(items),
     );
@@ -77,8 +76,6 @@ class _PrenominaPageState extends ConsumerState<PrenominaPage> {
             description:
                 'Preparación de importes por persona: asesores y receptores externos.',
           ),
-          const DemoModeBanner(),
-          const SizedBox(height: AppTheme.space4),
           const AppNotice(
             type: AppNoticeType.warning,
             text:
@@ -193,7 +190,7 @@ class _PrenominaPageState extends ConsumerState<PrenominaPage> {
                   amount,
                   const SizedBox(height: AppTheme.space3),
                   AppBadge(
-                    label: generated ? 'Preparada (demo)' : 'En preparación',
+                    label: generated ? 'Preparada' : 'En preparación',
                     tone:
                         generated ? AppBadgeTone.success : AppBadgeTone.warning,
                   ),
@@ -203,7 +200,7 @@ class _PrenominaPageState extends ConsumerState<PrenominaPage> {
                 Expanded(child: period),
                 Expanded(child: amount),
                 AppBadge(
-                  label: generated ? 'Preparada (demo)' : 'En preparación',
+                  label: generated ? 'Preparada' : 'En preparación',
                   tone: generated ? AppBadgeTone.success : AppBadgeTone.warning,
                 ),
               ]);
@@ -236,13 +233,9 @@ class _PrenominaPageState extends ConsumerState<PrenominaPage> {
             child: Wrap(spacing: AppTheme.space3, children: [
               SizedBox(
                 width: 230,
-                child: DropdownButtonFormField<String>(
-                  isExpanded: true,
-                  initialValue: _position,
-                  decoration: const InputDecoration(
-                    labelText: 'Puesto o destino',
-                    isDense: true,
-                  ),
+                child: AppFilterDropdown<String>(
+                  value: _position,
+                  label: 'Puesto o destino',
                   items: [
                     'Todos los puestos',
                     ...items.map((item) => item.position).toSet(),
@@ -364,7 +357,7 @@ class _PrenominaPageState extends ConsumerState<PrenominaPage> {
               ),
               onTap: recipients.isEmpty
                   ? null
-                  : () => context.go('/prenomina/preparacion/${cut.id}'),
+                  : () => context.go('/prenomina/${recipients.first.id}'),
             );
           }),
       ],

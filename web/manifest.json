@@ -1,11 +1,11 @@
 {
-    "name": "h3ga_finanzas",
-    "short_name": "h3ga_finanzas",
+    "name": "H3GA Finanzas",
+    "short_name": "H3GA",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0F3B45",
+    "theme_color": "#0F3B45",
+    "description": "H3GA Finanzas",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
@@ -30,6 +30,11 @@
             "sizes": "512x512",
             "type": "image/png",
             "purpose": "maskable"
+        },
+        {
+            "src": "icons/apple-touch-icon.png",
+            "sizes": "180x180",
+            "type": "image/png"
         }
     ]
 }

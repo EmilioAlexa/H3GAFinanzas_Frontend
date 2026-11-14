@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../app/theme/app_theme.dart';
 
 enum AppNoticeType { info, success, warning, error }
@@ -19,22 +20,22 @@ class AppNotice extends StatelessWidget {
       AppNoticeType.info => (
           AppTheme.secondaryDark,
           AppTheme.secondarySoft,
-          Icons.info_outline
+          Icons.info_outline,
         ),
       AppNoticeType.success => (
           AppTheme.success,
           AppTheme.successBackground,
-          Icons.check_circle_outline
+          Icons.check_circle_outline,
         ),
       AppNoticeType.warning => (
           AppTheme.warning,
           AppTheme.warningBackground,
-          Icons.warning_amber_outlined
+          Icons.warning_amber_outlined,
         ),
       AppNoticeType.error => (
           AppTheme.danger,
           AppTheme.dangerBackground,
-          Icons.error_outline
+          Icons.error_outline,
         ),
     };
 

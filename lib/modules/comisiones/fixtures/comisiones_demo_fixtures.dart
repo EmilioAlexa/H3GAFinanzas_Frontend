@@ -211,7 +211,7 @@ abstract final class ComisionesDemoFixtures {
         _line(4, 'IMSS', 'demo-receiver-imss', 'IMSS · Cuenta institucional',
             '50'),
       ]),
-      configurationHistory: ['Esquema demo vigente · 19/05/2025'],
+      configurationHistory: ['Esquema vigente · 19/05/2025'],
     ),
     CommissionPaymentModel(
       id: 'demo-commission-payment-4',
@@ -235,7 +235,7 @@ abstract final class ComisionesDemoFixtures {
         _line(1, 'Asesor', 'demo-receiver-advisor-1', 'Daniela Cruz', '8'),
         _line(6, 'Bróker', 'demo-receiver-broker', 'Grupo Asesor Norte', '8'),
       ]),
-      configurationHistory: ['Esquema APD demo vigente · 18/05/2025'],
+      configurationHistory: ['Esquema APD vigente · 18/05/2025'],
     ),
   ];
 
@@ -255,9 +255,7 @@ abstract final class ComisionesDemoFixtures {
         percentage: Decimal.parse(percentage),
         amount: Decimal.parse(amount),
         status: status,
-        history: [
-          status == 'Dispersada' ? 'Dispersada · demo' : 'Generada · demo'
-        ],
+        history: [status == 'Dispersada' ? 'Dispersada' : 'Generada'],
       );
 
   static CommissionLineModel _line(int conceptId, String concept,

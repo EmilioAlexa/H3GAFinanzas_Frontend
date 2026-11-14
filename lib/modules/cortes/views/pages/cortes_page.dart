@@ -9,7 +9,7 @@ import '../../../../core/responsive/window_size_class.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_data_column.dart';
-import '../../../../core/widgets/app_notice.dart';
+import '../../../../core/widgets/app_filter_dropdown.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_responsive_collection.dart';
 import '../../../../core/widgets/app_state_panel.dart';
@@ -58,9 +58,8 @@ class _CortesPageState extends ConsumerState<CortesPage> {
           data: (cuts) => cuts == null
               ? const AppStatePanel(
                   icon: Icons.link_off,
-                  title: 'Cortes sin conectar',
-                  message:
-                      'La respuesta de cortes se conectará en la etapa de integración B8.',
+                  title: 'Sin cortes disponibles',
+                  message: 'No fue posible consultar los cortes.',
                 )
               : _content(context, cuts, session.name),
         );
@@ -99,13 +98,6 @@ class _CortesPageState extends ConsumerState<CortesPage> {
       padding: const EdgeInsets.all(AppTheme.space6),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         _header(context, actor),
-        if (ref.read(cortesControllerProvider.notifier).demoMode) ...[
-          const AppNotice(
-            text:
-                'Cortes de muestra. Crear, generar, cerrar y cancelar solo cambia datos locales; no reserva pagos reales.',
-          ),
-          const SizedBox(height: AppTheme.space4),
-        ],
         _currentCutCard(current),
         const SizedBox(height: AppTheme.space4),
         Container(
@@ -120,15 +112,15 @@ class _CortesPageState extends ConsumerState<CortesPage> {
             Padding(
               padding: const EdgeInsets.all(AppTheme.space4),
               child: Wrap(
+                alignment: WrapAlignment.start,
                 spacing: AppTheme.space2,
                 runSpacing: AppTheme.space2,
                 children: [
                   SizedBox(
                     width: 230,
-                    child: DropdownButtonFormField<String>(
-                      initialValue: _periodFilter,
-                      decoration: const InputDecoration(
-                          labelText: 'Periodo', isDense: true),
+                    child: AppFilterDropdown<String>(
+                      value: _periodFilter,
+                      label: 'Periodo',
                       items: ['Todos los periodos', ...periods]
                           .map((period) => DropdownMenuItem(
                               value: period, child: Text(period)))
@@ -142,10 +134,9 @@ class _CortesPageState extends ConsumerState<CortesPage> {
                   ),
                   SizedBox(
                     width: 230,
-                    child: DropdownButtonFormField<String>(
-                      initialValue: _statusFilter,
-                      decoration: const InputDecoration(
-                          labelText: 'Estado', isDense: true),
+                    child: AppFilterDropdown<String>(
+                      value: _statusFilter,
+                      label: 'Estado',
                       items: const [
                         'Todos los estados',
                         'En preparación',
@@ -232,8 +223,7 @@ class _CortesPageState extends ConsumerState<CortesPage> {
 
   Widget _currentCutCard(CutModel cut) => LayoutBuilder(
         builder: (context, constraints) {
-          final compact = Responsive.classify(constraints.maxWidth) ==
-              WindowSizeClass.compacto;
+          final compact = Responsive.of(context) == WindowSizeClass.compacto;
           return Material(
             color: AppTheme.primary,
             borderRadius: BorderRadius.circular(AppTheme.radius + 4),
@@ -287,7 +277,7 @@ class _CortesPageState extends ConsumerState<CortesPage> {
             CutPeriodFormatter.label(cut.periodStart, cut.periodEndExclusive),
             style: const TextStyle(
               color: AppTheme.white,
-              fontSize: 24,
+              fontSize: 20,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -312,7 +302,7 @@ class _CortesPageState extends ConsumerState<CortesPage> {
             MoneyFormatter.format(cut.totalAmount),
             style: const TextStyle(
               color: AppTheme.white,
-              fontSize: 32,
+              fontSize: 24,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -322,18 +312,36 @@ class _CortesPageState extends ConsumerState<CortesPage> {
         ],
       );
 
-  Widget _periodCell(CutModel cut) => SizedBox(
-        width: 180,
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(
-            CutPeriodFormatter.label(cut.periodStart, cut.periodEndExclusive),
-            style: const TextStyle(fontWeight: FontWeight.w700),
+  Widget _periodCell(CutModel cut) {
+    final label = CutPeriodFormatter.label(
+      cut.periodStart,
+      cut.periodEndExclusive,
+    );
+    return SizedBox(
+      width: 180,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Tooltip(
+            message: label,
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
           ),
           const SizedBox(height: AppTheme.space1),
-          const Text('Viernes → Jueves',
-              style: TextStyle(color: AppTheme.muted, fontSize: 12)),
-        ]),
-      );
+          const Text(
+            'Viernes → Jueves',
+            maxLines: 1,
+            style: TextStyle(color: AppTheme.muted, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _cutCard(CutModel cut) => Container(
         padding: const EdgeInsets.all(AppTheme.space4),
@@ -421,7 +429,7 @@ class _CortesPageState extends ConsumerState<CortesPage> {
       builder: (context) => AlertDialog(
         title: const Text('Preparar corte'),
         content: Text(
-          'Se creará un periodo viernes a jueves desde ${CutPeriodFormatter.short(start)}. En esta maqueta no se reservarán pagos reales.',
+          'Se creará un periodo viernes a jueves desde ${CutPeriodFormatter.short(start)}.',
         ),
         actions: [
           TextButton(
@@ -430,7 +438,7 @@ class _CortesPageState extends ConsumerState<CortesPage> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Crear corte demo'),
+            child: const Text('Crear corte'),
           ),
         ],
       ),

@@ -9,10 +9,11 @@ import '../../../../core/responsive/window_size_class.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_data_column.dart';
-import '../../../../core/widgets/app_notice.dart';
+import '../../../../core/widgets/app_filter_dropdown.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_responsive_collection.dart';
 import '../../../../core/widgets/app_state_panel.dart';
+import '../../../../core/widgets/app_tab_strip.dart';
 import '../../../auth/auth.dart';
 import '../../controllers/pagos_controller.dart';
 import '../../models/pago_model.dart';
@@ -28,6 +29,8 @@ class _PagosPageState extends ConsumerState<PagosPage> {
   String _query = '';
   String _statusGroup = 'Todos';
   String _method = 'Todas';
+  String _service = 'Todos los servicios';
+  bool? _filtersExpanded;
 
   @override
   void dispose() {
@@ -63,9 +66,8 @@ class _PagosPageState extends ConsumerState<PagosPage> {
       data: (state) => state == null
           ? const AppStatePanel(
               icon: Icons.link_off,
-              title: 'Pagos sin conectar',
-              message:
-                  'La integración con la API se realizará en B5. No se muestran registros ficticios en sesión real.')
+              title: 'Sin pagos disponibles',
+              message: 'No fue posible consultar los pagos.')
           : _content(context, state.payments),
     );
   }
@@ -85,8 +87,11 @@ class _PagosPageState extends ConsumerState<PagosPage> {
         'Validados' => payment.estado == 'Validado',
         _ => true,
       };
+      final matchesService = _service == 'Todos los servicios' ||
+          payment.servicioNombre == _service;
       return matchesQuery &&
           matchesStatus &&
+          matchesService &&
           (_method == 'Todas' || payment.formaPago == _method);
     }).toList();
     return SingleChildScrollView(
@@ -97,25 +102,15 @@ class _PagosPageState extends ConsumerState<PagosPage> {
             title: 'Pagos',
             description: 'Consulta y registra pagos de contratos.',
             actions: [
-              OutlinedButton.icon(
-                  onPressed: () => context.go('/pagos-programados'),
-                  icon: const Icon(Icons.event_note_outlined),
-                  label: const Text('Programados')),
               if (AppEnv.demoMode)
                 FilledButton.icon(
                     onPressed: () => context.go('/pagos/nuevo'),
                     icon: const Icon(Icons.add),
                     label: const Text('Registrar pago')),
             ]),
-        if (AppEnv.demoMode) ...[
-          const AppNotice(
-              text:
-                  'Datos de demostración. El registro y los archivos seleccionados se mantienen solo en memoria; no se envían al backend.'),
-          const SizedBox(height: AppTheme.space4),
-        ],
         _statusFilters(payments),
         const SizedBox(height: AppTheme.space3),
-        _panel(context, filtered),
+        _panel(context, filtered, payments),
       ]),
     );
   }
@@ -137,23 +132,20 @@ class _PagosPageState extends ConsumerState<PagosPage> {
               _ => true,
             })
         .length;
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(children: [
-        for (final group in groups)
-          Padding(
-            padding: const EdgeInsets.only(right: AppTheme.space2),
-            child: ChoiceChip(
-              label: Text('$group  ${count(group)}'),
-              selected: _statusGroup == group,
-              onSelected: (_) => setState(() => _statusGroup = group),
-            ),
-          ),
-      ]),
+    return AppTabStrip(
+      labels: groups,
+      counts: [for (final group in groups) count(group)],
+      selectedIndex: groups.indexOf(_statusGroup),
+      onSelected: (index) => setState(() => _statusGroup = groups[index]),
     );
   }
 
-  Widget _panel(BuildContext context, List<PagoModel> payments) => Container(
+  Widget _panel(
+    BuildContext context,
+    List<PagoModel> payments,
+    List<PagoModel> allPayments,
+  ) =>
+      Container(
         padding: const EdgeInsets.all(AppTheme.space4),
         decoration: BoxDecoration(
             color: AppTheme.surface,
@@ -163,52 +155,72 @@ class _PagosPageState extends ConsumerState<PagosPage> {
         child:
             Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           LayoutBuilder(builder: (context, constraints) {
-            final compact = Responsive.classify(constraints.maxWidth) ==
-                WindowSizeClass.compacto;
+            final compact = Responsive.of(context) == WindowSizeClass.compacto;
+            final filtersVisible = _filtersExpanded ?? !compact;
             final search = TextField(
                 controller: _search,
                 onChanged: (v) => setState(() => _query = v),
                 decoration: const InputDecoration(
-                    labelText: 'Buscar',
                     hintText: 'Folio, cliente o referencia',
-                    prefixIcon: Icon(Icons.search)));
-            final method = DropdownButtonFormField<String>(
-                initialValue: _method,
-                isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Forma de pago'),
-                items: const [
-                  'Todas',
-                  'Transferencia',
-                  'Depósito',
-                  'Efectivo',
-                  'Cheque'
-                ]
-                    .map((value) => DropdownMenuItem(
-                        value: value,
-                        child: Text(value, overflow: TextOverflow.ellipsis)))
-                    .toList(),
-                onChanged: (value) =>
-                    setState(() => _method = value ?? 'Todas'));
+                    prefixIcon: Icon(Icons.search),
+                    isDense: true,
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 16, vertical: 14)));
+            final filterButton = SizedBox(
+              width: 96,
+              height: 48,
+              child: OutlinedButton.icon(
+                onPressed: () =>
+                    setState(() => _filtersExpanded = !filtersVisible),
+                icon: const Icon(Icons.filter_list_rounded, size: 19),
+                label: const Text('Filtros'),
+                style: OutlinedButton.styleFrom(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: AppTheme.space2),
+                ),
+              ),
+            );
             if (compact) {
-              return Column(children: [
-                search,
-                const SizedBox(height: AppTheme.space2),
-                method
-              ]);
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(children: [
+                    Expanded(child: search),
+                    const SizedBox(width: AppTheme.space2),
+                    filterButton,
+                  ]),
+                  if (filtersVisible) ...[
+                    const SizedBox(height: AppTheme.space2),
+                    _statusDropdown(),
+                    const SizedBox(height: AppTheme.space2),
+                    _serviceDropdown(allPayments),
+                    const SizedBox(height: AppTheme.space2),
+                    _methodDropdown(),
+                  ],
+                ],
+              );
             }
-            return Row(children: [
-              Expanded(child: search),
-              const SizedBox(width: AppTheme.space3),
-              SizedBox(width: 280, child: method)
-            ]);
+            return Wrap(
+              spacing: AppTheme.space2,
+              runSpacing: AppTheme.space2,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                SizedBox(width: 330, child: search),
+                filterButton,
+                if (filtersVisible) ...[
+                  SizedBox(width: 190, child: _statusDropdown()),
+                  SizedBox(width: 210, child: _serviceDropdown(allPayments)),
+                  SizedBox(width: 190, child: _methodDropdown()),
+                ],
+              ],
+            );
           }),
           const Divider(height: AppTheme.space6),
           if (payments.isEmpty)
             const AppStatePanel(
                 icon: Icons.search_off_outlined,
                 title: 'No hay pagos para mostrar',
-                message:
-                    'Cambia los filtros o registra un pago de demostración.')
+                message: 'Cambia los filtros o registra un pago.')
           else
             AppResponsiveCollection<PagoModel>(
               rows: payments,
@@ -258,8 +270,52 @@ class _PagosPageState extends ConsumerState<PagosPage> {
               onRowTap: (p) => context.go('/pagos/${p.id}'),
             ),
           const Divider(height: AppTheme.space6),
-          Text('Mostrando ${payments.length} movimientos de demostración'),
+          Text('Mostrando ${payments.length} movimientos'),
         ]),
+      );
+
+  Widget _statusDropdown() => AppFilterDropdown<String>(
+        value: _statusGroup,
+        label: 'Estado',
+        items: const [
+          'Todos',
+          'Pendientes',
+          'Por revisar',
+          'Rechazados',
+          'Validados',
+        ]
+            .map((value) => DropdownMenuItem(value: value, child: Text(value)))
+            .toList(),
+        onChanged: (value) => setState(() => _statusGroup = value ?? 'Todos'),
+      );
+
+  Widget _serviceDropdown(List<PagoModel> payments) =>
+      AppFilterDropdown<String>(
+        value: _service,
+        label: 'Servicio',
+        items: [
+          'Todos los servicios',
+          ...payments.map((payment) => payment.servicioNombre).toSet(),
+        ]
+            .map((value) => DropdownMenuItem(value: value, child: Text(value)))
+            .toList(),
+        onChanged: (value) =>
+            setState(() => _service = value ?? 'Todos los servicios'),
+      );
+
+  Widget _methodDropdown() => AppFilterDropdown<String>(
+        value: _method,
+        label: 'Forma de pago',
+        items: const [
+          'Todas',
+          'Transferencia',
+          'Depósito',
+          'Efectivo',
+          'Cheque',
+        ]
+            .map((value) => DropdownMenuItem(value: value, child: Text(value)))
+            .toList(),
+        onChanged: (value) => setState(() => _method = value ?? 'Todas'),
       );
 
   Widget _card(BuildContext context, PagoModel p) => Container(

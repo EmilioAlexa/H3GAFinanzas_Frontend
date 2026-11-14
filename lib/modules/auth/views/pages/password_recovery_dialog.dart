@@ -226,14 +226,13 @@ class _PasswordRecoveryDialogState extends State<PasswordRecoveryDialog> {
   @override
   Widget build(BuildContext context) {
     final compact = Responsive.of(context) == WindowSizeClass.compacto;
-    final isSuccess = _step == RecoveryStep.success;
     return PopScope(
       canPop: !_loading,
       child: Dialog(
         backgroundColor: Colors.transparent,
         insetPadding: EdgeInsets.all(compact ? 12 : 24),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 460),
+          constraints: const BoxConstraints(maxWidth: 556),
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: AppTheme.surface,
@@ -247,79 +246,51 @@ class _PasswordRecoveryDialogState extends State<PasswordRecoveryDialog> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (!isSuccess) ...[
-                    Semantics(
-                      label: 'Paso ${_stepIndex + 1} de 3',
-                      child: Row(
-                        children: [
-                          for (var index = 0; index < 3; index++) ...[
-                            if (index > 0) const SizedBox(width: 6),
-                            Expanded(
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                height: 4,
-                                decoration: BoxDecoration(
+                  if (_step != RecoveryStep.success) ...[
+                    Row(children: [
+                      for (var index = 0; index < 3; index++)
+                        Expanded(
+                            child: Padding(
+                                padding: const EdgeInsets.only(right: 6),
+                                child: Container(
+                                  height: 4,
                                   color: index <= _stepIndex
                                       ? AppTheme.secondaryDark
                                       : AppTheme.line,
-                                  borderRadius: BorderRadius.circular(99),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 22),
+                                ))),
+                    ]),
+                    const SizedBox(height: 20),
                   ],
                   Align(
-                    child: Container(
-                      width: isSuccess ? 58 : 48,
-                      height: isSuccess ? 58 : 48,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isSuccess
-                            ? AppTheme.successBackground
-                            : AppTheme.secondarySoft,
-                      ),
-                      child: Icon(
-                        isSuccess
-                            ? Icons.check_rounded
-                            : _step == RecoveryStep.code
-                                ? Icons.verified_user_outlined
-                                : _step == RecoveryStep.password
-                                    ? Icons.lock_outline_rounded
-                                    : Icons.mark_email_read_outlined,
-                        size: isSuccess ? 28 : 22,
-                        color: isSuccess
-                            ? AppTheme.success
-                            : AppTheme.secondaryDark,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    _title,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: AppTheme.ink,
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                  const SizedBox(height: 18),
+                      alignment: _step == RecoveryStep.success
+                          ? Alignment.center
+                          : Alignment.centerLeft,
+                      child: CircleAvatar(
+                        backgroundColor: AppTheme.secondarySoft,
+                        foregroundColor: AppTheme.secondaryDark,
+                        child: Icon(switch (_step) {
+                          RecoveryStep.email => Icons.people_outline,
+                          RecoveryStep.code => Icons.credit_card_outlined,
+                          RecoveryStep.password => Icons.settings_outlined,
+                          RecoveryStep.success => Icons.check_circle_outline,
+                        }),
+                      )),
+                  const SizedBox(height: 16),
+                  Text(_title,
+                      textAlign: _step == RecoveryStep.success
+                          ? TextAlign.center
+                          : TextAlign.start,
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleLarge
+                          ?.copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 16),
                   _buildStepBody(context),
                   if (_requestError != null) ...[
                     const SizedBox(height: 14),
                     AppNotice(
                       text: _requestError!,
                       type: AppNoticeType.error,
-                    ),
-                  ],
-                  if (!isSuccess) ...[
-                    const SizedBox(height: 16),
-                    const AppNotice(
-                      text: 'Modo demostración: no se envía correo ni se '
-                          'modifica una contraseña real.',
                     ),
                   ],
                   const SizedBox(height: 20),
@@ -346,7 +317,7 @@ class _PasswordRecoveryDialogState extends State<PasswordRecoveryDialog> {
           const Text(
             'Ingresa el correo electrónico asociado a tu cuenta y te enviaremos '
             'un código para confirmar tu identidad.',
-            textAlign: TextAlign.center,
+            textAlign: TextAlign.start,
           ),
           const SizedBox(height: 18),
           AppTextField(
@@ -389,7 +360,7 @@ class _PasswordRecoveryDialogState extends State<PasswordRecoveryDialog> {
               ),
             ],
           ),
-          textAlign: TextAlign.center,
+          textAlign: TextAlign.start,
         ),
         const SizedBox(height: 20),
         Text(
@@ -453,12 +424,6 @@ class _PasswordRecoveryDialogState extends State<PasswordRecoveryDialog> {
           ),
         ],
         const SizedBox(height: 8),
-        Text(
-          'Modo demo · código $_demoCode · $_expiredDemoCode simula expiración',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppTheme.faint,
-              ),
-        ),
       ],
     );
   }
@@ -472,7 +437,7 @@ class _PasswordRecoveryDialogState extends State<PasswordRecoveryDialog> {
       children: [
         const Text(
           'Crea una nueva contraseña para proteger tu cuenta.',
-          textAlign: TextAlign.center,
+          textAlign: TextAlign.start,
         ),
         const SizedBox(height: 18),
         PasswordInput(
@@ -553,10 +518,6 @@ class _PasswordRecoveryDialogState extends State<PasswordRecoveryDialog> {
                 ),
           ),
           const SizedBox(height: 12),
-          const AppNotice(
-            text:
-                'Demostración visual: esta contraseña no se guardó en el servidor.',
-          ),
         ],
       );
 
@@ -599,10 +560,11 @@ class _PasswordRecoveryDialogState extends State<PasswordRecoveryDialog> {
       );
     }
     return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        Expanded(child: cancel),
+        SizedBox(width: 150, child: cancel),
         const SizedBox(width: 10),
-        Expanded(child: submit),
+        SizedBox(width: 230, child: submit),
       ],
     );
   }

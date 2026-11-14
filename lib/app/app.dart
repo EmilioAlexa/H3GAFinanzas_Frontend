@@ -27,6 +27,7 @@ class _H3gaFinanzasAppState extends ConsumerState<H3gaFinanzasApp> {
   @override
   Widget build(BuildContext context) => MaterialApp.router(
         title: 'H3GA Finanzas',
+        debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
         routerConfig: ref.watch(appRouterProvider),
       );

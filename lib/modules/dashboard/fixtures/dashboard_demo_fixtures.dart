@@ -47,14 +47,14 @@ abstract final class DashboardDemoFixtures {
         (
           label: 'Comisiones generadas',
           value: MoneyFormatter.format(Decimal.parse('164820')),
-          detail: 'Periodo de demostración',
+          detail: 'Periodo actual',
           icon: DashboardMetricIcon.briefcase,
           tone: DashboardMetricTone.navy,
         ),
       ],
       totalValidated: total,
       periodChange: Decimal.parse('12.4'),
-      periodLabel: 'Semana de demostración · viernes a jueves',
+      periodLabel: 'Semana actual · viernes a jueves',
       weeklyIncome: [
         (label: 'V', amount: Decimal.parse('158000')),
         (label: 'S', amount: Decimal.parse('182000')),
@@ -202,7 +202,7 @@ abstract final class DashboardDemoFixtures {
           (
             label: 'Mis comisiones',
             value: MoneyFormatter.format(Decimal.parse('2700')),
-            detail: '2 pagos del periodo demo',
+            detail: '2 pagos del periodo',
             icon: DashboardMetricIcon.briefcase,
             tone: DashboardMetricTone.navy,
           ),
@@ -242,7 +242,7 @@ abstract final class DashboardDemoFixtures {
           ),
           (
             title: 'Consultar mis comisiones',
-            detail: 'Periodo actual de demostración',
+            detail: 'Periodo actual',
             kind: DashboardTaskKind.commission,
             route: '/comisiones',
           ),

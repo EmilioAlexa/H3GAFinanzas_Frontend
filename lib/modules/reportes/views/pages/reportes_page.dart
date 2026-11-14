@@ -5,12 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_theme.dart';
-import '../../../../core/demo/demo_mode_banner.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/responsive/window_size_class.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_data_column.dart';
+import '../../../../core/widgets/app_dialog.dart';
+import '../../../../core/widgets/app_filter_dropdown.dart';
 import '../../../../core/widgets/app_metric_card.dart';
 import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_page_header.dart';
@@ -35,9 +36,8 @@ class ReportesPage extends ConsumerWidget {
     if (!repository.demoMode) {
       return const AppStatePanel(
         icon: Icons.link_off_outlined,
-        title: 'Reportes sin conectar',
-        message:
-            'La integración con los cinco endpoints GET /finanzas/reportes se realizará en B10.',
+        title: 'Reportes no disponibles',
+        message: 'No fue posible consultar la información del periodo.',
       );
     }
     final filters = ref.watch(reportesControllerProvider);
@@ -72,18 +72,18 @@ class _ReportOverview extends ConsumerWidget {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.space6),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        const AppPageHeader(
+        AppPageHeader(
           eyebrow: 'Análisis financiero',
-          title: 'Reportes',
+          title: 'Ingresos por periodo',
           description:
               'Información calculada para consulta y toma de decisiones.',
-        ),
-        const DemoModeBanner(),
-        const SizedBox(height: AppTheme.space3),
-        const AppNotice(
-          type: AppNoticeType.warning,
-          text:
-              'Cifras de demostración. Los filtros son ilustrativos y no representan datos financieros reales.',
+          actions: [
+            OutlinedButton.icon(
+              onPressed: () => _showExportDialog(context),
+              icon: const Icon(Icons.download_outlined),
+              label: const Text('Exportar reporte'),
+            ),
+          ],
         ),
         const SizedBox(height: AppTheme.space4),
         _ReportFilters(reportType: null, filters: filters),
@@ -94,19 +94,19 @@ class _ReportOverview extends ConsumerWidget {
               label:
                   'Ingresos validados · ${filters.granularity.toLowerCase()}',
               value: _compactMoney(income.total),
-              detail: 'Últimas 8 semanas (demo)',
+              detail: 'Últimas 8 semanas',
               icon: Icons.show_chart_outlined,
             ),
             AppMetricCard(
               label: 'Variación',
               value:
                   '${variation >= Decimal.zero ? '+' : ''}${variation.toStringAsFixed(1)}%',
-              detail: 'vs. periodo anterior (demo)',
+              detail: 'vs. periodo anterior',
               icon: Icons.trending_up,
               tone: AppMetricTone.info,
             ),
             AppMetricCard(
-              label: 'Pagos al IMSS (muestra)',
+              label: 'Pagos al IMSS',
               value: MoneyFormatter.format(imss.total),
               detail: 'M10, M40 y M40 Retroactiva',
               icon: Icons.access_time,
@@ -115,7 +115,7 @@ class _ReportOverview extends ConsumerWidget {
             AppMetricCard(
               label: 'Comisiones a personas',
               value: MoneyFormatter.format(_personalCommissions(commissions)),
-              detail: 'Solo muestra ficticia',
+              detail: 'Periodo actual',
               icon: Icons.work_outline,
               tone: AppMetricTone.accent,
             ),
@@ -145,7 +145,7 @@ class _ReportOverview extends ConsumerWidget {
           final chart = _panel(
             context,
             title: 'Ingresos validados por periodo',
-            subtitle: '${filters.granularity} · pagos validados · muestra',
+            subtitle: '${filters.granularity} · pagos validados',
             child: _incomeChart(
               context,
               income,
@@ -156,7 +156,7 @@ class _ReportOverview extends ConsumerWidget {
           final service = _panel(
             context,
             title: 'Distribución por servicio',
-            subtitle: 'Ingresos de la muestra',
+            subtitle: 'Ingresos del periodo',
             child: _serviceChart(context, income),
           );
           if (!Responsive.isExpanded(constraints.maxWidth)) {
@@ -194,25 +194,17 @@ class _ReportDetail extends ConsumerWidget {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.space6),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            onPressed: () => context.go('/reportes'),
-            icon: const Icon(Icons.arrow_back),
-            label: const Text('Reportes'),
-          ),
-        ),
         AppPageHeader(
-          eyebrow: 'Análisis financiero · demostración',
+          eyebrow: 'Análisis financiero',
           title: report.type.title,
           description: report.type.description,
-        ),
-        const DemoModeBanner(),
-        const SizedBox(height: AppTheme.space3),
-        const AppNotice(
-          type: AppNoticeType.warning,
-          text:
-              'Los importes son ficticios. Al integrar B10, los resultados vendrán de pagos y comisiones del backend.',
+          actions: [
+            OutlinedButton.icon(
+              onPressed: () => _showExportDialog(context),
+              icon: const Icon(Icons.download_outlined),
+              label: const Text('Exportar reporte'),
+            ),
+          ],
         ),
         const SizedBox(height: AppTheme.space4),
         _ReportFilters(reportType: report.type, filters: filters),
@@ -221,7 +213,7 @@ class _ReportDetail extends ConsumerWidget {
           final metric = AppMetricCard(
             label: _totalLabel(report.type),
             value: MoneyFormatter.format(total),
-            detail: '${rows.length} filas visibles · demo',
+            detail: '${rows.length} filas visibles',
             icon: report.type.icon,
           );
           final variation = AppMetricCard(
@@ -251,7 +243,7 @@ class _ReportDetail extends ConsumerWidget {
           _panel(
             context,
             title: 'Ingresos validados por periodo',
-            subtitle: 'Totales de muestra · solo pagos validados',
+            subtitle: 'Totales  · solo pagos validados',
             child: _incomeChart(
               context,
               report,
@@ -281,6 +273,69 @@ class _ReportFilters extends ConsumerWidget {
     final controller = ref.read(reportesControllerProvider.notifier);
     final showSaleType = reportType == ReportType.comisionesTipoVenta;
     final showMethod = reportType == ReportType.pagosMetodo;
+    if (reportType == null) {
+      return Container(
+        padding: const EdgeInsets.all(AppTheme.space4),
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.circular(AppTheme.radius),
+          border: Border.all(color: AppTheme.line),
+        ),
+        child: Wrap(
+          spacing: AppTheme.space3,
+          runSpacing: AppTheme.space3,
+          crossAxisAlignment: WrapCrossAlignment.end,
+          children: [
+            _fixedSelect(
+              label: 'Periodo',
+              value: filters.granularity,
+              values: const ['Semanal', 'Mensual', 'Anual'],
+              onChanged: (value) {
+                if (value != null) controller.setGranularity(value);
+              },
+            ),
+            _fixedSelect(
+              label: 'Servicio',
+              value: 'Todos los servicios',
+              values: const [
+                'Todos los servicios',
+                'Modalidad 10',
+                'Modalidad 40',
+                'M40 Retroactiva',
+                'APD',
+              ],
+              onChanged: (_) {},
+            ),
+            _fixedSelect(
+              label: 'Tipo de venta',
+              value: 'Todos los tipos',
+              values: const ['Todos los tipos', 'Cambaceo', 'Marketing'],
+              onChanged: (_) {},
+            ),
+            _fixedSelect(
+              label: 'Método de pago',
+              value: 'Todos los métodos',
+              values: const [
+                'Todos los métodos',
+                'Transferencia',
+                'Depósito',
+                'Efectivo',
+              ],
+              onChanged: (_) {},
+            ),
+            FilledButton(
+              onPressed: () {
+                controller.apply();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Filtros aplicados.')),
+                );
+              },
+              child: const Text('Aplicar filtros'),
+            ),
+          ],
+        ),
+      );
+    }
     return Container(
       padding: const EdgeInsets.all(AppTheme.space4),
       decoration: BoxDecoration(
@@ -301,11 +356,9 @@ class _ReportFilters extends ConsumerWidget {
                 label: 'Hasta', value: filters.to, onChanged: controller.setTo),
             SizedBox(
               width: 210,
-              child: DropdownButtonFormField<String>(
-                isExpanded: true,
-                initialValue: filters.granularity,
-                decoration:
-                    const InputDecoration(labelText: 'Periodo', isDense: true),
+              child: AppFilterDropdown<String>(
+                value: filters.granularity,
+                label: 'Periodo',
                 items: const ['Semanal', 'Mensual', 'Anual']
                     .map((item) =>
                         DropdownMenuItem(value: item, child: Text(item)))
@@ -318,11 +371,9 @@ class _ReportFilters extends ConsumerWidget {
             if (showSaleType)
               SizedBox(
                 width: 220,
-                child: DropdownButtonFormField<String>(
-                  isExpanded: true,
-                  initialValue: filters.saleType,
-                  decoration: const InputDecoration(
-                      labelText: 'Tipo de venta', isDense: true),
+                child: AppFilterDropdown<String>(
+                  value: filters.saleType,
+                  label: 'Tipo de venta',
                   items: const [
                     'Todos los tipos',
                     'Cambaceo',
@@ -342,11 +393,9 @@ class _ReportFilters extends ConsumerWidget {
             if (showMethod)
               SizedBox(
                 width: 220,
-                child: DropdownButtonFormField<String>(
-                  isExpanded: true,
-                  initialValue: filters.paymentMethod,
-                  decoration: const InputDecoration(
-                      labelText: 'Método de pago', isDense: true),
+                child: AppFilterDropdown<String>(
+                  value: filters.paymentMethod,
+                  label: 'Método de pago',
                   items: const [
                     'Todos los métodos',
                     'Transferencia',
@@ -386,8 +435,7 @@ class _ReportFilters extends ConsumerWidget {
               onPressed: () {
                 controller.apply();
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text('Filtros aplicados a la vista demo.')),
+                  const SnackBar(content: Text('Filtros aplicados.')),
                 );
               },
               icon: const Icon(Icons.tune),
@@ -397,17 +445,12 @@ class _ReportFilters extends ConsumerWidget {
         ),
         if (filters.applied) ...[
           const SizedBox(height: AppTheme.space2),
-          const AppNotice(
-            type: AppNoticeType.success,
-            text:
-                'Filtros aplicados. Las cifras visibles siguen siendo fixtures de demostración.',
-          ),
         ],
         if (reportType == null)
           Padding(
             padding: const EdgeInsets.only(top: AppTheme.space2),
             child: Text(
-              'El filtro Servicio del prototipo no se muestra: ningún endpoint de reportes lo admite.',
+              'Los filtros disponibles dependen del tipo de reporte seleccionado.',
               style: Theme.of(context)
                   .textTheme
                   .bodySmall
@@ -445,6 +488,94 @@ class _ReportFilters extends ConsumerWidget {
           label: Text('$label: ${MoneyFormatter.formatDate(value)}'),
         ),
       );
+
+  Widget _fixedSelect({
+    required String label,
+    required String value,
+    required List<String> values,
+    required ValueChanged<String?> onChanged,
+  }) =>
+      SizedBox(
+        width: 210,
+        child: AppFilterDropdown<String>(
+          value: value,
+          label: label,
+          items: values
+              .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+              .toList(),
+          onChanged: onChanged,
+        ),
+      );
+}
+
+Future<void> _showExportDialog(BuildContext context) async {
+  final export = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AppDialog(
+      title: 'Exportar',
+      description: 'Selecciona el formato y periodo para la exportación.',
+      icon: Icons.download_outlined,
+      maxWidth: 560,
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(dialogContext, true),
+          child: const Text('Preparar exportación'),
+        ),
+      ],
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DropdownButtonFormField<String>(
+            initialValue: 'PDF',
+            decoration: const InputDecoration(labelText: 'Formato'),
+            items: const [
+              DropdownMenuItem(value: 'PDF', child: Text('PDF')),
+              DropdownMenuItem(value: 'Excel', child: Text('Excel')),
+            ],
+            onChanged: (_) {},
+          ),
+          const SizedBox(height: AppTheme.space4),
+          DropdownButtonFormField<String>(
+            initialValue: 'Periodo actual',
+            decoration: const InputDecoration(labelText: 'Periodo'),
+            items: const [
+              DropdownMenuItem(
+                value: 'Periodo actual',
+                child: Text('Periodo actual'),
+              ),
+              DropdownMenuItem(
+                value: 'Todo el historial',
+                child: Text('Todo el historial'),
+              ),
+            ],
+            onChanged: (_) {},
+          ),
+        ],
+      ),
+    ),
+  );
+  if (export != true || !context.mounted) return;
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) => AppDialog(
+      title: 'Exportación preparada',
+      description: 'Se prepararon los datos correctamente.',
+      icon: Icons.check_circle_outline,
+      iconColor: AppTheme.success,
+      maxWidth: 520,
+      actions: [
+        OutlinedButton(
+          onPressed: () => Navigator.pop(dialogContext),
+          child: const Text('Cerrar'),
+        ),
+      ],
+      child: const SizedBox.shrink(),
+    ),
+  );
 }
 
 Widget _detailTable(
@@ -550,7 +681,7 @@ Widget _detailTable(
       rows: rows,
       columns: columns,
       compactCardBuilder: (context, row) => _rowCard(context, type, row),
-      emptyTitle: 'Sin resultados demo',
+      emptyTitle: 'Sin resultados',
       emptyMessage: 'No hay registros para los filtros seleccionados.',
     ),
   );
@@ -593,7 +724,7 @@ Widget _incomeChart(BuildContext context, ReportDataModel report, bool compare,
       1.2;
   return Semantics(
     label:
-        'Ingresos de muestra por periodo: ${points.map((point) => '${point.label}, ${MoneyFormatter.format(point.amount)}').join('; ')}',
+        'Ingresos  por periodo: ${points.map((point) => '${point.label}, ${MoneyFormatter.format(point.amount)}').join('; ')}',
     child: SizedBox(
       height: 240,
       child: LineChart(
@@ -710,9 +841,9 @@ Widget _commissionStrip(BuildContext context, ReportDataModel report) => _panel(
       context,
       title: 'Distribución por destino',
       subtitle:
-          '${report.rows.length} destinos · ${MoneyFormatter.format(report.total)} · muestra demo',
+          '${report.rows.length} destinos · ${MoneyFormatter.format(report.total)}',
       child: LayoutBuilder(builder: (context, constraints) {
-        final size = Responsive.classify(constraints.maxWidth);
+        final size = Responsive.of(context);
         final columns = switch (size) {
           WindowSizeClass.compacto => 2,
           WindowSizeClass.medio => 3,
@@ -759,7 +890,11 @@ Widget _commissionStrip(BuildContext context, ReportDataModel report) => _panel(
 
 Widget _reportLinks(BuildContext context, List<ReportDataModel> reports) =>
     LayoutBuilder(builder: (context, constraints) {
-      final columns = Responsive.usesDenseLayout(constraints.maxWidth) ? 1 : 2;
+      final columns = Responsive.usesDenseLayout(
+        MediaQuery.sizeOf(context).width,
+      )
+          ? 1
+          : 2;
       final width = columns == 1
           ? constraints.maxWidth
           : (constraints.maxWidth - AppTheme.space3) / 2;

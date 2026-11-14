@@ -14,7 +14,11 @@ Future<void> main() async {
   testWidgets(
       'payment list renders demo records on compact and expanded widths',
       (tester) async {
-    for (final size in [const Size(390, 844), const Size(1280, 900)]) {
+    for (final size in [
+      const Size(390, 844),
+      const Size(768, 1024),
+      const Size(1280, 900),
+    ]) {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = size;
       await tester.pumpWidget(

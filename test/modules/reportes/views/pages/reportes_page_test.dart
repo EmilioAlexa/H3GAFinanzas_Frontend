@@ -37,8 +37,9 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
 
-      expect(find.text('Reportes'), findsOneWidget);
-      expect(find.text('Pagos al IMSS'), findsOneWidget);
+      expect(find.text('Ingresos por periodo'), findsWidgets);
+      expect(find.text('Exportar reporte'), findsOneWidget);
+      expect(find.text('Pagos al IMSS'), findsNWidgets(2));
       expect(find.byType(LineChart), findsOneWidget);
       expect(find.byType(PieChart), findsOneWidget);
       expect(tester.takeException(), isNull, reason: 'viewport $size');
@@ -47,8 +48,7 @@ void main() {
     tester.view.resetDevicePixelRatio();
   });
 
-  testWidgets('IMSS detail shows only admin report content and demo disclaimer',
-      (tester) async {
+  testWidgets('IMSS detail shows only admin report content', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(390, 844);
     await tester.pumpWidget(
@@ -71,7 +71,7 @@ void main() {
 
     expect(find.text('Pagos al IMSS'), findsOneWidget);
     expect(find.text('H3-M40-0317'), findsOneWidget);
-    expect(find.textContaining('Los importes son ficticios'), findsOneWidget);
+    expect(find.textContaining('ficticios'), findsNothing);
     expect(tester.takeException(), isNull);
     tester.view.resetPhysicalSize();
     tester.view.resetDevicePixelRatio();

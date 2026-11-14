@@ -19,5 +19,18 @@ class NativeFilePlatform implements FilePlatform {
   }
 
   @override
-  Future<void> downloadFile(String name, Uint8List bytes) async {}
+  Future<void> downloadFile(String name, Uint8List bytes) async {
+    await FilePicker.platform.saveFile(
+      dialogTitle: 'Guardar archivo',
+      fileName: name,
+      type: FileType.custom,
+      allowedExtensions: [
+        if (name.toLowerCase().endsWith('.csv')) 'csv',
+        if (name.toLowerCase().endsWith('.pdf')) 'pdf',
+      ],
+      bytes: bytes,
+    );
+  }
 }
+
+FilePlatform createFilePlatform() => NativeFilePlatform();

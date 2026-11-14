@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../app/theme/app_theme.dart';
 import '../responsive/responsive.dart';
+import '../responsive/window_size_class.dart';
 
 class AppPageHeader extends StatelessWidget {
   const AppPageHeader({
@@ -21,7 +22,7 @@ class AppPageHeader extends StatelessWidget {
         padding: const EdgeInsets.only(bottom: AppTheme.space6),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final compact = Responsive.isCompact(constraints.maxWidth);
+            final compact = Responsive.of(context) == WindowSizeClass.compacto;
             final heading = Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -30,6 +31,7 @@ class AppPageHeader extends StatelessWidget {
                     eyebrow!.toUpperCase(),
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
                           color: AppTheme.secondaryDark,
+                          fontSize: 10.5,
                           letterSpacing: 1.2,
                           fontWeight: FontWeight.w700,
                         ),
@@ -49,6 +51,7 @@ class AppPageHeader extends StatelessWidget {
                     description!,
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                           color: AppTheme.muted,
+                          fontSize: 13,
                         ),
                   ),
                 ],
@@ -56,15 +59,23 @@ class AppPageHeader extends StatelessWidget {
             );
             if (actions.isEmpty) return heading;
             if (compact) {
+              final actionWidth = actions.length == 1
+                  ? constraints.maxWidth
+                  : (constraints.maxWidth - AppTheme.space2) / 2;
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   heading,
                   const SizedBox(height: AppTheme.space4),
                   Wrap(
-                      spacing: AppTheme.space2,
-                      runSpacing: AppTheme.space2,
-                      children: actions),
+                    alignment: WrapAlignment.start,
+                    spacing: AppTheme.space2,
+                    runSpacing: AppTheme.space2,
+                    children: [
+                      for (final action in actions)
+                        SizedBox(width: actionWidth, child: action),
+                    ],
+                  ),
                 ],
               );
             }

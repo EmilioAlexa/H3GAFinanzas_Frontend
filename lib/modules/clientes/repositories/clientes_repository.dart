@@ -53,7 +53,7 @@ class ClientesRepository {
       rfc: rfc,
       demoMetadata: (
         status: 'Nuevo · demo',
-        advisorName: 'Asesor de demostración',
+        advisorName: 'Asesor asignado',
         service: null,
         assignedToCurrentAdvisor: true,
       ),

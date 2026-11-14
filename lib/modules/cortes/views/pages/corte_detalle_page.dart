@@ -7,7 +7,6 @@ import '../../../../app/theme/app_theme.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_metric_card.dart';
-import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_state_panel.dart';
 import '../../../auth/auth.dart';
@@ -43,15 +42,15 @@ class CorteDetallePage extends ConsumerWidget {
             if (cuts == null) {
               return const AppStatePanel(
                 icon: Icons.link_off,
-                title: 'Detalle de corte sin conectar',
-                message: 'El endpoint de detalle se conectará en B8.',
+                title: 'Detalle no disponible',
+                message: 'No fue posible consultar el corte.',
               );
             }
             if (cut == null) {
               return const AppStatePanel(
                 icon: Icons.search_off_outlined,
                 title: 'Corte no disponible',
-                message: 'No existe en el conjunto de demostración.',
+                message: 'No existe en el conjunto.',
               );
             }
             return _content(context, ref, session, cut);
@@ -94,7 +93,7 @@ class CorteDetallePage extends ConsumerWidget {
                   action: 'cancelar',
                   title: 'Cancelar corte',
                   detail:
-                      'Se cancelará el corte demo. En backend la acción libera las reservas y conserva el historial.',
+                      'Se cancelará el corte y se conservará el historial de movimientos.',
                 ),
                 icon: const Icon(Icons.cancel_outlined),
                 label: const Text('Cancelar'),
@@ -109,18 +108,13 @@ class CorteDetallePage extends ConsumerWidget {
                   action: 'cerrar',
                   title: 'Cerrar corte',
                   detail:
-                      'El cierre es terminal. Revisa los totales y confirma para registrar el estado local demo.',
+                      'El cierre es terminal. Revisa los totales y confirma para registrar el estado local.',
                 ),
                 icon: const Icon(Icons.lock_outline),
                 label: const Text('Cerrar corte'),
               ),
           ],
         ),
-        const AppNotice(
-          text:
-              'Detalle de muestra. Los montos de comisiones se presentan por separado y no se restan de los ingresos del corte.',
-        ),
-        const SizedBox(height: AppTheme.space4),
         LayoutBuilder(builder: (context, constraints) {
           final count = constraints.maxWidth >= 900
               ? 3
@@ -216,7 +210,6 @@ class CorteDetallePage extends ConsumerWidget {
                       ),
                     ]),
               ),
-              const AppBadge(label: 'Muestra demo', tone: AppBadgeTone.info),
             ]),
           ),
           const Divider(height: 1),
@@ -342,7 +335,7 @@ class CorteDetallePage extends ConsumerWidget {
                     fontWeight: FontWeight.w700,
                   )),
           const SizedBox(height: AppTheme.space1),
-          const Text('Pagos validados incluidos · datos de muestra',
+          const Text('Pagos validados incluidos · datos ',
               style: TextStyle(color: AppTheme.muted)),
           const SizedBox(height: AppTheme.space4),
           for (final item in const [
@@ -386,7 +379,7 @@ class CorteDetallePage extends ConsumerWidget {
                     fontWeight: FontWeight.w700,
                   )),
           const SizedBox(height: AppTheme.space1),
-          const Text('Principales contribuciones · demo',
+          const Text('Principales contribuciones',
               style: TextStyle(color: AppTheme.muted)),
           const SizedBox(height: AppTheme.space3),
           for (final item in const [
@@ -511,7 +504,7 @@ class CorteDetallePage extends ConsumerWidget {
             );
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('$title · demo')),
+            SnackBar(content: Text(title)),
           );
           context.go('/cortes');
         }
