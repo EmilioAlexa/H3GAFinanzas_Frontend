@@ -1,9 +1,11 @@
 import 'dart:async';
 
+import 'package:decimal/decimal.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/auth.dart';
 import '../models/contrato_model.dart';
+import '../models/penalizacion_model.dart';
 import '../repositories/contratos_repository.dart';
 
 final contratosControllerProvider = StateNotifierProvider.family<
@@ -32,6 +34,29 @@ class ContratosController
   }
 
   ContratoModel? findById(String id) => _repository.findById(id, _role);
+
+  List<PenalizacionModel> penaltiesFor(String contractId) =>
+      _repository.penaltiesFor(contractId);
+
+  PenalizacionModel createPenaltyDemo({
+    required String contractId,
+    required String concepto,
+    required Decimal monto,
+    required DateTime fecha,
+    required String estado,
+    required String? observaciones,
+  }) {
+    final penalty = _repository.createPenaltyDemo(
+      contractId: contractId,
+      concepto: concepto,
+      monto: monto,
+      fecha: fecha,
+      estado: estado,
+      observaciones: observaciones,
+    );
+    state = AsyncData(_repository.loadSynchronously(_role));
+    return penalty;
+  }
 
   ContratoModel createDemo({
     required String clienteId,

@@ -71,6 +71,15 @@ class ComisionDetallePage extends ConsumerWidget {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.space6),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () => context.go('/comisiones'),
+            icon: const Icon(Icons.arrow_back),
+            label: const Text('Comisiones'),
+            style: TextButton.styleFrom(alignment: Alignment.centerLeft),
+          ),
+        ),
         AppPageHeader(
           eyebrow: isAdvisor
               ? 'Mi comisión · ${payment.paymentFolio}'
@@ -78,13 +87,7 @@ class ComisionDetallePage extends ConsumerWidget {
           title: MoneyFormatter.format(payment.paymentAmount),
           description:
               'Pago ${payment.paymentFolio} · Contrato ${payment.contractFolio}',
-          actions: [
-            OutlinedButton.icon(
-              onPressed: () => context.go('/comisiones'),
-              icon: const Icon(Icons.arrow_back),
-              label: const Text('Volver a comisiones'),
-            ),
-          ],
+          actions: const [],
         ),
         _section(context, 'Estado', [
           AppBadge(

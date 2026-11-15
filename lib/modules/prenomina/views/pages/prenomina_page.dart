@@ -14,6 +14,7 @@ import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_responsive_collection.dart';
 import '../../../../core/widgets/app_state_panel.dart';
+import '../../../../core/widgets/app_tab_strip.dart';
 import '../../controllers/prenomina_controller.dart';
 import '../../fixtures/prenomina_demo_fixtures.dart';
 import '../../models/prenomina_model.dart';
@@ -208,20 +209,10 @@ class _PrenominaPageState extends ConsumerState<PrenominaPage> {
     );
   }
 
-  Widget _tabs() => Wrap(
-        spacing: AppTheme.space2,
-        children: [
-          ChoiceChip(
-            label: const Text('Por receptor'),
-            selected: _tab == 0,
-            onSelected: (_) => setState(() => _tab = 0),
-          ),
-          ChoiceChip(
-            label: const Text('Pagos semanales por corte'),
-            selected: _tab == 1,
-            onSelected: (_) => setState(() => _tab = 1),
-          ),
-        ],
+  Widget _tabs() => AppTabStrip(
+        labels: const ['Por receptor', 'Pagos semanales por corte'],
+        selectedIndex: _tab,
+        onSelected: (index) => setState(() => _tab = index),
       );
 
   Widget _recipients(List<PrenominaModel> items) => _panel(

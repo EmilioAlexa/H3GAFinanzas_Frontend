@@ -51,8 +51,9 @@ class ClientesRepository {
       correoElectronico: correoElectronico,
       curp: curp,
       rfc: rfc,
+      fechaIngreso: DateTime.now(),
       demoMetadata: (
-        status: 'Nuevo · demo',
+        status: 'Activo',
         advisorName: 'Asesor asignado',
         service: null,
         assignedToCurrentAdvisor: true,
@@ -77,10 +78,48 @@ class ClientesRepository {
       curp: updated.curp,
       rfc: updated.rfc,
       asesorId: current.asesorId,
+      fechaIngreso: updated.fechaIngreso ?? current.fechaIngreso,
+      fechaNacimiento: updated.fechaNacimiento ?? current.fechaNacimiento,
+      direccion: updated.direccion,
+      referidoPor: updated.referidoPor,
+      observaciones: updated.observaciones,
       demoMetadata: current.demoMetadata,
     );
     _clients[index] = client;
     return client;
+  }
+
+  ClienteModel toggleStatusDemo(String clientId) {
+    _requireDemoMode();
+    final index = _clients.indexWhere((client) => client.id == clientId);
+    if (index < 0) throw StateError('No se encontrÃ³ el cliente de demo.');
+    final current = _clients[index];
+    final metadata = current.demoMetadata;
+    if (metadata == null) return current;
+    final updated = ClienteModel(
+      id: current.id,
+      nombre: current.nombre,
+      apellidoPaterno: current.apellidoPaterno,
+      apellidoMaterno: current.apellidoMaterno,
+      telefono: current.telefono,
+      correoElectronico: current.correoElectronico,
+      curp: current.curp,
+      rfc: current.rfc,
+      asesorId: current.asesorId,
+      fechaIngreso: current.fechaIngreso,
+      fechaNacimiento: current.fechaNacimiento,
+      direccion: current.direccion,
+      referidoPor: current.referidoPor,
+      observaciones: current.observaciones,
+      demoMetadata: (
+        status: metadata.status == 'Pausado' ? 'Activo' : 'Pausado',
+        advisorName: metadata.advisorName,
+        service: metadata.service,
+        assignedToCurrentAdvisor: metadata.assignedToCurrentAdvisor,
+      ),
+    );
+    _clients[index] = updated;
+    return updated;
   }
 
   void _requireDemoMode() {

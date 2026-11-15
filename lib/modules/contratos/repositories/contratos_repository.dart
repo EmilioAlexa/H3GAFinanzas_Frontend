@@ -1,9 +1,11 @@
+import 'package:decimal/decimal.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/config/env.dart';
 import '../../auth/auth.dart';
 import '../fixtures/contratos_demo_fixtures.dart';
 import '../models/contrato_model.dart';
+import '../models/penalizacion_model.dart';
 import '../models/servicio_model.dart';
 
 final contratosRepositoryProvider = Provider<ContratosRepository>(
@@ -16,6 +18,9 @@ class ContratosRepository {
 
   final bool demoMode;
   final List<ContratoModel> _contracts;
+  final List<PenalizacionModel> _penalties = [
+    ...ContratosDemoFixtures.penalties,
+  ];
 
   Future<List<ContratoModel>?> load(UserRole role) async =>
       loadSynchronously(role);
@@ -33,6 +38,32 @@ class ContratosRepository {
 
   ContratoModel? findById(String id, UserRole role) =>
       loadSynchronously(role)?.where((item) => item.id == id).firstOrNull;
+
+  List<PenalizacionModel> penaltiesFor(String contractId) => List.unmodifiable(
+        _penalties.where((item) => item.contratoId == contractId),
+      );
+
+  PenalizacionModel createPenaltyDemo({
+    required String contractId,
+    required String concepto,
+    required Decimal monto,
+    required DateTime fecha,
+    required String estado,
+    required String? observaciones,
+  }) {
+    _requireDemoMode();
+    final penalty = PenalizacionModel(
+      id: 'demo-penalty-${_penalties.length + 1}',
+      contratoId: contractId,
+      concepto: concepto,
+      monto: monto,
+      fecha: fecha,
+      estado: estado,
+      observaciones: observaciones,
+    );
+    _penalties.insert(0, penalty);
+    return penalty;
+  }
 
   ContratoModel createDemo({
     required String clienteId,
@@ -97,6 +128,9 @@ class ContratosRepository {
       estadoContratoId: current.estadoContratoId,
       cantidadPagos: current.cantidadPagos,
       observaciones: observations,
+      totalPagar: current.totalPagar,
+      montoMensual: current.montoMensual,
+      saldoPendiente: current.saldoPendiente,
       creadoEn: current.creadoEn,
       clienteNombre: current.clienteNombre,
       servicioNombre: current.servicioNombre,

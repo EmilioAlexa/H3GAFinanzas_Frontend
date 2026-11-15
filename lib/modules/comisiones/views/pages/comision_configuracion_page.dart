@@ -120,18 +120,21 @@ class _ComisionConfiguracionPageState
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.space6),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () => context.go('/comisiones/${payment.id}'),
+            icon: const Icon(Icons.arrow_back),
+            label: const Text('Detalle de comisiones'),
+            style: TextButton.styleFrom(alignment: Alignment.centerLeft),
+          ),
+        ),
         AppPageHeader(
           eyebrow: 'Contrato ${payment.contractFolio}',
           title: 'Configuración de comisiones',
           description:
               'Los cambios aplican a pagos futuros. Los snapshots existentes se conservan.',
-          actions: [
-            TextButton.icon(
-              onPressed: () => context.go('/comisiones/${payment.id}'),
-              icon: const Icon(Icons.close),
-              label: const Text('Volver al detalle'),
-            ),
-          ],
+          actions: const [],
         ),
         const AppNotice(
           text:

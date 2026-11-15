@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../app/config/env.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/responsive/window_size_class.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_data_column.dart';
+import '../../../../core/widgets/app_dialog.dart';
 import '../../../../core/widgets/app_filter_dropdown.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_responsive_collection.dart';
@@ -21,6 +23,10 @@ class ClientesPage extends ConsumerStatefulWidget {
   @override
   ConsumerState<ClientesPage> createState() => _ClientesPageState();
 }
+
+enum _ClientAction { view, edit, toggleStatus }
+
+enum _ClientDialogMode { create, edit, view }
 
 class _ClientesPageState extends ConsumerState<ClientesPage> {
   static const _pageSize = 5;
@@ -113,16 +119,28 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const AppPageHeader(
+                AppPageHeader(
                   eyebrow: 'Directorio',
                   title: 'Clientes',
                   description: 'Información compartida desde H3GA Ruta.',
-                  actions: [],
+                  actions: [
+                    if (AppEnv.demoMode && role == UserRole.asesor)
+                      FilledButton.icon(
+                        onPressed: () => _showClientDialog(
+                          context,
+                          role,
+                          mode: _ClientDialogMode.create,
+                        ),
+                        icon: const Icon(Icons.add),
+                        label: const Text('Registrar cliente'),
+                      ),
+                  ],
                 ),
                 _summary(context),
                 const SizedBox(height: AppTheme.space4),
                 _listPanel(
                   context,
+                  role: role,
                   clients: pageItems,
                   filteredCount: visibleTotal,
                   totalCount: hasFilters ? clients.length : 326,
@@ -183,6 +201,7 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
 
   Widget _listPanel(
     BuildContext context, {
+    required UserRole role,
     required List<ClienteModel> clients,
     required int filteredCount,
     required int totalCount,
@@ -247,17 +266,14 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
                   AppDataColumn<ClienteModel>(
                     label: '',
                     flex: 1,
-                    value: (client) => IconButton(
-                      tooltip: 'Abrir cliente ${client.nombreCompleto}',
-                      onPressed: () => _openClient(context, client),
-                      icon: const Icon(Icons.more_horiz),
-                    ),
+                     value: (client) => _clientMenu(context, role, client),
                   ),
                 ],
-                compactCardBuilder: (context, client) => _clientCard(
-                  context,
-                  client,
-                ),
+                 compactCardBuilder: (context, client) => _clientCard(
+                   context,
+                   role,
+                   client,
+                 ),
                 onRowTap: (client) => _openClient(context, client),
                 emptyTitle: 'Sin clientes para mostrar',
               ),
@@ -314,6 +330,7 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
       );
     }
     return Wrap(
+      alignment: WrapAlignment.start,
       spacing: 8,
       runSpacing: 12,
       crossAxisAlignment: WrapCrossAlignment.center,
@@ -409,7 +426,11 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
         ],
       );
 
-  Widget _clientCard(BuildContext context, ClienteModel client) => Container(
+  Widget _clientCard(
+    BuildContext context,
+    UserRole role,
+    ClienteModel client,
+  ) => Container(
         padding: const EdgeInsets.all(AppTheme.space4),
         decoration: BoxDecoration(
           color: AppTheme.surface,
@@ -434,6 +455,7 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
                   ),
                 ),
                 _statusBadge(client),
+                _clientMenu(context, role, client),
               ],
             ),
             const SizedBox(height: AppTheme.space3),
@@ -478,6 +500,253 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
     };
     return AppBadge(label: status, tone: tone);
   }
+
+  Widget _clientMenu(
+    BuildContext context,
+    UserRole role,
+    ClienteModel client,
+  ) => PopupMenuButton<_ClientAction>(
+        tooltip: 'Acciones de ${client.nombreCompleto}',
+        onSelected: (action) async {
+          switch (action) {
+            case _ClientAction.view:
+              await _showClientDialog(context, role,
+                  client: client, mode: _ClientDialogMode.view);
+            case _ClientAction.edit:
+              await _showClientDialog(context, role,
+                  client: client, mode: _ClientDialogMode.edit);
+            case _ClientAction.toggleStatus:
+              await _confirmStatusToggle(context, role, client);
+          }
+        },
+        itemBuilder: (context) => [
+          const PopupMenuItem(
+            value: _ClientAction.view,
+            child: Text('Ver cliente'),
+          ),
+          const PopupMenuItem(
+            value: _ClientAction.edit,
+            child: Text('Editar cliente'),
+          ),
+          PopupMenuItem(
+            value: _ClientAction.toggleStatus,
+            child: Text(client.demoMetadata?.status == 'Pausado'
+                ? 'Activar cliente'
+                : 'Pausar cliente'),
+          ),
+        ],
+      );
+
+  Future<void> _confirmStatusToggle(
+    BuildContext context,
+    UserRole role,
+    ClienteModel client,
+  ) async {
+    final paused = client.demoMetadata?.status == 'Pausado';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AppDialog(
+        title: paused ? 'Activar cliente' : 'Pausar cliente',
+        description: paused
+            ? 'El cliente volverÃ¡ a aparecer como activo.'
+            : 'El cliente dejarÃ¡ de aparecer como activo.',
+        child: Text('Â¿Confirmas cambiar el estado de ${client.nombreCompleto}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(paused ? 'Activar' : 'Pausar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted || !context.mounted) return;
+    try {
+      ref.read(clientesControllerProvider(role).notifier).toggleStatusDemo(
+            client.id,
+          );
+    } on StateError catch (error) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+
+  Future<void> _showClientDialog(
+    BuildContext context,
+    UserRole role, {
+    ClienteModel? client,
+    required _ClientDialogMode mode,
+  }) async {
+    final canEdit = client == null ||
+        role == UserRole.administrador ||
+        (role == UserRole.asesor &&
+            (client.demoMetadata?.assignedToCurrentAdvisor ?? false));
+    if (mode == _ClientDialogMode.edit && !canEdit) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No tienes permiso para editar este cliente.')),
+      );
+      return;
+    }
+    final formKey = GlobalKey<FormState>();
+    var nombre = client?.nombre ?? '';
+    var apellidoPaterno = client?.apellidoPaterno ?? '';
+    var apellidoMaterno = client?.apellidoMaterno ?? '';
+    var telefono = client?.telefono ?? '';
+    var correo = client?.correoElectronico ?? '';
+    var curp = client?.curp ?? '';
+    var rfc = client?.rfc ?? '';
+    var ingreso = _dateInput(client?.fechaIngreso);
+    var nacimiento = _dateInput(client?.fechaNacimiento);
+    var direccion = client?.direccion ?? '';
+    var referido = client?.referidoPor ?? '';
+    var observaciones = client?.observaciones ?? '';
+    final readOnly = mode == _ClientDialogMode.view;
+    final title = switch (mode) {
+      _ClientDialogMode.create => 'Registrar cliente',
+      _ClientDialogMode.edit => 'Editar cliente',
+      _ClientDialogMode.view => 'Datos del cliente',
+    };
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AppDialog(
+        title: title,
+        description: client?.nombreCompleto,
+        maxWidth: 760,
+        child: Form(
+          key: formKey,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth > 520
+                  ? (constraints.maxWidth - AppTheme.space3) / 2
+                  : constraints.maxWidth;
+              Widget field(
+                String label,
+                String value,
+                ValueChanged<String> onSaved, {
+                TextInputType? keyboardType,
+                int maxLines = 1,
+                String? Function(String?)? validator,
+              }) => SizedBox(
+                    width: width,
+                    child: TextFormField(
+                      initialValue: value,
+                      readOnly: readOnly,
+                      keyboardType: keyboardType,
+                      maxLines: maxLines,
+                      decoration: InputDecoration(labelText: label),
+                      validator: validator,
+                      onSaved: (value) => onSaved(value?.trim() ?? ''),
+                    ),
+                  );
+              return Wrap(
+                spacing: AppTheme.space3,
+                runSpacing: AppTheme.space3,
+                children: [
+                  field('Nombre *', nombre, (value) => nombre = value,
+                      validator: _required),
+                  field('Apellido paterno *', apellidoPaterno,
+                      (value) => apellidoPaterno = value,
+                      validator: _required),
+                  field('Apellido materno', apellidoMaterno,
+                      (value) => apellidoMaterno = value),
+                  field('TelÃ©fono', telefono, (value) => telefono = value,
+                      keyboardType: TextInputType.phone),
+                  field('Correo electrÃ³nico', correo, (value) => correo = value,
+                      keyboardType: TextInputType.emailAddress,
+                      validator: _emailValidator),
+                  field('CURP', curp, (value) => curp = value),
+                  field('RFC', rfc, (value) => rfc = value),
+                  field('Fecha de ingreso', ingreso, (value) => ingreso = value),
+                  field('Fecha de nacimiento', nacimiento,
+                      (value) => nacimiento = value),
+                  field('Asesor', client?.demoMetadata?.advisorName ?? '', (_) {}),
+                  field('DirecciÃ³n', direccion, (value) => direccion = value,
+                      maxLines: 2),
+                  field('Referido por', referido, (value) => referido = value),
+                  field('Estatus', client?.demoMetadata?.status ?? 'Activo', (_) {}),
+                  field('Observaciones', observaciones,
+                      (value) => observaciones = value,
+                      maxLines: 3),
+                ],
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(readOnly ? 'Cerrar' : 'Cancelar'),
+          ),
+          if (!readOnly)
+            FilledButton.icon(
+              onPressed: () {
+                if (!formKey.currentState!.validate()) return;
+                formKey.currentState!.save();
+                final controller = ref.read(
+                  clientesControllerProvider(role).notifier,
+                );
+                if (client == null) {
+                  controller.createDemo(
+                    nombre: nombre,
+                    apellidoPaterno: apellidoPaterno,
+                    apellidoMaterno: _nullable(apellidoMaterno),
+                    telefono: _nullable(telefono),
+                    correoElectronico: _nullable(correo),
+                    curp: _nullable(curp),
+                    rfc: _nullable(rfc),
+                  );
+                } else {
+                  controller.updateDemo(ClienteModel(
+                    id: client.id,
+                    nombre: nombre,
+                    apellidoPaterno: apellidoPaterno,
+                    apellidoMaterno: _nullable(apellidoMaterno),
+                    telefono: _nullable(telefono),
+                    correoElectronico: _nullable(correo),
+                    curp: _nullable(curp),
+                    rfc: _nullable(rfc),
+                    fechaIngreso: _parseDate(ingreso),
+                    fechaNacimiento: _parseDate(nacimiento),
+                    direccion: _nullable(direccion),
+                    referidoPor: _nullable(referido),
+                    observaciones: _nullable(observaciones),
+                  ));
+                }
+                Navigator.pop(dialogContext);
+              },
+              icon: const Icon(Icons.save_outlined),
+              label: const Text('Guardar'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _dateInput(DateTime? date) => date == null ? '' : _date(date);
+
+  String _date(DateTime date) => '${date.day.toString().padLeft(2, '0')}/'
+      '${date.month.toString().padLeft(2, '0')}/${date.year}';
+
+  DateTime? _parseDate(String value) {
+    final parts = value.split('/');
+    if (parts.length != 3) return null;
+    return DateTime.tryParse('${parts[2]}-${parts[1]}-${parts[0]}');
+  }
+
+  String? _required(String? value) =>
+      value == null || value.trim().isEmpty ? 'Campo obligatorio' : null;
+
+  String? _emailValidator(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    return RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(value.trim())
+        ? null
+        : 'Correo no vÃ¡lido';
+  }
+
+  String? _nullable(String value) => value.trim().isEmpty ? null : value.trim();
 
   Widget _pagination(
     BuildContext context,

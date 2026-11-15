@@ -93,6 +93,15 @@ class _ValidacionDetallePageState extends ConsumerState<ValidacionDetallePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => context.go('/validacion'),
+              icon: const Icon(Icons.arrow_back),
+              label: const Text('Bandeja de validación'),
+              style: TextButton.styleFrom(alignment: Alignment.centerLeft),
+            ),
+          ),
           AppPageHeader(
             eyebrow: 'Pago ${payment.folio}',
             title: payment.numeroPago == null || payment.cantidadPagos == null
@@ -102,13 +111,7 @@ class _ValidacionDetallePageState extends ConsumerState<ValidacionDetallePage> {
                     : 'Mensualidad ${payment.numeroPago} de ${payment.cantidadPagos}',
             description:
                 '${payment.clienteNombre} · ${payment.contratoFolio} · ${MoneyFormatter.formatDate(payment.fechaPago)}',
-            actions: [
-              OutlinedButton.icon(
-                onPressed: () => context.go('/validacion'),
-                icon: const Icon(Icons.arrow_back),
-                label: const Text('Bandeja de validación'),
-              ),
-            ],
+            actions: const [],
           ),
           _paymentBanner(context, payment),
           const SizedBox(height: AppTheme.space4),

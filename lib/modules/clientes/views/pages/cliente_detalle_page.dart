@@ -140,9 +140,11 @@ class ClienteDetallePage extends ConsumerWidget {
                               if (metadata != null)
                                 AppBadge(
                                   label: metadata.status,
-                                  tone: metadata.status == 'Activo'
-                                      ? AppBadgeTone.success
-                                      : AppBadgeTone.warning,
+                                  tone: switch (metadata.status) {
+                                    'Activo' => AppBadgeTone.success,
+                                    'Pausado' => AppBadgeTone.danger,
+                                    _ => AppBadgeTone.warning,
+                                  },
                                 ),
                               if (metadata?.advisorName != null)
                                 Text(
@@ -165,6 +167,10 @@ class ClienteDetallePage extends ConsumerWidget {
           const Material(
             color: AppTheme.surface,
             child: TabBar(
+              labelColor: AppTheme.ink,
+              unselectedLabelColor: AppTheme.muted,
+              indicatorColor: AppTheme.secondaryDark,
+              dividerColor: AppTheme.line,
               isScrollable: true,
               tabs: [
                 Tab(text: 'Resumen'),
@@ -220,13 +226,15 @@ class ClienteDetallePage extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (size == WindowSizeClass.expandido)
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(flex: 3, child: info),
-                      const SizedBox(width: AppTheme.space4),
-                      Expanded(child: references),
-                    ],
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(flex: 3, child: info),
+                        const SizedBox(width: AppTheme.space4),
+                        Expanded(child: references),
+                      ],
+                    ),
                   )
                 else ...[
                   info,
@@ -260,6 +268,15 @@ class ClienteDetallePage extends ConsumerWidget {
             _field('Correo electrónico', client.correoElectronico),
             _field('CURP', client.curp),
             _field('RFC', client.rfc),
+            _field('Fecha de ingreso',
+                client.fechaIngreso == null ? null : _date(client.fechaIngreso!)),
+            _field('Fecha de nacimiento', client.fechaNacimiento == null
+                ? null
+                : _date(client.fechaNacimiento!)),
+            _field('DirecciÃ³n', client.direccion),
+            _field('Asesor', metadata?.advisorName),
+            _field('Referido por', client.referidoPor),
+            _field('Observaciones', client.observaciones),
             if (metadata?.service != null)
               _field('Servicio', metadata!.service),
           ],
@@ -505,4 +522,7 @@ class ClienteDetallePage extends ConsumerWidget {
     return '${parts.first.substring(0, 1)}${parts[1].substring(0, 1)}'
         .toUpperCase();
   }
+
+  String _date(DateTime date) => '${date.day.toString().padLeft(2, '0')}/'
+      '${date.month.toString().padLeft(2, '0')}/${date.year}';
 }

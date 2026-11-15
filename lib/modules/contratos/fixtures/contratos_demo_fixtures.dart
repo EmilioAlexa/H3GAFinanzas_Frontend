@@ -1,7 +1,10 @@
+import 'package:decimal/decimal.dart';
+
 import '../../../core/demo/demo_dataset.dart';
 import '../../../core/demo/demo_metric.dart';
 import '../../../core/demo/demo_record.dart';
 import '../models/contrato_model.dart';
+import '../models/penalizacion_model.dart';
 import '../models/servicio_model.dart';
 
 abstract final class ContratosDemoFixtures {
@@ -45,6 +48,9 @@ abstract final class ContratosDemoFixtures {
       estadoContratoId: 1,
       cantidadPagos: 12,
       observaciones: 'Seguimiento al corriente.',
+      totalPagar: '180000',
+      montoMensual: '10000',
+      saldoPendiente: '120000',
       creadoEn: DateTime(2024, 11, 14, 10),
       clienteNombre: 'Elena Robles Vargas',
       servicioNombre: 'Modalidad 40',
@@ -116,6 +122,18 @@ abstract final class ContratosDemoFixtures {
       servicioNombre: 'Modalidad 40',
       asesorNombre: 'Jorge Silva',
       estadoNombre: 'Pausado',
+    ),
+  ];
+
+  static final penalties = <PenalizacionModel>[
+    PenalizacionModel(
+      id: 'demo-penalty-1',
+      contratoId: 'demo-contract-3',
+      concepto: 'Pago fuera de fecha',
+      monto: Decimal.parse('1250'),
+      fecha: DateTime(2025, 5, 25),
+      estado: 'Pendiente',
+      observaciones: 'Revisar con el asesor antes de autorizar.',
     ),
   ];
 

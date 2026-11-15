@@ -106,13 +106,18 @@ class PrenominaDetallePage extends ConsumerWidget {
                     const SizedBox(height: AppTheme.space3),
                   ],
                 ])
-              : Row(children: [
-                  for (var index = 0; index < cards.length; index++) ...[
-                    Expanded(child: cards[index]),
-                    if (index < cards.length - 1)
-                      const SizedBox(width: AppTheme.space3),
-                  ],
-                ]);
+              : IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (var index = 0; index < cards.length; index++) ...[
+                        Expanded(child: cards[index]),
+                        if (index < cards.length - 1)
+                          const SizedBox(width: AppTheme.space3),
+                      ],
+                    ],
+                  ),
+                );
         }),
         const SizedBox(height: AppTheme.space4),
         Container(

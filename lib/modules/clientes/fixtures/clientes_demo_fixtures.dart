@@ -4,7 +4,7 @@ import '../../../core/demo/demo_record.dart';
 import '../models/cliente_model.dart';
 
 abstract final class ClientesDemoFixtures {
-  static const clients = <ClienteModel>[
+  static final clients = <ClienteModel>[
     ClienteModel(
       id: 'demo-client-1',
       nombre: 'Elena',
@@ -14,6 +14,11 @@ abstract final class ClientesDemoFixtures {
       correoElectronico: 'elena.robles@email.mx',
       curp: 'ROVE680214MDFBLN08',
       rfc: 'ROVE680214K62',
+      fechaIngreso: DateTime(2024, 11, 8),
+      fechaNacimiento: DateTime(1968, 2, 14),
+      direccion: 'Av. Reforma 120, Cuauhtémoc, CDMX',
+      referidoPor: 'Luis Cantú',
+      observaciones: 'Seguimiento al corriente.',
       demoMetadata: (
         status: 'Activo',
         advisorName: 'Daniela Cruz',
@@ -29,6 +34,8 @@ abstract final class ClientesDemoFixtures {
       telefono: '55 8201 3490',
       correoElectronico: 'carlos.mendoza@email.mx',
       curp: 'MERC720908HDFNZR04',
+      fechaIngreso: DateTime(2025, 2, 10),
+      fechaNacimiento: DateTime(1972, 9, 8),
       demoMetadata: (
         status: 'Activo',
         advisorName: 'Jorge Silva',
@@ -44,6 +51,8 @@ abstract final class ClientesDemoFixtures {
       telefono: '55 7204 1183',
       correoElectronico: 'sofia.ramirez@email.mx',
       curp: 'RALS650320MDFMNF02',
+      fechaIngreso: DateTime(2025, 3, 2),
+      fechaNacimiento: DateTime(1965, 3, 20),
       demoMetadata: (
         status: 'Seguimiento',
         advisorName: 'Daniela Cruz',
@@ -51,7 +60,7 @@ abstract final class ClientesDemoFixtures {
         assignedToCurrentAdvisor: true,
       ),
     ),
-    ClienteModel(
+    const ClienteModel(
       id: 'demo-client-4',
       nombre: 'Javier',
       apellidoPaterno: 'Torres',
@@ -66,7 +75,7 @@ abstract final class ClientesDemoFixtures {
         assignedToCurrentAdvisor: false,
       ),
     ),
-    ClienteModel(
+    const ClienteModel(
       id: 'demo-client-5',
       nombre: 'María',
       apellidoPaterno: 'Salgado',

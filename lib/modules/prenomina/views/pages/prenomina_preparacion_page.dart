@@ -115,13 +115,18 @@ class _PrenominaPreparacionPageState
                   ],
                 ]);
               }
-              return Row(children: [
-                for (var index = 0; index < cards.length; index++) ...[
-                  Expanded(child: cards[index]),
-                  if (index != cards.length - 1)
-                    const SizedBox(width: AppTheme.space3),
-                ],
-              ]);
+              return IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var index = 0; index < cards.length; index++) ...[
+                      Expanded(child: cards[index]),
+                      if (index != cards.length - 1)
+                        const SizedBox(width: AppTheme.space3),
+                    ],
+                  ],
+                ),
+              );
             }),
             const SizedBox(height: AppTheme.space4),
             _reviewPanel(items),
