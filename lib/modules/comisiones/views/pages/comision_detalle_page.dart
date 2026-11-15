@@ -5,8 +5,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/utils/money_formatter.dart';
-import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_back_button.dart';
+import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_state_panel.dart';

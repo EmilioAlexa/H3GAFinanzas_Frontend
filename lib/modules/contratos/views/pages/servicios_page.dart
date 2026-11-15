@@ -120,7 +120,7 @@ class ServiciosPage extends ConsumerWidget {
             Align(
               alignment: Alignment.centerLeft,
               child: Container(
-                padding: const EdgeInsets.all(AppTheme.space3),
+                padding: const EdgeInsets.all(AppTheme.space4),
                 decoration: BoxDecoration(
                   color: service.clave == 'm40-retroactiva'
                       ? AppTheme.goldSoft
@@ -134,14 +134,14 @@ class ServiciosPage extends ConsumerWidget {
                     style: const TextStyle(fontWeight: FontWeight.w700)),
               ),
             ),
-            const SizedBox(height: AppTheme.space3),
+            const SizedBox(height: AppTheme.space4),
             const Align(
               alignment: Alignment.centerLeft,
               child: AppBadge(label: 'Activo', tone: AppBadgeTone.success),
             ),
-            const SizedBox(height: AppTheme.space3),
+            const SizedBox(height: AppTheme.space4),
             Text(service.nombre, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: AppTheme.space2),
+            const SizedBox(height: AppTheme.space3),
             Text(service.descripcionDemo,
                 style: Theme.of(context).textTheme.bodyMedium),
             const Divider(height: AppTheme.space6),

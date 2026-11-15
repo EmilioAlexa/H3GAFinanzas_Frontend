@@ -6,8 +6,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/config/env.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/utils/money_formatter.dart';
-import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_back_button.dart';
+import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_dialog.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_state_panel.dart';
@@ -434,16 +434,6 @@ class ContratoDetallePage extends ConsumerWidget {
       builder: (dialogContext) => AppDialog(
         title: 'Editar contrato',
         description: 'Solo los campos editables por el API.',
-        child: Form(
-          key: key,
-          child: TextFormField(
-            initialValue: observations,
-            minLines: 4,
-            maxLines: 7,
-            decoration: const InputDecoration(labelText: 'Observaciones'),
-            onSaved: (value) => observations = value?.trim() ?? '',
-          ),
-        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
@@ -460,6 +450,16 @@ class ContratoDetallePage extends ConsumerWidget {
             child: const Text('Guardar'),
           ),
         ],
+        child: Form(
+          key: key,
+          child: TextFormField(
+            initialValue: observations,
+            minLines: 4,
+            maxLines: 7,
+            decoration: const InputDecoration(labelText: 'Observaciones'),
+            onSaved: (value) => observations = value?.trim() ?? '',
+          ),
+        ),
       ),
     );
   }
@@ -478,6 +478,28 @@ class ContratoDetallePage extends ConsumerWidget {
       context: context,
       builder: (dialogContext) => AppDialog(
         title: 'Registrar penalización',
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (!key.currentState!.validate()) return;
+              key.currentState!.save();
+              ref.read(contratosControllerProvider(role).notifier).createPenaltyDemo(
+                    contractId: contract.id,
+                    concepto: concept,
+                    monto: _parseDecimal(amount)!,
+                    fecha: DateTime.now(),
+                    estado: 'Pendiente',
+                    observaciones: observations.isEmpty ? null : observations,
+                  );
+              Navigator.pop(dialogContext);
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
         child: Form(
           key: key,
           child: Column(
@@ -505,28 +527,6 @@ class ContratoDetallePage extends ConsumerWidget {
             ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (!key.currentState!.validate()) return;
-              key.currentState!.save();
-              ref.read(contratosControllerProvider(role).notifier).createPenaltyDemo(
-                    contractId: contract.id,
-                    concepto: concept,
-                    monto: _parseDecimal(amount)!,
-                    fecha: DateTime.now(),
-                    estado: 'Pendiente',
-                    observaciones: observations.isEmpty ? null : observations,
-                  );
-              Navigator.pop(dialogContext);
-            },
-            child: const Text('Guardar'),
-          ),
-        ],
       ),
     );
   }

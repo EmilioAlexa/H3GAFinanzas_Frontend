@@ -5,8 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/responsive/window_size_class.dart';
-import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_back_button.dart';
+import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_state_panel.dart';
 import '../../../auth/auth.dart';
 import '../../controllers/clientes_controller.dart';
@@ -342,7 +342,7 @@ class ClienteDetallePage extends ConsumerWidget {
                 _quickLink(
                   context,
                   icon: Icons.calendar_month_outlined,
-                  label: 'Seguimiento ${metadata?.service ?? ''}',
+                  label: 'Seguimiento',
                   route: '/servicios',
                 ),
                 const Divider(),

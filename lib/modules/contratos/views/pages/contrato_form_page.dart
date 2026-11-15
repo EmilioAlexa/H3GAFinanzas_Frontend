@@ -449,10 +449,10 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    CircleAvatar(
+                    const CircleAvatar(
                       backgroundColor: AppTheme.secondaryTint,
                       foregroundColor: AppTheme.secondaryDark,
-                      child: const Icon(Icons.arrow_upward_rounded),
+                      child: Icon(Icons.arrow_upward_rounded),
                     ),
                     const SizedBox(height: AppTheme.space2),
                     const Text(

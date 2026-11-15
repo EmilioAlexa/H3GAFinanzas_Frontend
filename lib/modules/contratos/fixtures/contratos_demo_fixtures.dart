@@ -14,26 +14,26 @@ abstract final class ContratosDemoFixtures {
       clave: 'm10',
       nombre: 'Modalidad 10',
       descripcionDemo:
-          'Seguimiento de inscripción y mensualidades del servicio.',
+          'Alta voluntaria para independientes; gestión de inscripción y cuotas mensuales.',
     ),
     ServicioModel(
       id: 40,
       clave: 'm40',
       nombre: 'Modalidad 40',
       descripcionDemo:
-          'Control por periodo, salario de cotización y pagos mensuales.',
+          'Cotización sin patrón para elevar salario promedio, sumar semanas y controlar pagos.',
     ),
     ServicioModel(
       id: 41,
       clave: 'm40-retroactiva',
       nombre: 'M40 Retroactiva',
-      descripcionDemo: 'Servicio con obligación de pago única.',
+      descripcionDemo: 'Recuperación de periodos pasados no cotizados mediante pago en exhibición única.',
     ),
     ServicioModel(
       id: 50,
       clave: 'apd',
       nombre: 'APD',
-      descripcionDemo: 'Seguimiento operativo de recursos, cobro y validación.',
+      descripcionDemo: 'Trámite de retiro de recursos con seguimiento de altas, reflejo y cobro porcentual.',
     ),
   ];
 

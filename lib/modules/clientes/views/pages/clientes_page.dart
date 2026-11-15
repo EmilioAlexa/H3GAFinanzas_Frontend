@@ -545,8 +545,6 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
         description: paused
             ? 'El cliente volverÃ¡ a aparecer como activo.'
             : 'El cliente dejarÃ¡ de aparecer como activo.',
-        child:
-            Text('Â¿Confirmas cambiar el estado de ${client.nombreCompleto}?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
@@ -557,6 +555,8 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
             child: Text(paused ? 'Activar' : 'Pausar'),
           ),
         ],
+        child:
+            Text('Â¿Confirmas cambiar el estado de ${client.nombreCompleto}?'),
       ),
     );
     if (confirmed != true || !mounted || !context.mounted) return;
@@ -612,6 +612,52 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
         title: title,
         description: client?.nombreCompleto,
         maxWidth: 760,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(readOnly ? 'Cerrar' : 'Cancelar'),
+          ),
+          if (!readOnly)
+            FilledButton.icon(
+              onPressed: () {
+                if (!formKey.currentState!.validate()) return;
+                formKey.currentState!.save();
+                final controller = ref.read(
+                  clientesControllerProvider(role).notifier,
+                );
+                if (client == null) {
+                  controller.createDemo(
+                    nombre: nombre,
+                    apellidoPaterno: apellidoPaterno,
+                    apellidoMaterno: _nullable(apellidoMaterno),
+                    telefono: _nullable(telefono),
+                    correoElectronico: _nullable(correo),
+                    curp: _nullable(curp),
+                    rfc: _nullable(rfc),
+                  );
+                } else {
+                  controller.updateDemo(ClienteModel(
+                    id: client.id,
+                    nombre: nombre,
+                    apellidoPaterno: apellidoPaterno,
+                    apellidoMaterno: _nullable(apellidoMaterno),
+                    telefono: _nullable(telefono),
+                    correoElectronico: _nullable(correo),
+                    curp: _nullable(curp),
+                    rfc: _nullable(rfc),
+                    fechaIngreso: _parseDate(ingreso),
+                    fechaNacimiento: _parseDate(nacimiento),
+                    direccion: _nullable(direccion),
+                    referidoPor: _nullable(referido),
+                    observaciones: _nullable(observaciones),
+                  ));
+                }
+                Navigator.pop(dialogContext);
+              },
+              icon: const Icon(Icons.save_outlined),
+              label: const Text('Guardar'),
+            ),
+        ],
         child: Form(
           key: formKey,
           child: LayoutBuilder(
@@ -676,52 +722,6 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
             },
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: Text(readOnly ? 'Cerrar' : 'Cancelar'),
-          ),
-          if (!readOnly)
-            FilledButton.icon(
-              onPressed: () {
-                if (!formKey.currentState!.validate()) return;
-                formKey.currentState!.save();
-                final controller = ref.read(
-                  clientesControllerProvider(role).notifier,
-                );
-                if (client == null) {
-                  controller.createDemo(
-                    nombre: nombre,
-                    apellidoPaterno: apellidoPaterno,
-                    apellidoMaterno: _nullable(apellidoMaterno),
-                    telefono: _nullable(telefono),
-                    correoElectronico: _nullable(correo),
-                    curp: _nullable(curp),
-                    rfc: _nullable(rfc),
-                  );
-                } else {
-                  controller.updateDemo(ClienteModel(
-                    id: client.id,
-                    nombre: nombre,
-                    apellidoPaterno: apellidoPaterno,
-                    apellidoMaterno: _nullable(apellidoMaterno),
-                    telefono: _nullable(telefono),
-                    correoElectronico: _nullable(correo),
-                    curp: _nullable(curp),
-                    rfc: _nullable(rfc),
-                    fechaIngreso: _parseDate(ingreso),
-                    fechaNacimiento: _parseDate(nacimiento),
-                    direccion: _nullable(direccion),
-                    referidoPor: _nullable(referido),
-                    observaciones: _nullable(observaciones),
-                  ));
-                }
-                Navigator.pop(dialogContext);
-              },
-              icon: const Icon(Icons.save_outlined),
-              label: const Text('Guardar'),
-            ),
-        ],
       ),
     );
   }
