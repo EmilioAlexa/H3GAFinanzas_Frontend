@@ -5,10 +5,15 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/responsive/window_size_class.dart';
+import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_back_button.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_state_panel.dart';
 import '../../../auth/auth.dart';
+import '../../../contratos/controllers/contratos_controller.dart';
+import '../../../contratos/models/contrato_model.dart';
+import '../../../pagos/controllers/pagos_controller.dart';
+import '../../../pagos/models/pago_model.dart';
 import '../../controllers/clientes_controller.dart';
 import '../../models/cliente_model.dart';
 
@@ -57,110 +62,51 @@ class ClienteDetallePage extends ConsumerWidget {
                     message: 'No fue posible consultar el detalle del cliente.',
                   );
                 }
-                final matches = clients.where((item) => item.id == clienteId);
-                if (matches.isEmpty) {
+                final client =
+                    clients.where((item) => item.id == clienteId).firstOrNull;
+                if (client == null) {
                   return const AppStatePanel(
                     icon: Icons.person_search_outlined,
                     title: 'Cliente no disponible',
                     message: '',
                   );
                 }
-                return _page(context, matches.first);
+                final contracts = ref
+                        .watch(contratosControllerProvider(session.role))
+                        .valueOrNull ??
+                    const <ContratoModel>[];
+                final payments = ref
+                        .watch(pagosControllerProvider(session.role))
+                        .valueOrNull
+                        ?.payments ??
+                    const <PagoModel>[];
+                return _page(context, client, contracts, payments);
               },
             );
       },
     );
   }
 
-  Widget _page(BuildContext context, ClienteModel client) {
+  Widget _page(
+    BuildContext context,
+    ClienteModel client,
+    List<ContratoModel> contracts,
+    List<PagoModel> payments,
+  ) {
+    final clientContracts =
+        contracts.where((contract) => contract.clienteId == client.id).toList();
+    final contractIds = clientContracts.map((contract) => contract.id).toSet();
+    final clientPayments = payments
+        .where((payment) => contractIds.contains(payment.contratoId))
+        .toList();
     final metadata = client.demoMetadata;
-    final initials = _initials(client.nombreCompleto);
 
     return DefaultTabController(
       length: 4,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppTheme.space6,
-              AppTheme.space3,
-              AppTheme.space6,
-              AppTheme.space3,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                AppBackButton(
-                  label: 'Clientes',
-                  onPressed: () => context.go('/clientes'),
-                ),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    CircleAvatar(
-                      radius: 32,
-                      backgroundColor: AppTheme.accentSoft,
-                      foregroundColor: AppTheme.primary,
-                      child: Text(initials),
-                    ),
-                    const SizedBox(width: AppTheme.space4),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Cliente',
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelLarge
-                                ?.copyWith(
-                                  color: AppTheme.secondaryDark,
-                                  letterSpacing: 1,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                          ),
-                          const SizedBox(height: AppTheme.space1),
-                          Text(
-                            client.nombreCompleto,
-                            style: Theme.of(context)
-                                .textTheme
-                                .headlineSmall
-                                ?.copyWith(fontWeight: FontWeight.w700),
-                          ),
-                          const SizedBox(height: AppTheme.space2),
-                          Wrap(
-                            spacing: AppTheme.space2,
-                            runSpacing: AppTheme.space1,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              if (metadata != null)
-                                AppBadge(
-                                  label: metadata.status,
-                                  tone: switch (metadata.status) {
-                                    'Activo' => AppBadgeTone.success,
-                                    'Pausado' => AppBadgeTone.danger,
-                                    _ => AppBadgeTone.warning,
-                                  },
-                                ),
-                              if (metadata?.advisorName != null)
-                                Text(
-                                  'Asesor: ${metadata!.advisorName}',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
-                                      ?.copyWith(color: AppTheme.muted),
-                                ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+          _header(context, client, metadata),
           const Material(
             color: AppTheme.canvas,
             child: TabBar(
@@ -180,27 +126,95 @@ class ClienteDetallePage extends ConsumerWidget {
           Expanded(
             child: TabBarView(
               children: [
-                _summary(context, client, metadata),
-                _relatedModule(
-                  context,
-                  title: 'Servicios y contratos',
-                  message: 'Modalidad 40 · Contrato M40202500001 · Activo',
-                  route: '/contratos',
-                  actionLabel: 'Ver contrato',
-                ),
-                _relatedModule(
-                  context,
-                  title: 'Pagos del cliente',
-                  message: r'Mensualidad 7 de 12 · $10,000 · Validado',
-                  route: '/pagos',
-                  actionLabel: 'Ver pagos',
-                ),
-                SingleChildScrollView(
-                  padding: const EdgeInsets.all(AppTheme.space6),
-                  child: _trajectoryCard(context),
-                ),
+                _summary(
+                    context, client, metadata, clientContracts, clientPayments),
+                _contractsTab(context, clientContracts),
+                _paymentsTab(context, clientPayments),
+                _historyTab(context, clientContracts, clientPayments),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _header(
+    BuildContext context,
+    ClienteModel client,
+    ClienteDemoMetadata? metadata,
+  ) {
+    final initials = _initials(client.nombreCompleto);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppTheme.space6,
+        AppTheme.space3,
+        AppTheme.space6,
+        AppTheme.space3,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppBackButton(
+            label: 'Clientes',
+            onPressed: () => context.go('/clientes'),
+          ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                radius: 32,
+                backgroundColor: AppTheme.accentSoft,
+                foregroundColor: AppTheme.primary,
+                child: Text(initials),
+              ),
+              const SizedBox(width: AppTheme.space4),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Cliente',
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            color: AppTheme.secondaryDark,
+                            letterSpacing: 1,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    const SizedBox(height: AppTheme.space1),
+                    Text(
+                      client.nombreCompleto,
+                      style: Theme.of(context)
+                          .textTheme
+                          .headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: AppTheme.space2),
+                    Wrap(
+                      spacing: AppTheme.space2,
+                      runSpacing: AppTheme.space1,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        if (metadata != null)
+                          AppBadge(
+                            label: metadata.status,
+                            tone: switch (metadata.status) {
+                              'Activo' => AppBadgeTone.success,
+                              'Pausado' => AppBadgeTone.danger,
+                              _ => AppBadgeTone.warning,
+                            },
+                          ),
+                        if (metadata?.advisorName != null)
+                          Text(
+                            'Asesor: ${metadata!.advisorName}',
+                            style: const TextStyle(color: AppTheme.muted),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -211,27 +225,28 @@ class ClienteDetallePage extends ConsumerWidget {
     BuildContext context,
     ClienteModel client,
     ClienteDemoMetadata? metadata,
+    List<ContratoModel> contracts,
+    List<PagoModel> payments,
   ) =>
       LayoutBuilder(
         builder: (context, constraints) {
-          final size = Responsive.of(context);
+          final expanded = Responsive.of(context) == WindowSizeClass.expandido;
           final info = _informationCard(context, client, metadata);
-          final references = _referencesCard(context, metadata);
+          final references =
+              _referencesCard(context, metadata, contracts, payments);
           return SingleChildScrollView(
             padding: const EdgeInsets.all(AppTheme.space6),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (size == WindowSizeClass.expandido)
-                  IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(flex: 3, child: info),
-                        const SizedBox(width: AppTheme.space4),
-                        Expanded(child: references),
-                      ],
-                    ),
+                if (expanded)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(flex: 3, child: info),
+                      const SizedBox(width: AppTheme.space4),
+                      Expanded(child: references),
+                    ],
                   )
                 else ...[
                   info,
@@ -239,7 +254,7 @@ class ClienteDetallePage extends ConsumerWidget {
                   references,
                 ],
                 const SizedBox(height: AppTheme.space4),
-                _trajectoryCard(context),
+                _trajectoryCard(context, contracts, payments),
               ],
             ),
           );
@@ -265,17 +280,20 @@ class ClienteDetallePage extends ConsumerWidget {
             _field('Correo electrónico', client.correoElectronico),
             _field('CURP', client.curp),
             _field('RFC', client.rfc),
-            _field('Fecha de ingreso',
-                client.fechaIngreso == null ? null : _date(client.fechaIngreso!)),
-            _field('Fecha de nacimiento', client.fechaNacimiento == null
-                ? null
-                : _date(client.fechaNacimiento!)),
+            _field(
+                'Fecha de ingreso',
+                client.fechaIngreso == null
+                    ? null
+                    : _date(client.fechaIngreso!)),
+            _field(
+                'Fecha de nacimiento',
+                client.fechaNacimiento == null
+                    ? null
+                    : _date(client.fechaNacimiento!)),
             _field('Dirección', client.direccion),
             _field('Asesor', metadata?.advisorName),
             _field('Referido por', client.referidoPor),
             _field('Observaciones', client.observaciones),
-            if (metadata?.service != null)
-              _field('Servicio', metadata!.service),
           ],
         ),
       );
@@ -283,105 +301,285 @@ class ClienteDetallePage extends ConsumerWidget {
   Widget _referencesCard(
     BuildContext context,
     ClienteDemoMetadata? metadata,
-  ) =>
-      Column(
+    List<ContratoModel> contracts,
+    List<PagoModel> payments,
+  ) {
+    final activeContract = contracts
+        .where((contract) => contract.estadoNombre.toLowerCase() == 'activo')
+        .firstOrNull;
+    final firstPayment = payments.firstOrNull;
+    return Column(
+      children: [
+        _panel(
+          context,
+          title: 'Resumen financiero',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _summaryLine('Contratos registrados', '${contracts.length}'),
+              _summaryLine('Pagos registrados', '${payments.length}'),
+              _summaryLine(
+                'Último pago',
+                firstPayment == null
+                    ? 'No registrado'
+                    : MoneyFormatter.format(firstPayment.monto),
+              ),
+              if (metadata?.service != null)
+                _summaryLine('Servicio principal', metadata!.service!),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppTheme.space4),
+        _panel(
+          context,
+          title: 'Accesos rápidos',
+          child: Column(
+            children: [
+              _quickLink(
+                context,
+                icon: Icons.description_outlined,
+                label: 'Contrato activo',
+                route: activeContract == null
+                    ? null
+                    : '/contratos/${activeContract.id}',
+              ),
+              const Divider(),
+              _quickLink(
+                context,
+                icon: Icons.calendar_month_outlined,
+                label: 'Servicios',
+                route: '/servicios',
+              ),
+              const Divider(),
+              _quickLink(
+                context,
+                icon: Icons.credit_card_outlined,
+                label: 'Historial de pagos',
+                route:
+                    firstPayment == null ? null : '/pagos/${firstPayment.id}',
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _contractsTab(
+    BuildContext context,
+    List<ContratoModel> contracts,
+  ) {
+    if (contracts.isEmpty) {
+      return _emptyTab(
+        icon: Icons.business_center_outlined,
+        title: 'Sin servicios o contratos registrados',
+        message:
+            'Este cliente aún no tiene ningún servicio o contrato registrado.',
+      );
+    }
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppTheme.space6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _panel(
-            context,
-            title: 'Resumen financiero',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Total contratado'),
-                    Text(
-                      r'$180,000',
-                      style: TextStyle(fontWeight: FontWeight.w700),
+          for (final contract in contracts) ...[
+            _panel(
+              context,
+              title: contract.servicioNombre,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(contract.folio,
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w700)),
+                      ),
+                      _statusBadge(contract.estadoNombre),
+                    ],
+                  ),
+                  const SizedBox(height: AppTheme.space3),
+                  Wrap(
+                    spacing: AppTheme.space6,
+                    runSpacing: AppTheme.space2,
+                    children: [
+                      _field(
+                          'Fecha de contrato', _date(contract.fechaContrato)),
+                      _field('Asesor', contract.asesorNombre),
+                      _field('Pagos contratados',
+                          contract.cantidadPagos?.toString()),
+                      _field('Observaciones', contract.observaciones),
+                    ],
+                  ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: OutlinedButton.icon(
+                      onPressed: () => context.go('/contratos/${contract.id}'),
+                      icon: const Icon(Icons.arrow_forward, size: 18),
+                      label: const Text('Ver detalle del contrato'),
                     ),
-                  ],
-                ),
-                const SizedBox(height: AppTheme.space3),
-                const Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Total pagado'),
-                    Text(
-                      r'$60,000',
-                      style: TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppTheme.space3),
-                const LinearProgressIndicator(value: .33),
-                const SizedBox(height: AppTheme.space2),
-                Text(
-                  r'33% cubierto · $120,000 pendiente',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(color: AppTheme.muted),
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: AppTheme.space4),
-          _panel(
-            context,
-            title: 'Accesos rápidos',
-            child: Column(
-              children: [
-                _quickLink(
-                  context,
-                  icon: Icons.description_outlined,
-                  label: 'Contrato activo',
-                  route: '/contratos',
-                ),
-                const Divider(),
-                _quickLink(
-                  context,
-                  icon: Icons.calendar_month_outlined,
-                  label: 'Seguimiento',
-                  route: '/servicios',
-                ),
-                const Divider(),
-                _quickLink(
-                  context,
-                  icon: Icons.credit_card_outlined,
-                  label: 'Historial de pagos',
-                  route: '/pagos',
-                ),
-              ],
-            ),
-          ),
+            if (contract != contracts.last)
+              const SizedBox(height: AppTheme.space4),
+          ],
         ],
+      ),
+    );
+  }
+
+  Widget _paymentsTab(BuildContext context, List<PagoModel> payments) {
+    if (payments.isEmpty) {
+      return _emptyTab(
+        icon: Icons.payments_outlined,
+        title: 'Sin pagos registrados',
+        message: 'Este cliente aún no tiene ningún pago registrado.',
+      );
+    }
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppTheme.space6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final payment in payments) ...[
+            _panel(
+              context,
+              title: payment.folio,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(payment.contratoFolio,
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w700)),
+                      ),
+                      _statusBadge(payment.estado),
+                    ],
+                  ),
+                  const SizedBox(height: AppTheme.space3),
+                  Wrap(
+                    spacing: AppTheme.space6,
+                    runSpacing: AppTheme.space2,
+                    children: [
+                      _field('Servicio', payment.servicioNombre),
+                      _field('Monto', MoneyFormatter.format(payment.monto)),
+                      _field('Fecha de pago', _date(payment.fechaPago)),
+                      _field('Método', payment.formaPago),
+                      _field('Referencia', payment.referencia),
+                    ],
+                  ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: OutlinedButton.icon(
+                      onPressed: () => context.go('/pagos/${payment.id}'),
+                      icon: const Icon(Icons.arrow_forward, size: 18),
+                      label: const Text('Ver detalle del pago'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (payment != payments.last)
+              const SizedBox(height: AppTheme.space4),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _historyTab(
+    BuildContext context,
+    List<ContratoModel> contracts,
+    List<PagoModel> payments,
+  ) {
+    final events = [
+      for (final contract in contracts)
+        _TimelineEntry(
+          date: contract.fechaContrato,
+          title: 'Contrato registrado',
+          detail: '${contract.servicioNombre} · ${contract.folio}',
+        ),
+      for (final payment in payments)
+        _TimelineEntry(
+          date: payment.fechaPago,
+          title: 'Pago ${payment.estado.toLowerCase()}',
+          detail: '${MoneyFormatter.format(payment.monto)} · ${payment.folio}',
+        ),
+    ]..sort((a, b) => b.date.compareTo(a.date));
+    if (events.isEmpty) {
+      return _emptyTab(
+        icon: Icons.history_outlined,
+        title: 'Sin historial registrado',
+        message: 'Aún no hay movimientos relacionados con este cliente.',
+      );
+    }
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppTheme.space6),
+      child: _panel(
+        context,
+        title: 'Historial del cliente',
+        child: Column(
+          children: [
+            for (var index = 0; index < events.length; index++)
+              _timelineItem(
+                context,
+                _date(events[index].date),
+                events[index].title,
+                events[index].detail,
+                last: index == events.length - 1,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _emptyTab({
+    required IconData icon,
+    required String title,
+    required String message,
+  }) =>
+      SingleChildScrollView(
+        padding: const EdgeInsets.all(AppTheme.space6),
+        child: Center(
+          child: AppStatePanel(icon: icon, title: title, message: message),
+        ),
       );
 
-  Widget _trajectoryCard(BuildContext context) => _panel(
+  Widget _trajectoryCard(
+    BuildContext context,
+    List<ContratoModel> contracts,
+    List<PagoModel> payments,
+  ) =>
+      _panel(
         context,
         title: 'Trayectoria del cliente',
         child: Column(
           children: [
-            _timelineItem(
-              context,
-              '24 may. 2025',
-              'Pago validado',
-              r'$10,000 · PG-2025-0428',
-            ),
-            _timelineItem(
-              context,
-              '14 nov. 2024',
-              'Contrato M40 activado',
-              'Folio M40202500001',
-            ),
-            _timelineItem(
-              context,
-              '08 nov. 2024',
-              'Servicio finalizado',
-              'Modalidad 10',
-              last: true,
-            ),
+            for (final payment in payments)
+              _timelineItem(
+                context,
+                _date(payment.fechaPago),
+                'Pago ${payment.estado.toLowerCase()}',
+                '${MoneyFormatter.format(payment.monto)} · ${payment.folio}',
+              ),
+            for (final contract in contracts)
+              _timelineItem(
+                context,
+                _date(contract.fechaContrato),
+                'Contrato registrado',
+                '${contract.servicioNombre} · ${contract.folio}',
+              ),
+            if (contracts.isEmpty && payments.isEmpty)
+              const Text(
+                'Aún no hay movimientos registrados.',
+                style: TextStyle(color: AppTheme.muted),
+              ),
           ],
         ),
       );
@@ -400,21 +598,12 @@ class ClienteDetallePage extends ConsumerWidget {
           children: [
             SizedBox(
               width: 104,
-              child: Text(
-                date,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: AppTheme.muted),
-              ),
+              child: Text(date,
+                  style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
             ),
             const Padding(
               padding: EdgeInsets.only(top: 5),
-              child: Icon(
-                Icons.circle,
-                size: 9,
-                color: AppTheme.secondaryDark,
-              ),
+              child: Icon(Icons.circle, size: 9, color: AppTheme.secondaryDark),
             ),
             const SizedBox(width: AppTheme.space3),
             Expanded(
@@ -431,41 +620,28 @@ class ClienteDetallePage extends ConsumerWidget {
         ),
       );
 
-  Widget _relatedModule(
-    BuildContext context, {
-    required String title,
-    required String message,
-    required String route,
-    required String actionLabel,
-  }) =>
-      Center(
-        child: Padding(
-          padding: const EdgeInsets.all(AppTheme.space6),
-          child: AppStatePanel(
-            icon: Icons.open_in_new,
-            title: title,
-            message: message,
-            action: OutlinedButton.icon(
-              onPressed: () => context.go(route),
-              icon: const Icon(Icons.arrow_forward),
-              label: Text(actionLabel),
-            ),
-          ),
-        ),
-      );
-
   Widget _quickLink(
     BuildContext context, {
     required IconData icon,
     required String label,
-    required String route,
+    required String? route,
   }) =>
       ListTile(
+        enabled: route != null,
         contentPadding: EdgeInsets.zero,
         leading: Icon(icon),
         title: Text(label),
         trailing: const Icon(Icons.chevron_right),
-        onTap: () => context.go(route),
+        onTap: route == null ? null : () => context.go(route),
+      );
+
+  Widget _statusBadge(String status) => AppBadge(
+        label: status,
+        tone: switch (status) {
+          'Activo' || 'Validado' => AppBadgeTone.success,
+          'Pausado' || 'Rechazado' => AppBadgeTone.danger,
+          _ => AppBadgeTone.warning,
+        },
       );
 
   Widget _panel(
@@ -485,15 +661,28 @@ class ClienteDetallePage extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              title,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontWeight: FontWeight.w700),
-            ),
+            Text(title,
+                style: Theme.of(context)
+                    .textTheme
+                    .titleLarge
+                    ?.copyWith(fontWeight: FontWeight.w700)),
             const Divider(height: AppTheme.space6),
-            Material(type: MaterialType.transparency, child: child),
+            child,
+          ],
+        ),
+      );
+
+  Widget _summaryLine(String label, String value) => Padding(
+        padding: const EdgeInsets.only(bottom: AppTheme.space3),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(label,
+                  style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+            ),
+            Text(value,
+                textAlign: TextAlign.end,
+                style: const TextStyle(fontWeight: FontWeight.w700)),
           ],
         ),
       );
@@ -514,7 +703,7 @@ class ClienteDetallePage extends ConsumerWidget {
       );
 
   String _initials(String name) {
-    final parts = name.split(' ');
+    final parts = name.trim().split(RegExp(r'\s+'));
     if (parts.length < 2) return parts.first.substring(0, 1).toUpperCase();
     return '${parts.first.substring(0, 1)}${parts[1].substring(0, 1)}'
         .toUpperCase();
@@ -522,4 +711,16 @@ class ClienteDetallePage extends ConsumerWidget {
 
   String _date(DateTime date) => '${date.day.toString().padLeft(2, '0')}/'
       '${date.month.toString().padLeft(2, '0')}/${date.year}';
+}
+
+class _TimelineEntry {
+  const _TimelineEntry({
+    required this.date,
+    required this.title,
+    required this.detail,
+  });
+
+  final DateTime date;
+  final String title;
+  final String detail;
 }
