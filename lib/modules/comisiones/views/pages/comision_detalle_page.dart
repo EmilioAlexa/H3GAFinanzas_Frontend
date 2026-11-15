@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_badge.dart';
+import '../../../../core/widgets/app_back_button.dart';
 import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_state_panel.dart';
@@ -71,14 +72,9 @@ class ComisionDetallePage extends ConsumerWidget {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.space6),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            onPressed: () => context.go('/comisiones'),
-            icon: const Icon(Icons.arrow_back),
-            label: const Text('Comisiones'),
-            style: TextButton.styleFrom(alignment: Alignment.centerLeft),
-          ),
+        AppBackButton(
+          label: 'Comisiones',
+          onPressed: () => context.go('/comisiones'),
         ),
         AppPageHeader(
           eyebrow: isAdvisor

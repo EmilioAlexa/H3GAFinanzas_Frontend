@@ -4,14 +4,16 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../app/theme/app_theme.dart';
-import '../../../../core/responsive/responsive.dart';
-import '../../../../core/responsive/window_size_class.dart';
+import '../../../../core/platform/file_platform_factory.dart';
+import '../../../../core/platform/selected_file.dart';
+import '../../../../core/widgets/app_back_button.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_state_panel.dart';
 import '../../../auth/auth.dart';
 import '../../controllers/contratos_controller.dart';
 import '../../fixtures/contratos_demo_fixtures.dart';
 import '../../models/contrato_model.dart';
+import '../../models/servicio_model.dart';
 
 const _demoClients = <({String id, String name})>[
   (id: 'demo-client-1', name: 'Elena Robles Vargas'),
@@ -27,13 +29,6 @@ const _demoAdvisors = <({String id, String name})>[
   (id: 'demo-advisor-3', name: 'Mónica Ruiz'),
 ];
 
-const _demoContractStates = <({int id, String name})>[
-  (id: 1, name: 'Activo'),
-  (id: 2, name: 'En proceso'),
-  (id: 3, name: 'Pago pendiente'),
-  (id: 4, name: 'Pausado'),
-];
-
 class ContratoFormPage extends ConsumerStatefulWidget {
   const ContratoFormPage({this.contratoId, super.key});
 
@@ -46,20 +41,28 @@ class ContratoFormPage extends ConsumerStatefulWidget {
 class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
   final _formKey = GlobalKey<FormState>();
   final _folioController = TextEditingController();
-  final _paymentsController = TextEditingController();
   final _observationsController = TextEditingController();
+  final _dailySalaryController = TextEditingController();
+  final _monthlyAmountController = TextEditingController();
+  final List<SelectedFile> _documents = [];
+
   String? _selectedClientId = _demoClients.first.id;
   int? _selectedServiceId = 40;
   String? _selectedAdvisorId = _demoAdvisors.first.id;
-  int? _selectedStateId = 1;
+  String _saleType = 'Cambaceo';
+  String _paymentScheme = 'Mensual';
+  String _contractPeriod = '12 meses';
   DateTime? _selectedDate;
+  DateTime? _estimatedEndDate;
+  String? _fileError;
   String? _initializedContractId;
 
   @override
   void dispose() {
     _folioController.dispose();
-    _paymentsController.dispose();
     _observationsController.dispose();
+    _dailySalaryController.dispose();
+    _monthlyAmountController.dispose();
     super.dispose();
   }
 
@@ -128,12 +131,10 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
     if (_initializedContractId == contract.id) return;
     _initializedContractId = contract.id;
     _folioController.text = contract.folio;
-    _paymentsController.text = contract.cantidadPagos?.toString() ?? '';
     _observationsController.text = contract.observaciones ?? '';
     _selectedClientId = contract.clienteId;
     _selectedServiceId = contract.servicioId;
     _selectedAdvisorId = contract.asesorId;
-    _selectedStateId = contract.estadoContratoId;
     _selectedDate = contract.fechaContrato;
   }
 
@@ -154,183 +155,93 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
             'El asesor solo puede actualizar contratos que tiene asignados.',
       );
     }
-    final isAdvisor = session.role == UserRole.asesor;
-    final selectedDate = _selectedDate ?? DateTime.now();
-    final compact = Responsive.of(context) == WindowSizeClass.compacto;
 
+    final selectedDate = _selectedDate ?? DateTime.now();
+    final isAdvisor = session.role == UserRole.asesor;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.space6),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 900),
+          constraints: const BoxConstraints(maxWidth: 1200),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                TextButton.icon(
+                AppBackButton(
+                  label: 'Contratos',
                   onPressed: () => context.go(
                     editing ? '/contratos/${existing.id}' : '/contratos',
                   ),
-                  icon: const Icon(Icons.arrow_back),
-                  label: const Text('Contratos'),
-                  style: TextButton.styleFrom(alignment: Alignment.centerLeft),
                 ),
                 AppPageHeader(
-                  eyebrow: editing ? 'Edición' : 'Nuevo registro',
-                  title: editing ? 'Editar observaciones' : 'Crear contrato',
+                  eyebrow: editing ? 'Edición' : null,
+                  title: editing ? 'Editar contrato' : 'Crear contrato',
                   description: editing
-                      ? 'Observaciones es el único campo actualizable por PATCH.'
-                      : 'Captura las condiciones generales del contrato.',
+                      ? 'Actualiza las observaciones del contrato.'
+                      : 'Captura las condiciones generales y específicas del servicio.',
                 ),
-                if (editing)
-                  _formCard(
-                    context,
-                    title: 'Observaciones',
-                    children: [
-                      TextFormField(
-                        controller: _observationsController,
-                        minLines: 4,
-                        maxLines: 7,
-                        decoration: const InputDecoration(
-                          labelText: 'Observaciones',
-                          hintText: 'Agrega condiciones o acuerdos relevantes',
-                        ),
-                      ),
-                    ],
-                  )
-                else ...[
-                  _formCard(
-                    context,
-                    title: 'Cliente y servicio',
-                    children: [
-                      _fieldWidth(
-                        compact,
-                        _dropdown<String>(
-                          label: 'Cliente',
-                          value: _selectedClientId,
-                          values: _demoClients
-                              .map((item) => (item.id, item.name))
-                              .toList(),
-                          onChanged: (value) =>
-                              setState(() => _selectedClientId = value),
-                        ),
-                      ),
-                      _fieldWidth(
-                        compact,
-                        _dropdown<int>(
-                          label: 'Servicio',
-                          value: _selectedServiceId,
-                          values: ContratosDemoFixtures.services
-                              .map((item) => (item.id, item.nombre))
-                              .toList(),
-                          onChanged: (value) =>
-                              setState(() => _selectedServiceId = value),
-                        ),
-                      ),
-                      if (!isAdvisor)
-                        _fieldWidth(
-                          compact,
-                          _dropdown<String>(
-                            label: 'Asesor asignado',
-                            value: _selectedAdvisorId,
-                            values: _demoAdvisors
-                                .map((item) => (item.id, item.name))
-                                .toList(),
-                            onChanged: (value) =>
-                                setState(() => _selectedAdvisorId = value),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: AppTheme.space4),
-                  _formCard(
-                    context,
-                    title: 'Datos del contrato',
-                    children: [
-                      _fieldWidth(
-                        compact,
-                        TextFormField(
-                          controller: _folioController,
-                          maxLength: 50,
-                          decoration: const InputDecoration(
-                            labelText: 'Folio',
-                            helperText: 'Máximo 50 caracteres',
-                          ),
-                          validator: (value) =>
-                              value == null || value.trim().isEmpty
-                                  ? 'El folio es obligatorio.'
-                                  : null,
-                        ),
-                      ),
-                      _fieldWidth(
-                        compact,
-                        _dateField(context, selectedDate),
-                      ),
-                      _fieldWidth(
-                        compact,
-                        _dropdown<int>(
-                          label: 'Estado contractual',
-                          value: _selectedStateId,
-                          values: _demoContractStates
-                              .map((item) => (item.id, item.name))
-                              .toList(),
-                          onChanged: (value) =>
-                              setState(() => _selectedStateId = value),
-                        ),
-                      ),
-                      _fieldWidth(
-                        compact,
-                        TextFormField(
-                          controller: _paymentsController,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Cantidad de pagos (opcional)',
-                          ),
-                          validator: (value) {
-                            final input = value?.trim() ?? '';
-                            if (input.isEmpty) return null;
-                            final count = int.tryParse(input);
-                            if (count == null || count < 1 || count > 32767) {
-                              return 'Usa un número entero entre 1 y 32767.';
-                            }
-                            return null;
-                          },
-                        ),
-                      ),
-                      SizedBox(
-                        width: double.infinity,
-                        child: TextFormField(
-                          controller: _observationsController,
-                          minLines: 2,
-                          maxLines: 4,
-                          decoration: const InputDecoration(
-                            labelText: 'Observaciones (opcional)',
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-                const SizedBox(height: AppTheme.space4),
-                Wrap(
-                  alignment: WrapAlignment.end,
-                  spacing: AppTheme.space2,
-                  runSpacing: AppTheme.space2,
-                  children: [
-                    OutlinedButton(
-                      onPressed: () => context.go(
-                        editing ? '/contratos/${existing.id}' : '/contratos',
-                      ),
-                      child: const Text('Cancelar'),
-                    ),
-                    FilledButton.icon(
-                      onPressed: () => _save(context, session, existing),
-                      icon: const Icon(Icons.save_outlined),
-                      label: Text(
-                          editing ? 'Guardar observaciones' : 'Crear contrato'),
-                    ),
-                  ],
+                const SizedBox(height: AppTheme.space5),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final wide = constraints.maxWidth >= 980;
+                    final main = Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: editing
+                          ? [
+                              _sectionCard(
+                                number: '1',
+                                title: 'Observaciones',
+                                description:
+                                    'Actualiza las notas del contrato.',
+                                child: TextFormField(
+                                  controller: _observationsController,
+                                  minLines: 5,
+                                  maxLines: 8,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Observaciones',
+                                    hintText:
+                                        'Agrega condiciones o acuerdos relevantes...',
+                                  ),
+                                ),
+                              ),
+                            ]
+                          : [
+                              _clientServiceSection(session,
+                                  isAdvisor: isAdvisor),
+                              const SizedBox(height: AppTheme.space4),
+                              _generalDataSection(selectedDate),
+                              const SizedBox(height: AppTheme.space4),
+                              _serviceConditionsSection(),
+                              const SizedBox(height: AppTheme.space4),
+                              _documentationSection(),
+                            ],
+                    );
+                    final summary = _summaryCard(
+                      context,
+                      session,
+                      existing,
+                      selectedDate,
+                    );
+                    if (!wide) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          main,
+                          const SizedBox(height: AppTheme.space4),
+                          summary,
+                        ],
+                      );
+                    }
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: main),
+                        const SizedBox(width: AppTheme.space4),
+                        SizedBox(width: 300, child: summary),
+                      ],
+                    );
+                  },
                 ),
               ],
             ),
@@ -340,10 +251,358 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
     );
   }
 
-  Widget _formCard(
-    BuildContext context, {
+  Widget _clientServiceSection(
+    AuthSessionModel session, {
+    required bool isAdvisor,
+  }) =>
+      _sectionCard(
+        number: '1',
+        title: 'Cliente y servicio',
+        description:
+            'Selecciona el cliente, responsable y tipo de contratación.',
+        child: _fieldGrid(
+          columns: 3,
+          fields: [
+            _ContractGridItem(
+              _dropdown<String>(
+                label: 'Cliente',
+                value: _selectedClientId,
+                values:
+                    _demoClients.map((item) => (item.id, item.name)).toList(),
+                onChanged: (value) => setState(() => _selectedClientId = value),
+              ),
+            ),
+            _ContractGridItem(
+              isAdvisor
+                  ? TextFormField(
+                      key: ValueKey(session.name),
+                      initialValue: session.name,
+                      readOnly: true,
+                      decoration: const InputDecoration(labelText: 'Asesor'),
+                    )
+                  : _dropdown<String>(
+                      label: 'Asesor',
+                      value: _selectedAdvisorId,
+                      values: _demoAdvisors
+                          .map((item) => (item.id, item.name))
+                          .toList(),
+                      onChanged: (value) =>
+                          setState(() => _selectedAdvisorId = value),
+                    ),
+            ),
+            _ContractGridItem(
+              _dropdown<int>(
+                label: 'Tipo de servicio',
+                value: _selectedServiceId,
+                values: ContratosDemoFixtures.services
+                    .map((item) => (item.id, item.nombre))
+                    .toList(),
+                onChanged: (value) =>
+                    setState(() => _selectedServiceId = value),
+              ),
+            ),
+            _ContractGridItem(
+              _dropdown<String>(
+                label: 'Tipo de venta',
+                value: _saleType,
+                values: const [
+                  ('Cambaceo', 'Cambaceo'),
+                  ('Referido', 'Referido'),
+                  ('Renovación', 'Renovación'),
+                  ('Digital', 'Digital'),
+                ],
+                onChanged: (value) =>
+                    setState(() => _saleType = value ?? _saleType),
+              ),
+              span: 2,
+            ),
+          ],
+        ),
+      );
+
+  Widget _generalDataSection(DateTime selectedDate) => _sectionCard(
+        number: '2',
+        title: 'Datos generales',
+        description: 'Define plazo y condiciones de pago del acuerdo.',
+        child: _fieldGrid(
+          columns: 2,
+          fields: [
+            _ContractGridItem(_dateField(
+              label: 'Fecha de inicio',
+              value: selectedDate,
+              onChanged: (value) => setState(() => _selectedDate = value),
+            )),
+            _ContractGridItem(
+              _dropdown<String>(
+                label: 'Esquema de pago',
+                value: _paymentScheme,
+                values: const [
+                  ('Mensual', 'Mensual'),
+                  ('Trimestral', 'Trimestral'),
+                  ('Anual', 'Anual'),
+                  ('Único', 'Único'),
+                ],
+                onChanged: (value) =>
+                    setState(() => _paymentScheme = value ?? _paymentScheme),
+              ),
+            ),
+            _ContractGridItem(
+              TextFormField(
+                controller: _folioController,
+                maxLength: 50,
+                decoration: const InputDecoration(
+                  labelText: 'Folio preliminar',
+                  hintText: 'Se asignará al crear',
+                  counterText: '',
+                ),
+              ),
+            ),
+            _ContractGridItem(
+              TextFormField(
+                controller: _observationsController,
+                decoration: const InputDecoration(
+                  labelText: 'Observaciones',
+                  hintText: 'Agrega condiciones o acuerdos relevantes...',
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+
+  Widget _serviceConditionsSection() {
+    final service = _selectedService?.nombre ?? 'del servicio';
+    return _sectionCard(
+      number: '3',
+      title: 'Condiciones de $service',
+      description: 'Información específica para este tipo de servicio.',
+      trailing: _serviceBadge(service),
+      child: _fieldGrid(
+        columns: 2,
+        fields: [
+          _ContractGridItem(
+            TextFormField(
+              controller: _dailySalaryController,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Salario diario de cotización',
+                prefixText: '\$',
+              ),
+            ),
+          ),
+          _ContractGridItem(
+            _dropdown<String>(
+              label: 'Periodo contratado',
+              value: _contractPeriod,
+              values: const [
+                ('6 meses', '6 meses'),
+                ('12 meses', '12 meses'),
+                ('24 meses', '24 meses'),
+                ('Indefinido', 'Indefinido'),
+              ],
+              onChanged: (value) =>
+                  setState(() => _contractPeriod = value ?? _contractPeriod),
+            ),
+          ),
+          _ContractGridItem(
+            _dateField(
+              label: 'Fecha de término estimada',
+              value: _estimatedEndDate ?? _defaultEndDate,
+              onChanged: (value) => setState(() => _estimatedEndDate = value),
+            ),
+          ),
+          _ContractGridItem(
+            TextFormField(
+              controller: _monthlyAmountController,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Monto mensual',
+                prefixText: '\$',
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _documentationSection() => _sectionCard(
+        number: '4',
+        title: 'Documentación',
+        description: 'Adjunta el contrato firmado y sus anexos.',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            InkWell(
+              onTap: _pickDocument,
+              borderRadius: BorderRadius.circular(AppTheme.radiusField),
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 145),
+                padding: const EdgeInsets.all(AppTheme.space5),
+                decoration: BoxDecoration(
+                  color: AppTheme.canvas,
+                  border: Border.all(color: AppTheme.lineStrong),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusField),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: AppTheme.secondaryTint,
+                      foregroundColor: AppTheme.secondaryDark,
+                      child: const Icon(Icons.arrow_upward_rounded),
+                    ),
+                    const SizedBox(height: AppTheme.space2),
+                    const Text(
+                      'Arrastra los documentos aquí o selecciónalos',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: AppTheme.space1),
+                    const Text(
+                      'PDF, JPG o PNG · Máximo 10 MB por archivo',
+                      style: TextStyle(color: AppTheme.muted, fontSize: 11),
+                    ),
+                    const SizedBox(height: AppTheme.space3),
+                    OutlinedButton(
+                      onPressed: _pickDocument,
+                      child: const Text('Seleccionar archivos'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (_fileError != null)
+              Padding(
+                padding: const EdgeInsets.only(top: AppTheme.space2),
+                child: Text(
+                  _fileError!,
+                  style: const TextStyle(color: AppTheme.danger),
+                ),
+              ),
+            for (final file in _documents)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.description_outlined),
+                title: Text(file.name,
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                subtitle:
+                    Text('${(file.bytes.lengthInBytes / 1024).ceil()} KB'),
+                trailing: IconButton(
+                  tooltip: 'Quitar archivo',
+                  icon: const Icon(Icons.close),
+                  onPressed: () => setState(() => _documents.remove(file)),
+                ),
+              ),
+          ],
+        ),
+      );
+
+  Widget _summaryCard(
+    BuildContext context,
+    AuthSessionModel session,
+    ContratoModel? existing,
+    DateTime selectedDate,
+  ) {
+    final editing = existing != null;
+    final clientName = _selectedClient?.name ?? existing?.clienteNombre ?? '—';
+    final serviceName =
+        _selectedService?.nombre ?? existing?.servicioNombre ?? '—';
+    final advisorName = session.role == UserRole.asesor
+        ? session.name
+        : _selectedAdvisor?.name ?? existing?.asesorNombre ?? '—';
+    return Container(
+      padding: const EdgeInsets.all(AppTheme.space4),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        border: Border.all(color: AppTheme.line),
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+        boxShadow: AppTheme.elevation,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Resumen del contrato',
+              style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: AppTheme.space4),
+          _summaryLine('Cliente', clientName),
+          _summaryLine('Servicio', serviceName),
+          _summaryLine('Asesor', advisorName),
+          if (!editing) ...[
+            _summaryLine('Esquema', _paymentScheme),
+            _summaryLine('Tipo de venta', _saleType),
+            _summaryLine(
+              'Fecha de inicio',
+              DateFormat('dd/MM/yyyy', 'es_MX').format(selectedDate),
+            ),
+          ],
+          const SizedBox(height: AppTheme.space3),
+          Container(
+            padding: const EdgeInsets.all(AppTheme.space3),
+            decoration: BoxDecoration(
+              color: AppTheme.warningBackground,
+              borderRadius: BorderRadius.circular(AppTheme.radiusField),
+              border: Border.all(
+                  color: AppTheme.warningBase.withValues(alpha: .35)),
+            ),
+            child: const Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.warning_amber_rounded,
+                    size: 18, color: AppTheme.warning),
+                SizedBox(width: AppTheme.space2),
+                Expanded(
+                  child: Text(
+                    'El folio definitivo se asignará al crear el contrato. El tipo de venta es informativo y no determina la comisión.',
+                    style: TextStyle(color: AppTheme.warning, fontSize: 11),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppTheme.space4),
+          FilledButton(
+            onPressed: () => _save(context, session, existing),
+            child: Text(editing ? 'Guardar cambios' : 'Crear contrato'),
+          ),
+          TextButton(
+            onPressed: () => context.go(
+              editing ? '/contratos/${existing.id}' : '/contratos',
+            ),
+            child: const Text('Cancelar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _summaryLine(String label, String value) => Padding(
+        padding: const EdgeInsets.only(bottom: AppTheme.space3),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(label,
+                  style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+            ),
+            const SizedBox(width: AppTheme.space2),
+            Flexible(
+              child: Text(value,
+                  textAlign: TextAlign.end,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 12)),
+            ),
+          ],
+        ),
+      );
+
+  Widget _sectionCard({
+    required String number,
     required String title,
-    required List<Widget> children,
+    required String description,
+    required Widget child,
+    Widget? trailing,
   }) =>
       Container(
         padding: const EdgeInsets.all(AppTheme.space5),
@@ -356,20 +615,90 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(title, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: AppTheme.space4),
-            Wrap(
-              spacing: AppTheme.space4,
-              runSpacing: AppTheme.space3,
-              children: children,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CircleAvatar(
+                  radius: 14,
+                  backgroundColor: AppTheme.accentSoft,
+                  foregroundColor: AppTheme.primary,
+                  child: Text(number,
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                ),
+                const SizedBox(width: AppTheme.space3),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title,
+                          style: const TextStyle(fontWeight: FontWeight.w700)),
+                      const SizedBox(height: AppTheme.space1),
+                      Text(description,
+                          style: const TextStyle(
+                              color: AppTheme.muted, fontSize: 11)),
+                    ],
+                  ),
+                ),
+                if (trailing != null) trailing,
+              ],
             ),
+            const SizedBox(height: AppTheme.space4),
+            child,
           ],
         ),
       );
 
-  Widget _fieldWidth(bool compact, Widget child) => SizedBox(
-        width: compact ? double.infinity : 390,
-        child: child,
+  Widget _serviceBadge(String label) => Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppTheme.space3,
+          vertical: AppTheme.space2,
+        ),
+        decoration: BoxDecoration(
+          color: AppTheme.infoBackground,
+          borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+        ),
+        child: Text(
+          '• $label',
+          style: const TextStyle(
+            color: AppTheme.info,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      );
+
+  Widget _fieldGrid({
+    required int columns,
+    required List<_ContractGridItem> fields,
+  }) =>
+      LayoutBuilder(
+        builder: (context, constraints) {
+          final actualColumns = constraints.maxWidth < 680 ? 1 : columns;
+          final gap = AppTheme.space4;
+          final cellWidth = (constraints.maxWidth - gap * (actualColumns - 1)) /
+              actualColumns;
+          return Wrap(
+            spacing: gap,
+            runSpacing: AppTheme.space3,
+            children: [
+              for (final field in fields)
+                SizedBox(
+                  width: actualColumns == 1
+                      ? constraints.maxWidth
+                      : cellWidth *
+                              (field.span > actualColumns
+                                  ? actualColumns
+                                  : field.span) +
+                          gap *
+                              ((field.span > actualColumns
+                                      ? actualColumns
+                                      : field.span) -
+                                  1),
+                  child: field.child,
+                ),
+            ],
+          );
+        },
       );
 
   Widget _dropdown<T>({
@@ -390,27 +719,58 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
         onChanged: onChanged,
       );
 
-  Widget _dateField(BuildContext context, DateTime value) => InkWell(
+  Widget _dateField({
+    required String label,
+    required DateTime? value,
+    required ValueChanged<DateTime?> onChanged,
+  }) =>
+      InkWell(
         onTap: () async {
           final picked = await showDatePicker(
             context: context,
-            initialDate: value,
+            initialDate: value ?? DateTime.now(),
             firstDate: DateTime(2000),
             lastDate: DateTime(2100),
           );
-          if (picked != null) setState(() => _selectedDate = picked);
+          if (picked != null && mounted) onChanged(picked);
         },
         child: InputDecorator(
-          decoration: const InputDecoration(labelText: 'Fecha de contrato'),
+          decoration: InputDecoration(labelText: label),
           child: Row(
             children: [
               Expanded(
-                  child: Text(DateFormat('dd/MM/yyyy', 'es_MX').format(value))),
+                child: Text(
+                  value == null
+                      ? 'Selecciona una fecha'
+                      : DateFormat('dd/MM/yyyy', 'es_MX').format(value),
+                  style: TextStyle(
+                    color: value == null ? AppTheme.faint : AppTheme.ink,
+                  ),
+                ),
+              ),
               const Icon(Icons.calendar_month_outlined),
             ],
           ),
         ),
       );
+
+  Future<void> _pickDocument() async {
+    final file = await createFilePlatform().chooseFile();
+    if (!mounted || file == null) return;
+    final extension = file.name.split('.').last.toLowerCase();
+    final validExtension = {'pdf', 'jpg', 'jpeg', 'png'}.contains(extension);
+    final validSize = file.bytes.lengthInBytes <= 10 * 1024 * 1024;
+    setState(() {
+      if (!validExtension) {
+        _fileError = 'Solo se permiten archivos PDF, JPG o PNG.';
+      } else if (!validSize) {
+        _fileError = 'El archivo no puede superar 10 MB.';
+      } else {
+        _fileError = null;
+        _documents.add(file);
+      }
+    });
+  }
 
   void _save(
     BuildContext context,
@@ -428,24 +788,22 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
       context.go('/contratos/${existing.id}');
       return;
     }
-    final client =
-        _demoClients.firstWhere((item) => item.id == _selectedClientId);
-    final service = ContratosDemoFixtures.services
-        .firstWhere((item) => item.id == _selectedServiceId);
-    final state =
-        _demoContractStates.firstWhere((item) => item.id == _selectedStateId);
-    final advisor = session.role == UserRole.asesor
-        ? null
-        : _demoAdvisors.firstWhere((item) => item.id == _selectedAdvisorId);
+
+    final client = _selectedClient;
+    final service = _selectedService;
+    if (client == null || service == null) return;
+    final advisor = session.role == UserRole.asesor ? null : _selectedAdvisor;
     final contract = controller.createDemo(
       clienteId: client.id,
       clienteNombre: client.name,
       servicioId: service.id,
-      folio: _folioController.text.trim(),
+      folio: _folioController.text.trim().isEmpty
+          ? _generatedFolio(service.id)
+          : _folioController.text.trim(),
       fechaContrato: _selectedDate ?? DateTime.now(),
-      estadoContratoId: state.id,
-      estadoNombre: state.name,
-      cantidadPagos: int.tryParse(_paymentsController.text.trim()),
+      estadoContratoId: 1,
+      estadoNombre: 'Activo',
+      cantidadPagos: _paymentCount,
       observaciones: _nullable(_observationsController.text),
       currentUserId: session.id,
       currentUserName: session.name,
@@ -455,5 +813,49 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
     context.go('/contratos/${contract.id}');
   }
 
+  String _generatedFolio(int serviceId) {
+    final year = DateTime.now().year;
+    return 'H3-$serviceId-$year-${DateTime.now().millisecondsSinceEpoch % 10000}';
+  }
+
+  int get _paymentCount => switch (_paymentScheme) {
+        'Trimestral' => 4,
+        'Anual' || 'Único' => 1,
+        _ => 12,
+      };
+
+  DateTime get _defaultEndDate {
+    final date = _selectedDate ?? DateTime.now();
+    return DateTime(date.year + 1, date.month, date.day);
+  }
+
+  ({String id, String name})? get _selectedClient {
+    for (final client in _demoClients) {
+      if (client.id == _selectedClientId) return client;
+    }
+    return null;
+  }
+
+  ({String id, String name})? get _selectedAdvisor {
+    for (final advisor in _demoAdvisors) {
+      if (advisor.id == _selectedAdvisorId) return advisor;
+    }
+    return null;
+  }
+
+  ServicioModel? get _selectedService {
+    for (final service in ContratosDemoFixtures.services) {
+      if (service.id == _selectedServiceId) return service;
+    }
+    return null;
+  }
+
   String? _nullable(String value) => value.trim().isEmpty ? null : value.trim();
+}
+
+class _ContractGridItem {
+  const _ContractGridItem(this.child, {this.span = 1});
+
+  final Widget child;
+  final int span;
 }

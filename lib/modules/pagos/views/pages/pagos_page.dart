@@ -10,6 +10,7 @@ import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_data_column.dart';
 import '../../../../core/widgets/app_filter_dropdown.dart';
+import '../../../../core/widgets/app_filter_button.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_responsive_collection.dart';
 import '../../../../core/widgets/app_state_panel.dart';
@@ -156,7 +157,7 @@ class _PagosPageState extends ConsumerState<PagosPage> {
             Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           LayoutBuilder(builder: (context, constraints) {
             final compact = Responsive.of(context) == WindowSizeClass.compacto;
-            final filtersVisible = _filtersExpanded ?? !compact;
+            final filtersVisible = _filtersExpanded ?? false;
             final search = TextField(
                 controller: _search,
                 onChanged: (v) => setState(() => _query = v),
@@ -166,19 +167,10 @@ class _PagosPageState extends ConsumerState<PagosPage> {
                     isDense: true,
                     contentPadding:
                         EdgeInsets.symmetric(horizontal: 16, vertical: 14)));
-            final filterButton = SizedBox(
-              width: 96,
-              height: 48,
-              child: OutlinedButton.icon(
-                onPressed: () =>
-                    setState(() => _filtersExpanded = !filtersVisible),
-                icon: const Icon(Icons.filter_list_rounded, size: 19),
-                label: const Text('Filtros'),
-                style: OutlinedButton.styleFrom(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: AppTheme.space2),
-                ),
-              ),
+            final filterButton = AppFilterButton(
+              expanded: filtersVisible,
+              onPressed: () =>
+                  setState(() => _filtersExpanded = !filtersVisible),
             );
             if (compact) {
               return Column(

@@ -6,6 +6,7 @@ import '../../../../app/theme/app_theme.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/responsive/window_size_class.dart';
 import '../../../../core/widgets/app_badge.dart';
+import '../../../../core/widgets/app_back_button.dart';
 import '../../../../core/widgets/app_state_panel.dart';
 import '../../../auth/auth.dart';
 import '../../controllers/clientes_controller.dart';
@@ -90,13 +91,9 @@ class ClienteDetallePage extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    onPressed: () => context.go('/clientes'),
-                    icon: const Icon(Icons.arrow_back),
-                    label: const Text('Clientes'),
-                  ),
+                AppBackButton(
+                  label: 'Clientes',
+                  onPressed: () => context.go('/clientes'),
                 ),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -165,7 +162,7 @@ class ClienteDetallePage extends ConsumerWidget {
             ),
           ),
           const Material(
-            color: AppTheme.surface,
+            color: AppTheme.canvas,
             child: TabBar(
               labelColor: AppTheme.ink,
               unselectedLabelColor: AppTheme.muted,
@@ -273,7 +270,7 @@ class ClienteDetallePage extends ConsumerWidget {
             _field('Fecha de nacimiento', client.fechaNacimiento == null
                 ? null
                 : _date(client.fechaNacimiento!)),
-            _field('DirecciÃ³n', client.direccion),
+            _field('Dirección', client.direccion),
             _field('Asesor', metadata?.advisorName),
             _field('Referido por', client.referidoPor),
             _field('Observaciones', client.observaciones),

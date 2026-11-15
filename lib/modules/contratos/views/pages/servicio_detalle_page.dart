@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_data_column.dart';
+import '../../../../core/widgets/app_back_button.dart';
 import '../../../../core/widgets/app_metric_card.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_responsive_collection.dart';
@@ -110,11 +111,9 @@ class ServicioDetallePage extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextButton.icon(
+          AppBackButton(
+            label: 'Servicios',
             onPressed: () => context.go('/servicios'),
-            icon: const Icon(Icons.arrow_back),
-            label: const Text('Servicios'),
-            style: TextButton.styleFrom(alignment: Alignment.centerLeft),
           ),
           AppPageHeader(
             eyebrow: 'Seguimiento de servicio',

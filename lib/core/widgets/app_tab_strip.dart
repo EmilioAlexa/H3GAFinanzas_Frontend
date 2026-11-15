@@ -22,7 +22,7 @@ class AppTabStrip extends StatelessWidget {
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Container(
-            color: AppTheme.surface,
+            color: AppTheme.canvas,
             child: Row(
               children: [
                 for (var index = 0; index < labels.length; index++)
@@ -38,9 +38,7 @@ class AppTabStrip extends StatelessWidget {
                           vertical: AppTheme.space3,
                         ),
                         decoration: BoxDecoration(
-                          color: index == selectedIndex
-                              ? AppTheme.secondarySoft
-                              : AppTheme.surface,
+                          color: AppTheme.canvas,
                           border: Border(
                             bottom: BorderSide(
                               color: index == selectedIndex
@@ -74,9 +72,7 @@ class AppTabStrip extends StatelessWidget {
                                   vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: index == selectedIndex
-                                      ? AppTheme.secondarySoft
-                                      : AppTheme.surfaceSecondary,
+                                  color: AppTheme.canvas,
                                   borderRadius: BorderRadius.circular(
                                     AppTheme.radiusPill,
                                   ),

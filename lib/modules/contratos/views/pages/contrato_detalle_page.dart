@@ -7,6 +7,7 @@ import '../../../../app/config/env.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_badge.dart';
+import '../../../../core/widgets/app_back_button.dart';
 import '../../../../core/widgets/app_dialog.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_state_panel.dart';
@@ -92,11 +93,9 @@ class ContratoDetallePage extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextButton.icon(
+          AppBackButton(
+            label: 'Contratos',
             onPressed: () => context.go('/contratos'),
-            icon: const Icon(Icons.arrow_back),
-            label: const Text('Contratos'),
-            style: TextButton.styleFrom(alignment: Alignment.centerLeft),
           ),
           AppPageHeader(
             eyebrow: 'Contrato ${contract.folio}',

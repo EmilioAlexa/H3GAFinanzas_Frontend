@@ -7,6 +7,7 @@ import '../../../../app/config/env.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_notice.dart';
+import '../../../../core/widgets/app_back_button.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_state_panel.dart';
 import '../../../auth/auth.dart';
@@ -120,14 +121,9 @@ class _ComisionConfiguracionPageState
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.space6),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            onPressed: () => context.go('/comisiones/${payment.id}'),
-            icon: const Icon(Icons.arrow_back),
-            label: const Text('Detalle de comisiones'),
-            style: TextButton.styleFrom(alignment: Alignment.centerLeft),
-          ),
+        AppBackButton(
+          label: 'Detalle de comisiones',
+          onPressed: () => context.go('/comisiones/${payment.id}'),
         ),
         AppPageHeader(
           eyebrow: 'Contrato ${payment.contractFolio}',

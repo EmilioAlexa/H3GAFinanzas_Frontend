@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_badge.dart';
+import '../../../../core/widgets/app_back_button.dart';
 import '../../../../core/widgets/app_metric_card.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_state_panel.dart';
@@ -60,13 +61,9 @@ class PrenominaDetallePage extends ConsumerWidget {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.space6),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            onPressed: () => context.go('/prenomina'),
-            icon: const Icon(Icons.arrow_back),
-            label: const Text('Prenómina'),
-          ),
+        AppBackButton(
+          label: 'Prenómina',
+          onPressed: () => context.go('/prenomina'),
         ),
         AppPageHeader(
           eyebrow: 'Desglose referencial · Corte ${model.cutName}',

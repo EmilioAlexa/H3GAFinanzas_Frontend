@@ -9,6 +9,7 @@ import '../../../../core/responsive/window_size_class.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_data_column.dart';
 import '../../../../core/widgets/app_dialog.dart';
+import '../../../../core/widgets/app_filter_button.dart';
 import '../../../../core/widgets/app_filter_dropdown.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_responsive_collection.dart';
@@ -124,7 +125,7 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
                   title: 'Clientes',
                   description: 'Información compartida desde H3GA Ruta.',
                   actions: [
-                    if (AppEnv.demoMode && role == UserRole.asesor)
+                    if (AppEnv.demoMode)
                       FilledButton.icon(
                         onPressed: () => _showClientDialog(
                           context,
@@ -218,6 +219,7 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
           boxShadow: AppTheme.elevation,
         ),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _filters(context, widthClass),
             const Divider(height: AppTheme.space6),
@@ -266,14 +268,14 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
                   AppDataColumn<ClienteModel>(
                     label: '',
                     flex: 1,
-                     value: (client) => _clientMenu(context, role, client),
+                    value: (client) => _clientMenu(context, role, client),
                   ),
                 ],
-                 compactCardBuilder: (context, client) => _clientCard(
-                   context,
-                   role,
-                   client,
-                 ),
+                compactCardBuilder: (context, client) => _clientCard(
+                  context,
+                  role,
+                  client,
+                ),
                 onRowTap: (client) => _openClient(context, client),
                 emptyTitle: 'Sin clientes para mostrar',
               ),
@@ -285,7 +287,7 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
 
   Widget _filters(BuildContext context, WindowSizeClass widthClass) {
     final compact = widthClass == WindowSizeClass.compacto;
-    final filtersVisible = _filtersExpanded ?? !compact;
+    final filtersVisible = _filtersExpanded ?? false;
     final search = TextField(
       key: const Key('clientes-search'),
       controller: _searchController,
@@ -298,20 +300,11 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
         prefixIcon: Icon(Icons.search),
         isDense: true,
         contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        border: OutlineInputBorder(),
       ),
     );
-    final filterButton = SizedBox(
-      width: 96,
-      height: 48,
-      child: OutlinedButton.icon(
-        onPressed: () => setState(() => _filtersExpanded = !filtersVisible),
-        icon: const Icon(Icons.filter_list_rounded, size: 19),
-        label: const Text('Filtros'),
-        style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: AppTheme.space2),
-        ),
-      ),
+    final filterButton = AppFilterButton(
+      expanded: filtersVisible,
+      onPressed: () => setState(() => _filtersExpanded = !filtersVisible),
     );
     if (compact) {
       return Column(
@@ -430,7 +423,8 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
     BuildContext context,
     UserRole role,
     ClienteModel client,
-  ) => Container(
+  ) =>
+      Container(
         padding: const EdgeInsets.all(AppTheme.space4),
         decoration: BoxDecoration(
           color: AppTheme.surface,
@@ -505,7 +499,8 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
     BuildContext context,
     UserRole role,
     ClienteModel client,
-  ) => PopupMenuButton<_ClientAction>(
+  ) =>
+      PopupMenuButton<_ClientAction>(
         tooltip: 'Acciones de ${client.nombreCompleto}',
         onSelected: (action) async {
           switch (action) {
@@ -550,7 +545,8 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
         description: paused
             ? 'El cliente volverÃ¡ a aparecer como activo.'
             : 'El cliente dejarÃ¡ de aparecer como activo.',
-        child: Text('Â¿Confirmas cambiar el estado de ${client.nombreCompleto}?'),
+        child:
+            Text('Â¿Confirmas cambiar el estado de ${client.nombreCompleto}?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
@@ -586,7 +582,8 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
             (client.demoMetadata?.assignedToCurrentAdvisor ?? false));
     if (mode == _ClientDialogMode.edit && !canEdit) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No tienes permiso para editar este cliente.')),
+        const SnackBar(
+            content: Text('No tienes permiso para editar este cliente.')),
       );
       return;
     }
@@ -629,7 +626,8 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
                 TextInputType? keyboardType,
                 int maxLines = 1,
                 String? Function(String?)? validator,
-              }) => SizedBox(
+              }) =>
+                  SizedBox(
                     width: width,
                     child: TextFormField(
                       initialValue: value,
@@ -652,21 +650,24 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
                       validator: _required),
                   field('Apellido materno', apellidoMaterno,
                       (value) => apellidoMaterno = value),
-                  field('TelÃ©fono', telefono, (value) => telefono = value,
+                  field('Teléfono', telefono, (value) => telefono = value,
                       keyboardType: TextInputType.phone),
-                  field('Correo electrÃ³nico', correo, (value) => correo = value,
+                  field(
+                      'Correo electrónico', correo, (value) => correo = value,
                       keyboardType: TextInputType.emailAddress,
                       validator: _emailValidator),
                   field('CURP', curp, (value) => curp = value),
                   field('RFC', rfc, (value) => rfc = value),
-                  field('Fecha de ingreso', ingreso, (value) => ingreso = value),
+                  field(
+                      'Fecha de ingreso', ingreso, (value) => ingreso = value),
                   field('Fecha de nacimiento', nacimiento,
                       (value) => nacimiento = value),
-                  field('Asesor', client?.demoMetadata?.advisorName ?? '', (_) {}),
-                  field('DirecciÃ³n', direccion, (value) => direccion = value,
+                  field('Asesor', client?.demoMetadata?.advisorName ?? '',
+                      (_) {}),
+                  field('Dirección', direccion, (value) => direccion = value,
                       maxLines: 2),
                   field('Referido por', referido, (value) => referido = value),
-                  field('Estatus', client?.demoMetadata?.status ?? 'Activo', (_) {}),
+                  field('Estatus', client?.demoMetadata?.status ?? '', (_) {}),
                   field('Observaciones', observaciones,
                       (value) => observaciones = value,
                       maxLines: 3),
