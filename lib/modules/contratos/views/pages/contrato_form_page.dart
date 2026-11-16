@@ -802,6 +802,7 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
       currentUserName: session.name,
       advisorId: advisor?.id,
       advisorName: advisor?.name,
+      documentos: List.unmodifiable(_documents),
     );
     context.go('/contratos/${contract.id}');
   }

@@ -1,3 +1,5 @@
+import '../../../core/platform/selected_file.dart';
+
 class ContratoModel {
   const ContratoModel({
     required this.id,
@@ -17,6 +19,7 @@ class ContratoModel {
     this.totalPagar,
     this.montoMensual,
     this.saldoPendiente,
+    this.documentos = const [],
     this.assignedToCurrentAdvisor = false,
   });
 
@@ -32,6 +35,7 @@ class ContratoModel {
   final String? totalPagar;
   final String? montoMensual;
   final String? saldoPendiente;
+  final List<SelectedFile> documentos;
   final DateTime creadoEn;
   final String clienteNombre;
   final String servicioNombre;

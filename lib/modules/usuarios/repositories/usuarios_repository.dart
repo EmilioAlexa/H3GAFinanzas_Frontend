@@ -97,6 +97,19 @@ class UsuariosRepository {
     return _users[index];
   }
 
+  Future<void> deleteDemo(String id) async {
+    final index = _users.indexWhere((user) => user.id == id);
+    if (index < 0) {
+      throw const UsuariosRepositoryException('Usuario no encontrado.');
+    }
+    if (_users[index].activo) {
+      throw const UsuariosRepositoryException(
+        'Solo puedes eliminar usuarios suspendidos.',
+      );
+    }
+    _users.removeAt(index);
+  }
+
   static String? _optional(String? value) =>
       value == null || value.trim().isEmpty ? null : value.trim();
 

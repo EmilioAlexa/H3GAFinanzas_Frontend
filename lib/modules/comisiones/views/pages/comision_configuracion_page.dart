@@ -214,10 +214,16 @@ class _ComisionConfiguracionPageState
               ),
             ),
             const Divider(height: 1),
-            _tableHeader(payment),
-            for (var index = 0; index < _draft.length; index++)
-              _lineRow(context, session, payment, index),
-            _companyRow(payment),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final table = _commissionTable(context, session, payment);
+                if (constraints.maxWidth >= 760) return table;
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: SizedBox(width: 760, child: table),
+                );
+              },
+            ),
             const Divider(height: 1),
             Padding(
               padding: const EdgeInsets.all(AppTheme.space5),
@@ -249,6 +255,21 @@ class _ComisionConfiguracionPageState
         ),
       );
 
+  Widget _commissionTable(
+    BuildContext context,
+    AuthSessionModel session,
+    CommissionPaymentModel payment,
+  ) =>
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _tableHeader(payment),
+          for (var index = 0; index < _draft.length; index++)
+            _lineRow(context, session, payment, index),
+          _companyRow(payment),
+        ],
+      );
+
   Widget _tableHeader(CommissionPaymentModel payment) => Container(
         padding: const EdgeInsets.fromLTRB(
             AppTheme.space5, AppTheme.space3, AppTheme.space5, AppTheme.space3),
@@ -257,7 +278,7 @@ class _ComisionConfiguracionPageState
           children: [
             const Expanded(flex: 2, child: Text('DESTINO')),
             const Expanded(flex: 3, child: Text('RECEPTOR')),
-            const SizedBox(width: 88, child: Text('PORCENTAJE')),
+            const SizedBox(width: 118, child: Text('PORCENTAJE')),
             SizedBox(
                 width: 125,
                 child: Text('IMPORTE · ${_money(payment.paymentAmount)}')),

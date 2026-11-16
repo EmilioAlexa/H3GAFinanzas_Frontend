@@ -12,6 +12,7 @@ import '../../../../core/responsive/responsive.dart';
 import '../../../../core/responsive/window_size_class.dart';
 import '../../../../core/utils/dialog_lifecycle.dart';
 import '../../../../core/utils/money_formatter.dart';
+import '../../../../core/widgets/app_back_button.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_data_column.dart';
 import '../../../../core/widgets/app_dialog.dart';
@@ -205,6 +206,10 @@ class _ReportDetail extends ConsumerWidget {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.space6),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        AppBackButton(
+          label: 'Reportes',
+          onPressed: () => context.go('/reportes'),
+        ),
         AppPageHeader(
           eyebrow: 'Análisis financiero',
           title: report.type.title,

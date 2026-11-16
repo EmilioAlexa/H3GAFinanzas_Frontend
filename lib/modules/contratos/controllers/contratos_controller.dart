@@ -4,6 +4,7 @@ import 'package:decimal/decimal.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/auth.dart';
+import '../../../core/platform/selected_file.dart';
 import '../models/contrato_model.dart';
 import '../models/penalizacion_model.dart';
 import '../repositories/contratos_repository.dart';
@@ -72,6 +73,7 @@ class ContratosController
     required String currentUserName,
     String? advisorId,
     String? advisorName,
+    List<SelectedFile> documentos = const [],
   }) {
     final contract = _repository.createDemo(
       clienteId: clienteId,
@@ -88,6 +90,7 @@ class ContratosController
       currentUserName: currentUserName,
       advisorId: advisorId,
       advisorName: advisorName,
+      documentos: documentos,
     );
     state = AsyncData(_repository.loadSynchronously(_role));
     return contract;

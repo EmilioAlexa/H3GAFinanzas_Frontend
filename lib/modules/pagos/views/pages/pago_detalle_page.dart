@@ -142,6 +142,13 @@ class PagoDetallePage extends ConsumerWidget {
                   icon: const Icon(Icons.fact_check_outlined),
                   label: const Text('Revisar evidencia'),
                 ),
+              if (session.role == UserRole.asesor &&
+                  payment.estado == 'Rechazado')
+                FilledButton.icon(
+                  onPressed: () => context.go('/pagos/${payment.id}/editar'),
+                  icon: const Icon(Icons.edit_outlined),
+                  label: const Text('Editar y reenviar'),
+                ),
             ],
           ),
           Container(

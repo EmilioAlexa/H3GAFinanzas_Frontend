@@ -75,7 +75,7 @@ abstract final class ReportExportService {
         );
       }
     }
-    return Uint8List.fromList(workbook.save() ?? const <int>[]);
+    return Uint8List.fromList(workbook.encode() ?? const <int>[]);
   }
 
   static List<String> _headers(ReportType type) => const [

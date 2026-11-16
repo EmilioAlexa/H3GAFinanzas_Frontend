@@ -378,6 +378,8 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
               _showRoleDialog(user, repository);
             case 'status':
               _showStatusDialog(user);
+            case 'delete':
+              _showDeleteUserDialog(user);
           }
         },
         itemBuilder: (context) => [
@@ -388,6 +390,11 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
             value: 'status',
             child: Text(user.activo ? 'Suspender usuario' : 'Activar usuario'),
           ),
+          if (!user.activo)
+            const PopupMenuItem(
+              value: 'delete',
+              child: Text('Eliminar usuario'),
+            ),
         ],
         child: Semantics(
           label: 'Abrir acciones del usuario',
@@ -866,6 +873,37 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
         .changeStatusDemo(user.id, active);
     if (mounted) {
       _message(active ? 'Usuario activado.' : 'Usuario suspendido.');
+    }
+  }
+
+  Future<void> _showDeleteUserDialog(UsuarioModel user) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('¿Eliminar usuario?'),
+        content: Text(
+          '¿Está seguro de eliminar a este usuario? La cuenta dejará de existir y no podrá acceder al sistema. Sus clientes, archivos y contratos finalizados seguirán existiendo para visualizarlos, pero si tiene algún contrato activo o cliente con pagos activos podrían verse afectados.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.danger),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Eliminar usuario'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await waitForDialogDismissal();
+    try {
+      await ref.read(usuariosControllerProvider.notifier).deleteDemo(user.id);
+      if (mounted) _message('Usuario eliminado.');
+    } catch (error) {
+      if (mounted) _message(error.toString());
     }
   }
 

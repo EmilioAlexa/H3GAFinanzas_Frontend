@@ -143,6 +143,82 @@ class PagosRepository {
     return created;
   }
 
+  PagoModel resubmitRejectedDemo({
+    required String paymentId,
+    required UserRole role,
+    required ContratoModel contract,
+    required int methodId,
+    required String method,
+    required Decimal amount,
+    required DateTime date,
+    required String reference,
+    required String observations,
+    required String? scheduleId,
+    required String? receiptFolio,
+    required String? receivedBy,
+    required List<EvidenciaPagoModel> existingEvidence,
+    required List<SelectedFile> evidenceFiles,
+  }) {
+    if (role != UserRole.asesor) {
+      throw StateError('Solo el asesor puede reenviar este pago.');
+    }
+    final index = _payments.indexWhere((payment) => payment.id == paymentId);
+    if (index < 0) throw StateError('Pago no disponible.');
+    final current = _payments[index];
+    if (current.estado != 'Rechazado' || !current.assignedToCurrentAdvisor) {
+      throw StateError('Solo puedes reenviar pagos rechazados asignados a ti.');
+    }
+    final evidence = [
+      ...existingEvidence,
+      ...evidenceFiles.map(
+        (file) => EvidenciaPagoModel(
+          id: 'demo-evidence-${_payments.length}-${file.name}',
+          name: file.name,
+          mimeType: _mimeType(file.name),
+          sizeBytes: file.bytes.lengthInBytes,
+          uploadedAt: DateTime.now(),
+          previewBytes: file.bytes,
+          tipoCompatibleConMetodo: true,
+        ),
+      ),
+    ];
+    final updated = PagoModel(
+      id: current.id,
+      folio: current.folio,
+      contratoId: contract.id,
+      contratoFolio: contract.folio,
+      clienteNombre: contract.clienteNombre,
+      servicioNombre: contract.servicioNombre,
+      asesorNombre: contract.asesorNombre,
+      formaPagoId: methodId,
+      formaPago: method,
+      estadoPagoId: 1,
+      estado: 'Por revisar',
+      monto: amount,
+      fechaPago: date,
+      numeroPago: scheduleId == null
+          ? null
+          : _scheduled
+              .where((item) => item.id == scheduleId)
+              .map((item) => item.numeroPago)
+              .firstOrNull,
+      cantidadPagos: contract.cantidadPagos,
+      referencia: reference,
+      observaciones: observations,
+      evidencias: evidence,
+      historial: [
+        ...current.historial,
+        'Por revisar · ${_shortDate(date)}',
+      ],
+      pagoProgramadoId: scheduleId,
+      folioRecibo: receiptFolio,
+      recibidoPor: receivedBy,
+      assignedToCurrentAdvisor: current.assignedToCurrentAdvisor,
+    );
+    _payments[index] = updated;
+    return updated;
+  }
+
   PagoProgramadoModel createScheduled({
     required ContratoModel contract,
     required int number,

@@ -74,4 +74,9 @@ class UsuariosController extends StateNotifier<AsyncValue<List<UsuarioModel>>> {
     loadDemo();
     return updated;
   }
+
+  Future<void> deleteDemo(String id) async {
+    await _repository.deleteDemo(id);
+    loadDemo();
+  }
 }

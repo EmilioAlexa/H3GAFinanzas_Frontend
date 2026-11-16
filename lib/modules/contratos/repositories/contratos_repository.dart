@@ -2,6 +2,7 @@ import 'package:decimal/decimal.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/config/env.dart';
+import '../../../core/platform/selected_file.dart';
 import '../../auth/auth.dart';
 import '../fixtures/contratos_demo_fixtures.dart';
 import '../models/contrato_model.dart';
@@ -80,6 +81,7 @@ class ContratosRepository {
     required String currentUserName,
     String? advisorId,
     String? advisorName,
+    List<SelectedFile> documentos = const [],
   }) {
     _requireDemoMode();
     final service = ContratosDemoFixtures.services
@@ -100,6 +102,7 @@ class ContratosRepository {
       servicioNombre: service.nombre,
       asesorNombre: isAdvisor ? currentUserName : advisorName!,
       estadoNombre: estadoNombre,
+      documentos: List.unmodifiable(documentos),
       assignedToCurrentAdvisor: isAdvisor,
     );
     _contracts.insert(0, contract);
@@ -131,6 +134,7 @@ class ContratosRepository {
       totalPagar: current.totalPagar,
       montoMensual: current.montoMensual,
       saldoPendiente: current.saldoPendiente,
+      documentos: current.documentos,
       creadoEn: current.creadoEn,
       clienteNombre: current.clienteNombre,
       servicioNombre: current.servicioNombre,

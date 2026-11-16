@@ -103,6 +103,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const pagos.PagoFormPage(),
           ),
           GoRoute(
+            path: '/pagos/:id/editar',
+            builder: (context, state) => pagos.PagoFormPage(
+              paymentId: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
             path: '/pagos/:id',
             builder: (context, state) => pagos.PagoDetallePage(
               paymentId: state.pathParameters['id']!,
