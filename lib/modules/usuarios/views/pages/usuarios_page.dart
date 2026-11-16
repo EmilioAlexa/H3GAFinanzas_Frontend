@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../app/theme/app_theme.dart';
+import '../../../../core/utils/dialog_lifecycle.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_data_column.dart';
@@ -498,9 +499,13 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
                             onPressed: () => Navigator.pop(dialogContext),
                             child: const Text('Cerrar')),
                         FilledButton(
-                            onPressed: () {
+                            onPressed: () async {
                               Navigator.pop(dialogContext);
-                              _showUserForm(repository, users, user: user);
+                              await waitForDialogDismissal();
+                              if (mounted) {
+                                await _showUserForm(repository, users,
+                                    user: user);
+                              }
                             },
                             child: const Text('Editar usuario')),
                       ]),
@@ -576,7 +581,7 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
                                     apellidoMaterno: maternal.text,
                                     correo: email.text,
                                     rolId: roleId,
-                                    contrasena: 'Temporal123',
+                                    contrasena: password.text,
                                   );
                                 } else {
                                   await controller.updateDemo(
@@ -597,6 +602,7 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
                                   Navigator.pop(dialogContext);
                                 }
                                 if (mounted) {
+                                  await waitForDialogDismissal();
                                   if (createdUser != null) {
                                     await _showCreateSuccess(createdUser!);
                                   } else {
@@ -668,7 +674,7 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
                                 value == null ? 'Selecciona un rol.' : null,
                           ),
                           const SizedBox(height: AppTheme.space3),
-                          if (!ref.read(usuariosDemoModeProvider))
+                          if (user == null)
                             TextFormField(
                               controller: password,
                               obscureText: !showPassword,
@@ -686,8 +692,10 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
                                       : Icons.visibility),
                                 ),
                               ),
-                              validator: (value) => (value?.length ?? 0) < 8
-                                  ? 'Usa al menos 8 caracteres.'
+                              validator: (value) => (value?.trim().length ??
+                                          0) <
+                                      8
+                                  ? 'La contraseña debe tener al menos 8 caracteres.'
                                   : null,
                             ),
                         ],
@@ -697,6 +705,7 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
                   ),
                 )),
       );
+      await waitForDialogDismissal();
     } finally {
       name.dispose();
       paternal.dispose();

@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/responsive/window_size_class.dart';
+import '../../../../core/utils/dialog_lifecycle.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_data_column.dart';
@@ -443,6 +444,7 @@ class _CortesPageState extends ConsumerState<CortesPage> {
         ],
       ),
     );
+    await waitForDialogDismissal();
     if (confirmed != true || !context.mounted) return;
     try {
       final cut = ref.read(cortesControllerProvider.notifier).createDemo(

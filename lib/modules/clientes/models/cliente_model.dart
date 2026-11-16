@@ -57,6 +57,7 @@ class ClienteModel {
         'correo_electronico': correoElectronico,
         'curp': curp,
         'rfc': rfc,
+        'asesor_id': asesorId,
         'fecha_ingreso': fechaIngreso?.toIso8601String(),
         'fecha_nacimiento': fechaNacimiento?.toIso8601String(),
         'direccion': direccion,

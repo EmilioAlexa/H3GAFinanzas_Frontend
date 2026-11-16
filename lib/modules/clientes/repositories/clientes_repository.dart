@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/config/env.dart';
 import '../../auth/auth.dart';
+import '../../contratos/fixtures/contratos_demo_fixtures.dart';
+import '../../pagos/fixtures/pagos_demo_fixtures.dart';
 import '../fixtures/clientes_demo_fixtures.dart';
 import '../models/cliente_model.dart';
 
@@ -40,6 +42,10 @@ class ClientesRepository {
     String? correoElectronico,
     String? curp,
     String? rfc,
+    String? asesorId,
+    String? asesorNombre,
+    DateTime? fechaIngreso,
+    DateTime? fechaNacimiento,
   }) {
     _requireDemoMode();
     final client = ClienteModel(
@@ -51,10 +57,12 @@ class ClientesRepository {
       correoElectronico: correoElectronico,
       curp: curp,
       rfc: rfc,
-      fechaIngreso: DateTime.now(),
+      asesorId: asesorId,
+      fechaIngreso: fechaIngreso ?? DateTime.now(),
+      fechaNacimiento: fechaNacimiento,
       demoMetadata: (
         status: 'Activo',
-        advisorName: 'Asesor asignado',
+        advisorName: asesorNombre,
         service: null,
         assignedToCurrentAdvisor: true,
       ),
@@ -77,16 +85,38 @@ class ClientesRepository {
       correoElectronico: updated.correoElectronico,
       curp: updated.curp,
       rfc: updated.rfc,
-      asesorId: current.asesorId,
+      asesorId: updated.asesorId ?? current.asesorId,
       fechaIngreso: updated.fechaIngreso ?? current.fechaIngreso,
       fechaNacimiento: updated.fechaNacimiento ?? current.fechaNacimiento,
       direccion: updated.direccion,
       referidoPor: updated.referidoPor,
       observaciones: updated.observaciones,
-      demoMetadata: current.demoMetadata,
+      demoMetadata: updated.demoMetadata ?? current.demoMetadata,
     );
     _clients[index] = client;
     return client;
+  }
+
+  void deleteDemo(String clientId) {
+    _requireDemoMode();
+    final index = _clients.indexWhere((client) => client.id == clientId);
+    if (index < 0) throw StateError('No se encontró el cliente de demo.');
+    final client = _clients[index];
+    if (client.demoMetadata?.status != 'Pausado') {
+      throw StateError('Solo puedes eliminar clientes pausados.');
+    }
+    final contractIds = ContratosDemoFixtures.contracts
+        .where((contract) => contract.clienteId == clientId)
+        .map((contract) => contract.id)
+        .toSet();
+    if (contractIds.isNotEmpty ||
+        PagosDemoFixtures.payments
+            .any((payment) => contractIds.contains(payment.contratoId))) {
+      throw StateError(
+        'No puedes eliminar un cliente con contratos o pagos asignados.',
+      );
+    }
+    _clients.removeAt(index);
   }
 
   ClienteModel toggleStatusDemo(String clientId) {

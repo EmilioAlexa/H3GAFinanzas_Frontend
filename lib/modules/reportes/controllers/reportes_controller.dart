@@ -29,6 +29,8 @@ class ReportesController extends StateNotifier<ReportFiltersModel> {
       state = state.copyWith(granularity: value, applied: false);
   void setCompare(bool value) =>
       state = state.copyWith(compare: value, applied: false);
+  void setService(String value) =>
+      state = state.copyWith(service: value, applied: false);
   void setSaleType(String value) =>
       state = state.copyWith(saleType: value, applied: false);
   void setPaymentMethod(String value) =>

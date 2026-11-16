@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_theme.dart';
+import '../../../../core/utils/dialog_lifecycle.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_back_button.dart';
 import '../../../../core/widgets/app_badge.dart';
@@ -489,6 +490,7 @@ class CorteDetallePage extends ConsumerWidget {
         ],
       ),
     );
+    await waitForDialogDismissal();
     if (!context.mounted) {
       comment.dispose();
       return;

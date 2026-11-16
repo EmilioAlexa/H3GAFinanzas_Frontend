@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:pdfrx/pdfrx.dart';
 
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/platform/file_platform_factory.dart';
@@ -262,39 +263,49 @@ class _ValidacionDetallePageState extends ConsumerState<ValidacionDetallePage> {
     );
   }
 
-  Widget _documentPreview(EvidenciaPagoModel? evidence) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(AppTheme.space6),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                evidence?.mimeType == 'application/pdf'
-                    ? Icons.picture_as_pdf_outlined
-                    : Icons.image_not_supported_outlined,
-                color: AppTheme.secondaryDark,
-                size: 64,
-              ),
-              const SizedBox(height: AppTheme.space3),
-              Text(
-                evidence == null ? 'No hay evidencia adjunta' : evidence.name,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: AppTheme.space1),
-              Text(
-                evidence == null
-                    ? 'Cuando exista un comprobante, su vista previa aparecerá aquí.'
-                    : evidence.mimeType == 'application/pdf'
-                        ? 'El comprobante PDF está listo para descargar.'
-                        : 'No se pudo cargar la vista previa de este archivo.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: AppTheme.muted),
-              ),
-            ],
-          ),
-        ),
+  Widget _documentPreview(EvidenciaPagoModel? evidence) {
+    final bytes = evidence?.previewBytes;
+    if (evidence?.mimeType == 'application/pdf' && bytes != null) {
+      return PdfViewer.data(
+        bytes,
+        sourceName: evidence!.name,
+        params: const PdfViewerParams(),
       );
+    }
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppTheme.space6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              evidence?.mimeType == 'application/pdf'
+                  ? Icons.picture_as_pdf_outlined
+                  : Icons.image_not_supported_outlined,
+              color: AppTheme.secondaryDark,
+              size: 64,
+            ),
+            const SizedBox(height: AppTheme.space3),
+            Text(
+              evidence == null ? 'No hay evidencia adjunta' : evidence.name,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: AppTheme.space1),
+            Text(
+              evidence == null
+                  ? 'Cuando exista un comprobante, su vista previa aparecerá aquí.'
+                  : evidence.mimeType == 'application/pdf'
+                      ? 'El comprobante PDF está listo para descargar.'
+                      : 'No se pudo cargar la vista previa de este archivo.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppTheme.muted),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _previewUnavailable(String? name) => Center(
         child: Column(

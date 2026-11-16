@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_theme.dart';
+import '../../../../core/export/document_export_service.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_back_button.dart';
 import '../../../../core/widgets/app_badge.dart';
@@ -35,12 +36,14 @@ class ComisionDetallePage extends ConsumerWidget {
     final payment = ref
         .read(comisionesControllerProvider(session.role).notifier)
         .findPayment(paymentId);
-    if (state.isLoading) return const Center(child: CircularProgressIndicator());
+    if (state.isLoading)
+      return const Center(child: CircularProgressIndicator());
     if (payment == null) {
       return const AppStatePanel(
         icon: Icons.search_off_outlined,
         title: 'Comisión no disponible',
-        message: 'No se encontró este pago o no está disponible para tu perfil.',
+        message:
+            'No se encontró este pago o no está disponible para tu perfil.',
       );
     }
     return _page(context, ref, session, payment);
@@ -54,8 +57,8 @@ class ComisionDetallePage extends ConsumerWidget {
   ) {
     final advisor = session.role == UserRole.asesor;
     final dispersed = _isDispersed(payment);
-    final totalAssigned = payment.snapshot.fold(
-        Decimal.zero, (sum, item) => sum + item.amount);
+    final totalAssigned =
+        payment.snapshot.fold(Decimal.zero, (sum, item) => sum + item.amount);
     final companyAmount = CommissionMath.remainderAmount(
       payment.paymentAmount,
       payment.snapshot.map((item) => item.amount),
@@ -63,74 +66,68 @@ class ComisionDetallePage extends ConsumerWidget {
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.space6),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1220),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              AppBackButton(
-                label: 'Comisiones',
-                onPressed: () => context.go('/comisiones'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppBackButton(
+            label: 'Comisiones',
+            onPressed: () => context.go('/comisiones'),
+          ),
+          AppPageHeader(
+            eyebrow: advisor
+                ? 'Mi comisión · ${payment.paymentFolio}'
+                : 'Dispersión ${payment.paymentFolio} · Cambaceo',
+            title: MoneyFormatter.format(payment.paymentAmount),
+            description:
+                'Generada a partir del pago ${payment.paymentFolio} · Contrato ${payment.contractFolio}',
+            actions: [
+              OutlinedButton.icon(
+                onPressed: () => _exportCommission(context, payment),
+                icon: const Icon(Icons.download_outlined),
+                label: const Text('Exportar detalle'),
               ),
-              AppPageHeader(
-                eyebrow: advisor
-                    ? 'Mi comisión · ${payment.paymentFolio}'
-                    : 'Dispersión ${payment.paymentFolio} · Cambaceo',
-                title: MoneyFormatter.format(payment.paymentAmount),
-                description:
-                    'Generada a partir del pago ${payment.paymentFolio} · Contrato ${payment.contractFolio}',
-                actions: [
-                  OutlinedButton.icon(
-                    onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Detalle listo para exportar.'))),
-                    icon: const Icon(Icons.download_outlined),
-                    label: const Text('Exportar detalle'),
-                  ),
-                ],
-              ),
-              _statusCard(context, payment, advisor, dispersed),
-              const SizedBox(height: AppTheme.space4),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final origin = _originCard(context, payment, advisor);
-                  final reconciliation = advisor
-                      ? _advisorSummary(context, payment)
-                      : _reconciliationCard(context, payment, totalAssigned,
-                          companyAmount);
-                  if (constraints.maxWidth < 900) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        origin,
-                        const SizedBox(height: AppTheme.space4),
-                        reconciliation,
-                      ],
-                    );
-                  }
-                  return Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(flex: 2, child: origin),
-                      const SizedBox(width: AppTheme.space4),
-                      Expanded(child: reconciliation),
-                    ],
-                  );
-                },
-              ),
-              const SizedBox(height: AppTheme.space4),
-              advisor
-                  ? _advisorCommissionCard(context, payment)
-                  : _distributionCard(context, ref, session, payment),
-              if (!advisor) ...[
-                const SizedBox(height: AppTheme.space4),
-                _configurationCard(context, payment),
-                const SizedBox(height: AppTheme.space4),
-                _historyCard(context, payment),
-              ],
             ],
           ),
-        ),
+          _statusCard(context, payment, advisor, dispersed),
+          const SizedBox(height: AppTheme.space4),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final origin = _originCard(context, payment, advisor);
+              final reconciliation = advisor
+                  ? _advisorSummary(context, payment)
+                  : _reconciliationCard(
+                      context, payment, totalAssigned, companyAmount);
+              if (constraints.maxWidth < 900) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    origin,
+                    const SizedBox(height: AppTheme.space4),
+                    reconciliation,
+                  ],
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: 2, child: origin),
+                  const SizedBox(width: AppTheme.space4),
+                  Expanded(child: reconciliation),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: AppTheme.space4),
+          advisor
+              ? _advisorCommissionCard(context, payment)
+              : _distributionCard(context, ref, session, payment),
+          if (!advisor) ...[
+            const SizedBox(height: AppTheme.space4),
+            _configurationCard(context, payment),
+            const SizedBox(height: AppTheme.space4),
+            _historyCard(context, payment),
+          ],
+        ],
       ),
     );
   }
@@ -151,7 +148,11 @@ class ComisionDetallePage extends ConsumerWidget {
         ),
         child: Row(
           children: [
-            _statusBadge(advisor ? _myStatus(payment) : dispersed ? 'Dispersada' : 'Pendiente de dispersión'),
+            _statusBadge(advisor
+                ? _myStatus(payment)
+                : dispersed
+                    ? 'Dispersada'
+                    : 'Pendiente de dispersión'),
             const SizedBox(width: AppTheme.space4),
             Expanded(
               child: Text(
@@ -273,7 +274,8 @@ class ComisionDetallePage extends ConsumerWidget {
       _panel(
         context,
         title: 'Dispersión aplicada a este pago',
-        trailing: _statusBadge(_isDispersed(payment) ? '100% conciliado' : 'Pendiente'),
+        trailing: _statusBadge(
+            _isDispersed(payment) ? '100% conciliado' : 'Pendiente'),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -305,10 +307,11 @@ class ComisionDetallePage extends ConsumerWidget {
   ) =>
       _panel(
         context,
-        title: 'Configuración de comisiones del contrato ${payment.contractFolio}',
+        title:
+            'Configuración de comisiones del contrato ${payment.contractFolio}',
         trailing: FilledButton.icon(
-          onPressed: () => context.go(
-              '/comisiones/contratos/${payment.contractId}/configuracion'),
+          onPressed: () => context
+              .go('/comisiones/contratos/${payment.contractId}/configuracion'),
           icon: const Icon(Icons.tune),
           label: const Text('Configurar contrato'),
         ),
@@ -323,7 +326,8 @@ class ComisionDetallePage extends ConsumerWidget {
             for (final line in payment.configuration)
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: Icon(Icons.circle, size: 10, color: _conceptColor(line.conceptId)),
+                leading: Icon(Icons.circle,
+                    size: 10, color: _conceptColor(line.conceptId)),
                 title: Text(line.concept),
                 subtitle: Text(line.receiverName),
                 trailing: Text('${line.percentage}%'),
@@ -363,7 +367,8 @@ class ComisionDetallePage extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.circle, size: 11, color: _conceptColor(item.conceptId)),
+              Icon(Icons.circle,
+                  size: 11, color: _conceptColor(item.conceptId)),
               const SizedBox(width: AppTheme.space2),
               Expanded(
                 child: Column(
@@ -399,7 +404,8 @@ class ComisionDetallePage extends ConsumerWidget {
           LinearProgressIndicator(
             value: (item.percentage.toDouble() / 100).clamp(0, 1),
             backgroundColor: AppTheme.accentSoft,
-            valueColor: AlwaysStoppedAnimation<Color>(_conceptColor(item.conceptId)),
+            valueColor:
+                AlwaysStoppedAnimation<Color>(_conceptColor(item.conceptId)),
           ),
           if (!isCompany)
             Padding(
@@ -413,15 +419,16 @@ class ComisionDetallePage extends ConsumerWidget {
   }
 
   CommissionSnapshotModel _companySnapshot(CommissionPaymentModel payment) {
-    final assigned = payment.snapshot.fold(
-        Decimal.zero, (sum, item) => sum + item.amount);
+    final assigned =
+        payment.snapshot.fold(Decimal.zero, (sum, item) => sum + item.amount);
     return CommissionSnapshotModel(
       id: 'company',
       conceptId: 0,
       concept: 'Empresa',
       receiverName: 'Remanente · se calcula automáticamente',
       percentage: Decimal.fromInt(100) -
-          payment.snapshot.fold(Decimal.zero, (sum, item) => sum + item.percentage),
+          payment.snapshot
+              .fold(Decimal.zero, (sum, item) => sum + item.percentage),
       amount: payment.paymentAmount - assigned,
       status: 'Fija',
       history: const [],
@@ -450,7 +457,8 @@ class ComisionDetallePage extends ConsumerWidget {
               controller: comment,
               maxLength: 500,
               maxLines: 3,
-              decoration: const InputDecoration(labelText: 'Comentario opcional'),
+              decoration:
+                  const InputDecoration(labelText: 'Comentario opcional'),
             ),
           ],
         ),
@@ -469,7 +477,9 @@ class ComisionDetallePage extends ConsumerWidget {
       return;
     }
     try {
-      ref.read(comisionesControllerProvider(session.role).notifier).disperseDemo(
+      ref
+          .read(comisionesControllerProvider(session.role).notifier)
+          .disperseDemo(
             paymentId: payment.id,
             commissionId: item.id,
             comment: comment.text,
@@ -540,8 +550,11 @@ class ComisionDetallePage extends ConsumerWidget {
         padding: const EdgeInsets.only(bottom: AppTheme.space3),
         child: Row(
           children: [
-            Expanded(child: Text(label, style: const TextStyle(color: AppTheme.muted))),
-            Text(_money(value), style: const TextStyle(fontWeight: FontWeight.w700)),
+            Expanded(
+                child:
+                    Text(label, style: const TextStyle(color: AppTheme.muted))),
+            Text(_money(value),
+                style: const TextStyle(fontWeight: FontWeight.w700)),
           ],
         ),
       );
@@ -577,4 +590,46 @@ class ComisionDetallePage extends ConsumerWidget {
   String _money(Decimal value) => MoneyFormatter.format(value);
 
   String _date(DateTime value) => MoneyFormatter.formatDate(value);
+
+  Future<void> _exportCommission(
+    BuildContext context,
+    CommissionPaymentModel payment,
+  ) async {
+    final rows = [
+      for (final item in payment.snapshot)
+        [
+          item.concept,
+          item.receiverName,
+          '${item.percentage}%',
+          _money(item.amount),
+          item.status,
+        ],
+    ];
+    try {
+      await DocumentExportService.pdf(
+        filename: 'comision-${payment.paymentFolio}.pdf',
+        title: 'H3GA Finanzas · Dispersión ${payment.paymentFolio}',
+        subtitle:
+            '${payment.clientName} · Contrato ${payment.contractFolio} · ${_money(payment.paymentAmount)}',
+        headers: const [
+          'Destino',
+          'Receptor',
+          'Porcentaje',
+          'Importe',
+          'Estado'
+        ],
+        rows: rows,
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Detalle exportado en PDF.')),
+        );
+      }
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('No se pudo exportar: $error')));
+      }
+    }
+  }
 }

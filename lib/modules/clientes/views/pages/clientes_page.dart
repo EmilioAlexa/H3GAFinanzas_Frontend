@@ -6,6 +6,7 @@ import '../../../../app/config/env.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/responsive/window_size_class.dart';
+import '../../../../core/utils/dialog_lifecycle.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_data_column.dart';
 import '../../../../core/widgets/app_dialog.dart';
@@ -15,6 +16,9 @@ import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_responsive_collection.dart';
 import '../../../../core/widgets/app_state_panel.dart';
 import '../../../auth/auth.dart';
+import '../../../contratos/fixtures/contratos_demo_fixtures.dart';
+import '../../../pagos/fixtures/pagos_demo_fixtures.dart';
+import '../../../usuarios/repositories/usuarios_repository.dart';
 import '../../controllers/clientes_controller.dart';
 import '../../models/cliente_model.dart';
 
@@ -25,7 +29,7 @@ class ClientesPage extends ConsumerStatefulWidget {
   ConsumerState<ClientesPage> createState() => _ClientesPageState();
 }
 
-enum _ClientAction { view, edit, toggleStatus }
+enum _ClientAction { view, edit, toggleStatus, delete }
 
 enum _ClientDialogMode { create, edit, view }
 
@@ -512,6 +516,8 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
                   client: client, mode: _ClientDialogMode.edit);
             case _ClientAction.toggleStatus:
               await _confirmStatusToggle(context, role, client);
+            case _ClientAction.delete:
+              await _confirmDelete(context, role, client);
           }
         },
         itemBuilder: (context) => [
@@ -529,8 +535,31 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
                 ? 'Activar cliente'
                 : 'Pausar cliente'),
           ),
+          if (_canDeleteClient(role, client))
+            const PopupMenuItem(
+              value: _ClientAction.delete,
+              child: Text('Eliminar cliente'),
+            ),
         ],
       );
+
+  bool _canDeleteClient(UserRole role, ClienteModel client) =>
+      (role == UserRole.administrador ||
+          role == UserRole.administradorFinanciero) &&
+      client.demoMetadata?.status == 'Pausado' &&
+      !_hasRelatedRecords(client.id);
+
+  bool _hasRelatedRecords(String clientId) {
+    final hasContract = ContratosDemoFixtures.contracts
+        .any((contract) => contract.clienteId == clientId);
+    if (hasContract) return true;
+    final contractIds = ContratosDemoFixtures.contracts
+        .where((contract) => contract.clienteId == clientId)
+        .map((contract) => contract.id)
+        .toSet();
+    return PagosDemoFixtures.payments
+        .any((payment) => contractIds.contains(payment.contratoId));
+  }
 
   Future<void> _confirmStatusToggle(
     BuildContext context,
@@ -560,10 +589,52 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
       ),
     );
     if (confirmed != true || !mounted || !context.mounted) return;
+    await waitForDialogDismissal();
+    if (!mounted || !context.mounted) return;
     try {
       ref.read(clientesControllerProvider(role).notifier).toggleStatusDemo(
             client.id,
           );
+    } on StateError catch (error) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+
+  Future<void> _confirmDelete(
+    BuildContext context,
+    UserRole role,
+    ClienteModel client,
+  ) async {
+    if (!_canDeleteClient(role, client)) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AppDialog(
+        title: 'Eliminar cliente',
+        description: 'Esta acción no se puede deshacer.',
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+        child: Text(
+          '¿Confirmas eliminar a ${client.nombreCompleto}?',
+        ),
+      ),
+    );
+    if (confirmed != true || !mounted || !context.mounted) return;
+    await waitForDialogDismissal();
+    if (!mounted || !context.mounted) return;
+    try {
+      ref.read(clientesControllerProvider(role).notifier).deleteDemo(client.id);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cliente eliminado.')),
+      );
     } on StateError catch (error) {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(error.message)));
@@ -600,130 +671,236 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
     var direccion = client?.direccion ?? '';
     var referido = client?.referidoPor ?? '';
     var observaciones = client?.observaciones ?? '';
+    final ingresoController = TextEditingController(text: ingreso);
+    final nacimientoController = TextEditingController(text: nacimiento);
+    final advisors = UsuariosRepository()
+        .listDemo()
+        .where((user) => user.rolId == 'demo-role-asesor' && user.activo)
+        .toList();
+    var advisorId = client?.asesorId ??
+        advisors
+            .where((user) =>
+                user.nombreCompleto == client?.demoMetadata?.advisorName)
+            .map((user) => user.id)
+            .firstOrNull ??
+        advisors.firstOrNull?.id;
+    String? advisorName() => advisors
+        .where((user) => user.id == advisorId)
+        .map((user) => user.nombreCompleto)
+        .firstOrNull;
     final readOnly = mode == _ClientDialogMode.view;
     final title = switch (mode) {
       _ClientDialogMode.create => 'Registrar cliente',
       _ClientDialogMode.edit => 'Editar cliente',
       _ClientDialogMode.view => 'Datos del cliente',
     };
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AppDialog(
-        title: title,
-        description: client?.nombreCompleto,
-        maxWidth: 760,
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: Text(readOnly ? 'Cerrar' : 'Cancelar'),
-          ),
-          if (!readOnly)
-            FilledButton.icon(
-              onPressed: () {
-                if (!formKey.currentState!.validate()) return;
-                formKey.currentState!.save();
-                final controller = ref.read(
-                  clientesControllerProvider(role).notifier,
-                );
-                if (client == null) {
-                  controller.createDemo(
-                    nombre: nombre,
-                    apellidoPaterno: apellidoPaterno,
-                    apellidoMaterno: _nullable(apellidoMaterno),
-                    telefono: _nullable(telefono),
-                    correoElectronico: _nullable(correo),
-                    curp: _nullable(curp),
-                    rfc: _nullable(rfc),
-                  );
-                } else {
-                  controller.updateDemo(ClienteModel(
-                    id: client.id,
-                    nombre: nombre,
-                    apellidoPaterno: apellidoPaterno,
-                    apellidoMaterno: _nullable(apellidoMaterno),
-                    telefono: _nullable(telefono),
-                    correoElectronico: _nullable(correo),
-                    curp: _nullable(curp),
-                    rfc: _nullable(rfc),
-                    fechaIngreso: _parseDate(ingreso),
-                    fechaNacimiento: _parseDate(nacimiento),
-                    direccion: _nullable(direccion),
-                    referidoPor: _nullable(referido),
-                    observaciones: _nullable(observaciones),
-                  ));
-                }
-                Navigator.pop(dialogContext);
-              },
-              icon: const Icon(Icons.save_outlined),
-              label: const Text('Guardar'),
+    try {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AppDialog(
+          title: title,
+          description: client?.nombreCompleto,
+          maxWidth: 760,
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(readOnly ? 'Cerrar' : 'Cancelar'),
             ),
-        ],
-        child: Form(
-          key: formKey,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final width = constraints.maxWidth > 520
-                  ? (constraints.maxWidth - AppTheme.space3) / 2
-                  : constraints.maxWidth;
-              Widget field(
-                String label,
-                String value,
-                ValueChanged<String> onSaved, {
-                TextInputType? keyboardType,
-                int maxLines = 1,
-                String? Function(String?)? validator,
-              }) =>
-                  SizedBox(
-                    width: width,
-                    child: TextFormField(
-                      initialValue: value,
-                      readOnly: readOnly,
-                      keyboardType: keyboardType,
-                      maxLines: maxLines,
-                      decoration: InputDecoration(labelText: label),
-                      validator: validator,
-                      onSaved: (value) => onSaved(value?.trim() ?? ''),
-                    ),
+            if (!readOnly)
+              FilledButton.icon(
+                onPressed: () async {
+                  if (!formKey.currentState!.validate()) return;
+                  formKey.currentState!.save();
+                  final controller = ref.read(
+                    clientesControllerProvider(role).notifier,
                   );
-              return Wrap(
-                spacing: AppTheme.space3,
-                runSpacing: AppTheme.space3,
-                children: [
-                  field('Nombre *', nombre, (value) => nombre = value,
-                      validator: _required),
-                  field('Apellido paterno *', apellidoPaterno,
-                      (value) => apellidoPaterno = value,
-                      validator: _required),
-                  field('Apellido materno', apellidoMaterno,
-                      (value) => apellidoMaterno = value),
-                  field('Teléfono', telefono, (value) => telefono = value,
-                      keyboardType: TextInputType.phone),
-                  field(
-                      'Correo electrónico', correo, (value) => correo = value,
-                      keyboardType: TextInputType.emailAddress,
-                      validator: _emailValidator),
-                  field('CURP', curp, (value) => curp = value),
-                  field('RFC', rfc, (value) => rfc = value),
-                  field(
-                      'Fecha de ingreso', ingreso, (value) => ingreso = value),
-                  field('Fecha de nacimiento', nacimiento,
-                      (value) => nacimiento = value),
-                  field('Asesor', client?.demoMetadata?.advisorName ?? '',
-                      (_) {}),
-                  field('Dirección', direccion, (value) => direccion = value,
-                      maxLines: 2),
-                  field('Referido por', referido, (value) => referido = value),
-                  field('Estatus', client?.demoMetadata?.status ?? '', (_) {}),
-                  field('Observaciones', observaciones,
-                      (value) => observaciones = value,
-                      maxLines: 3),
-                ],
-              );
-            },
+                  final updatedClient = client == null
+                      ? null
+                      : ClienteModel(
+                          id: client.id,
+                          nombre: nombre,
+                          apellidoPaterno: apellidoPaterno,
+                          apellidoMaterno: _nullable(apellidoMaterno),
+                          telefono: _nullable(telefono),
+                          correoElectronico: _nullable(correo),
+                          curp: _nullable(curp),
+                          rfc: _nullable(rfc),
+                          asesorId: advisorId,
+                          fechaIngreso: _parseDate(ingreso),
+                          fechaNacimiento: _parseDate(nacimiento),
+                          direccion: _nullable(direccion),
+                          referidoPor: _nullable(referido),
+                          observaciones: _nullable(observaciones),
+                          demoMetadata: (
+                            status: client.demoMetadata?.status ?? 'Activo',
+                            advisorName: advisorName(),
+                            service: client.demoMetadata?.service,
+                            assignedToCurrentAdvisor:
+                                client.demoMetadata?.assignedToCurrentAdvisor ??
+                                    false,
+                          ),
+                        );
+                  Navigator.pop(dialogContext);
+                  await waitForDialogDismissal();
+                  if (!mounted) return;
+                  if (updatedClient == null) {
+                    controller.createDemo(
+                      nombre: nombre,
+                      apellidoPaterno: apellidoPaterno,
+                      apellidoMaterno: _nullable(apellidoMaterno),
+                      telefono: _nullable(telefono),
+                      correoElectronico: _nullable(correo),
+                      curp: _nullable(curp),
+                      rfc: _nullable(rfc),
+                      asesorId: advisorId,
+                      asesorNombre: advisorName(),
+                      fechaIngreso: _parseDate(ingreso),
+                      fechaNacimiento: _parseDate(nacimiento),
+                    );
+                  } else {
+                    controller.updateDemo(updatedClient);
+                  }
+                },
+                icon: const Icon(Icons.save_outlined),
+                label: const Text('Guardar'),
+              ),
+          ],
+          child: Form(
+            key: formKey,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final width = constraints.maxWidth > 520
+                    ? (constraints.maxWidth - AppTheme.space3) / 2
+                    : constraints.maxWidth;
+                Widget field(
+                  String label,
+                  String value,
+                  ValueChanged<String> onSaved, {
+                  TextInputType? keyboardType,
+                  int maxLines = 1,
+                  String? Function(String?)? validator,
+                  bool enabled = true,
+                }) =>
+                    SizedBox(
+                      width: width,
+                      child: TextFormField(
+                        initialValue: value,
+                        enabled: enabled && !readOnly,
+                        keyboardType: keyboardType,
+                        maxLines: maxLines,
+                        decoration: InputDecoration(labelText: label),
+                        validator: validator,
+                        onSaved: (value) => onSaved(value?.trim() ?? ''),
+                      ),
+                    );
+                Widget dateField(
+                  String label,
+                  TextEditingController controller,
+                  ValueChanged<String> onSaved,
+                ) =>
+                    SizedBox(
+                      width: width,
+                      child: TextFormField(
+                        controller: controller,
+                        readOnly: true,
+                        enabled: !readOnly,
+                        decoration: InputDecoration(
+                          labelText: label,
+                          suffixIcon: const Icon(Icons.calendar_today_outlined),
+                        ),
+                        validator: _required,
+                        onTap: readOnly
+                            ? null
+                            : () async {
+                                final initial = _parseDate(controller.text) ??
+                                    DateTime.now();
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: initial,
+                                  firstDate: DateTime(1900),
+                                  lastDate: DateTime.now(),
+                                );
+                                if (picked != null) {
+                                  controller.text = _date(picked);
+                                }
+                              },
+                        onSaved: (value) => onSaved(value?.trim() ?? ''),
+                      ),
+                    );
+                final advisorItems = advisors
+                    .map(
+                      (user) => DropdownMenuItem<String>(
+                        value: user.id,
+                        child: Text(user.nombreCompleto),
+                      ),
+                    )
+                    .toList();
+                return Wrap(
+                  spacing: AppTheme.space3,
+                  runSpacing: AppTheme.space3,
+                  children: [
+                    field('Nombre *', nombre, (value) => nombre = value,
+                        validator: _required),
+                    field('Apellido paterno *', apellidoPaterno,
+                        (value) => apellidoPaterno = value,
+                        validator: _required),
+                    field('Apellido materno *', apellidoMaterno,
+                        (value) => apellidoMaterno = value,
+                        validator: _required),
+                    field('Teléfono *', telefono, (value) => telefono = value,
+                        keyboardType: TextInputType.phone,
+                        validator: _required),
+                    field(
+                        'Correo electrónico', correo, (value) => correo = value,
+                        keyboardType: TextInputType.emailAddress,
+                        validator: _emailValidator),
+                    field('CURP *', curp, (value) => curp = value,
+                        validator: _required),
+                    field('RFC *', rfc, (value) => rfc = value,
+                        validator: _required),
+                    dateField('Fecha de ingreso *', ingresoController,
+                        (value) => ingreso = value),
+                    dateField('Fecha de nacimiento *', nacimientoController,
+                        (value) => nacimiento = value),
+                    SizedBox(
+                      width: width,
+                      child: DropdownButtonFormField<String>(
+                        initialValue: advisorId,
+                        isExpanded: true,
+                        decoration:
+                            const InputDecoration(labelText: 'Asesor *'),
+                        items: advisorItems,
+                        onChanged:
+                            readOnly ? null : (value) => advisorId = value,
+                        validator: (value) =>
+                            value == null ? 'Selecciona un asesor' : null,
+                      ),
+                    ),
+                    field('Dirección', direccion, (value) => direccion = value,
+                        maxLines: 2),
+                    field(
+                        'Referido por', referido, (value) => referido = value),
+                    field(
+                      'Estatus',
+                      client?.demoMetadata?.status ?? 'Activo',
+                      (_) {},
+                      enabled: false,
+                    ),
+                    field('Observaciones', observaciones,
+                        (value) => observaciones = value,
+                        maxLines: 3),
+                  ],
+                );
+              },
+            ),
           ),
         ),
-      ),
-    );
+      );
+      await waitForDialogDismissal();
+    } finally {
+      ingresoController.dispose();
+      nacimientoController.dispose();
+    }
   }
 
   String _dateInput(DateTime? date) => date == null ? '' : _date(date);

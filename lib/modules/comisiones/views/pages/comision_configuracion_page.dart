@@ -109,35 +109,30 @@ class _ComisionConfiguracionPageState
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.space6),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1220),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              AppBackButton(
-                label: 'Detalle de comisiones',
-                onPressed: () => context.go('/comisiones/${payment.id}'),
-              ),
-              AppPageHeader(
-                eyebrow: 'Configuración del contrato',
-                title: 'Comisiones · ${payment.contractFolio}',
-                description:
-                    'Los cambios aplican a pagos futuros. Empresa recibe automáticamente el remanente.',
-              ),
-              _contractSummary(
-                  context, payment, assigned, companyPercentage, companyAmount),
-              const SizedBox(height: AppTheme.space4),
-              _configurationCard(context, session, payment),
-              if (invalid) ...[
-                const SizedBox(height: AppTheme.space3),
-                _errorBanner(payment, assigned),
-              ],
-              const SizedBox(height: AppTheme.space4),
-              _historyCard(context, payment),
-            ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppBackButton(
+            label: 'Detalle de comisiones',
+            onPressed: () => context.go('/comisiones/${payment.id}'),
           ),
-        ),
+          AppPageHeader(
+            eyebrow: 'Configuración del contrato',
+            title: 'Comisiones · ${payment.contractFolio}',
+            description:
+                'Los cambios aplican a pagos futuros. Empresa recibe automáticamente el remanente.',
+          ),
+          _contractSummary(
+              context, payment, assigned, companyPercentage, companyAmount),
+          const SizedBox(height: AppTheme.space4),
+          _configurationCard(context, session, payment),
+          if (invalid) ...[
+            const SizedBox(height: AppTheme.space3),
+            _errorBanner(payment, assigned),
+          ],
+          const SizedBox(height: AppTheme.space4),
+          _historyCard(context, payment),
+        ],
       ),
     );
   }
@@ -633,9 +628,8 @@ class _ComisionConfiguracionPageState
     final assigned = CommissionMath.sum(_draft.map((line) => line.percentage));
     return !_hasDuplicateConcepts &&
         assigned <= Decimal.fromInt(100) &&
-        !(_draft.any((line) =>
-            line.conceptId == 4 &&
-            payment.serviceName == 'APD')) &&
+        !(_draft.any(
+            (line) => line.conceptId == 4 && payment.serviceName == 'APD')) &&
         _draft.every(
             (line) => CommissionMath.isAllowedPercentage(line.percentage));
   }
