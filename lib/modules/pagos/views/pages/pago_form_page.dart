@@ -111,68 +111,63 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.space6),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1200),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                AppBackButton(
-                  label: 'Pagos',
-                  onPressed: () => context.go('/pagos'),
-                ),
-                const AppPageHeader(
-                  eyebrow: 'Nuevo registro',
-                  title: 'Registrar pago',
-                  description:
-                      'Captura la información y adjunta las evidencias correspondientes.',
-                ),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final wide = constraints.maxWidth >= 980;
-                    final sections = Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _relationSection(
-                            clients, matchingContracts, matchingSchedules),
-                        const SizedBox(height: AppTheme.space4),
-                        _paymentSection(matchingSchedules),
-                        const SizedBox(height: AppTheme.space4),
-                        _evidenceSection(),
-                      ],
-                    );
-                    final summary = _summaryCard(
-                      context,
-                      selectedContract,
-                      matchingSchedules,
-                      session.role,
-                      contracts,
-                    );
-                    if (!wide) {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          sections,
-                          const SizedBox(height: AppTheme.space4),
-                          summary,
-                        ],
-                      );
-                    }
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(child: sections),
-                        const SizedBox(width: AppTheme.space4),
-                        SizedBox(width: 300, child: summary),
-                      ],
-                    );
-                  },
-                ),
-              ],
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AppBackButton(
+              label: 'Pagos',
+              onPressed: () => context.go('/pagos'),
             ),
-          ),
+            const AppPageHeader(
+              eyebrow: 'Nuevo registro',
+              title: 'Registrar pago',
+              description:
+                  'Captura la información y adjunta las evidencias correspondientes.',
+            ),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final wide = constraints.maxWidth >= 980;
+                final sections = Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _relationSection(
+                        clients, matchingContracts, matchingSchedules),
+                    const SizedBox(height: AppTheme.space4),
+                    _paymentSection(matchingSchedules),
+                    const SizedBox(height: AppTheme.space4),
+                    _evidenceSection(),
+                  ],
+                );
+                final summary = _summaryCard(
+                  context,
+                  selectedContract,
+                  matchingSchedules,
+                  session.role,
+                  contracts,
+                );
+                if (!wide) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      sections,
+                      const SizedBox(height: AppTheme.space4),
+                      summary,
+                    ],
+                  );
+                }
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: sections),
+                    const SizedBox(width: AppTheme.space4),
+                    SizedBox(width: 300, child: summary),
+                  ],
+                );
+              },
+            ),
+          ],
         ),
       ),
     );

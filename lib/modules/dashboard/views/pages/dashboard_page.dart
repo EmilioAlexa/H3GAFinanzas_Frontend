@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../app/theme/app_theme.dart';
+import '../../../../core/export/document_export_service.dart';
+import '../../../../core/platform/file_platform_factory.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/responsive/window_size_class.dart';
 import '../../../../core/utils/money_formatter.dart';
@@ -213,50 +215,91 @@ class DashboardPage extends ConsumerWidget {
     BuildContext context,
     DashboardModel model,
   ) async {
-    final shouldExport = await showDialog<bool>(
+    var format = 'PDF';
+    final selectedFormat = await showDialog<String>(
       context: context,
-      builder: (dialogContext) => AppDialog(
-        title: 'Exportar',
-        description: 'Selecciona el formato y periodo para la exportación.',
-        icon: Icons.download_outlined,
-        maxWidth: 560,
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Preparar exportación'),
-          ),
-        ],
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            DropdownButtonFormField<String>(
-              initialValue: 'PDF',
-              decoration: const InputDecoration(labelText: 'Formato'),
-              items: const [
-                DropdownMenuItem(value: 'PDF', child: Text('PDF')),
-              ],
-              onChanged: (_) {},
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AppDialog(
+          title: 'Exportar',
+          description: 'Selecciona el formato y periodo para la exportación.',
+          icon: Icons.download_outlined,
+          maxWidth: 560,
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancelar'),
             ),
-            const SizedBox(height: AppTheme.space3),
-            TextFormField(
-              initialValue: model.periodLabel,
-              readOnly: true,
-              decoration: const InputDecoration(labelText: 'Periodo'),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(format),
+              child: const Text('Exportar archivo'),
             ),
           ],
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              DropdownButtonFormField<String>(
+                initialValue: format,
+                decoration: const InputDecoration(labelText: 'Formato'),
+                items: const [
+                  DropdownMenuItem(value: 'PDF', child: Text('PDF')),
+                  DropdownMenuItem(value: 'Excel', child: Text('Excel')),
+                ],
+                onChanged: (value) =>
+                    setDialogState(() => format = value ?? format),
+              ),
+              const SizedBox(height: AppTheme.space3),
+              TextFormField(
+                initialValue: model.periodLabel,
+                readOnly: true,
+                decoration: const InputDecoration(labelText: 'Periodo'),
+              ),
+            ],
+          ),
         ),
       ),
     );
-    if (shouldExport != true || !context.mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Exportación preparada')),
-    );
+    if (selectedFormat == null || !context.mounted) return;
+    final headers = const ['Indicador', 'Valor', 'Detalle'];
+    final rows = [
+      for (final metric in model.metrics)
+        [metric.label, metric.value, metric.detail],
+      for (final point in model.weeklyIncome)
+        ['Ingresos · ${point.label}', point.amount.toString(), 'Periodo'],
+    ];
+    try {
+      if (selectedFormat == 'PDF') {
+        await DocumentExportService.pdf(
+          filename: 'dashboard-${model.periodLabel}.pdf',
+          title: 'H3GA Finanzas · Dashboard',
+          subtitle: 'Periodo: ${model.periodLabel}',
+          headers: headers,
+          rows: rows,
+        );
+      } else {
+        final bytes = DocumentExportService.excel(
+          title: 'H3GA Finanzas · Dashboard',
+          subtitle: 'Periodo: ${model.periodLabel}',
+          headers: headers,
+          rows: rows,
+        );
+        await createFilePlatform().downloadFile(
+          'dashboard-${model.periodLabel}.xlsx',
+          bytes,
+        );
+      }
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Dashboard exportado en $selectedFormat.')),
+        );
+      }
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('No se pudo exportar: $error')),
+        );
+      }
+    }
   }
 
   IconData _metricIcon(DashboardMetricIcon icon) => switch (icon) {

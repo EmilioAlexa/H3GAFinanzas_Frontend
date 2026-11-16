@@ -27,6 +27,7 @@ class NativeFilePlatform implements FilePlatform {
       allowedExtensions: [
         if (name.toLowerCase().endsWith('.csv')) 'csv',
         if (name.toLowerCase().endsWith('.pdf')) 'pdf',
+        if (name.toLowerCase().endsWith('.xlsx')) 'xlsx',
       ],
       bytes: bytes,
     );

@@ -41,6 +41,10 @@ class ClientesController
     String? correoElectronico,
     String? curp,
     String? rfc,
+    String? asesorId,
+    String? asesorNombre,
+    DateTime? fechaIngreso,
+    DateTime? fechaNacimiento,
   }) {
     final client = _repository.createDemo(
       nombre: nombre,
@@ -50,6 +54,10 @@ class ClientesController
       correoElectronico: correoElectronico,
       curp: curp,
       rfc: rfc,
+      asesorId: asesorId,
+      asesorNombre: asesorNombre,
+      fechaIngreso: fechaIngreso,
+      fechaNacimiento: fechaNacimiento,
     );
     state = AsyncData(_repository.loadSynchronously(_role));
     return client;
@@ -59,6 +67,11 @@ class ClientesController
     final updated = _repository.updateDemo(client);
     state = AsyncData(_repository.loadSynchronously(_role));
     return updated;
+  }
+
+  void deleteDemo(String clientId) {
+    _repository.deleteDemo(clientId);
+    state = AsyncData(_repository.loadSynchronously(_role));
   }
 
   ClienteModel toggleStatusDemo(String clientId) {

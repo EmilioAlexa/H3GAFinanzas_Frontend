@@ -160,92 +160,85 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
     final isAdvisor = session.role == UserRole.asesor;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.space6),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1200),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                AppBackButton(
-                  label: 'Contratos',
-                  onPressed: () => context.go(
-                    editing ? '/contratos/${existing.id}' : '/contratos',
-                  ),
-                ),
-                AppPageHeader(
-                  eyebrow: editing ? 'Edición' : null,
-                  title: editing ? 'Editar contrato' : 'Crear contrato',
-                  description: editing
-                      ? 'Actualiza las observaciones del contrato.'
-                      : 'Captura las condiciones generales y específicas del servicio.',
-                ),
-                const SizedBox(height: AppTheme.space5),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final wide = constraints.maxWidth >= 980;
-                    final main = Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: editing
-                          ? [
-                              _sectionCard(
-                                number: '1',
-                                title: 'Observaciones',
-                                description:
-                                    'Actualiza las notas del contrato.',
-                                child: TextFormField(
-                                  controller: _observationsController,
-                                  minLines: 5,
-                                  maxLines: 8,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Observaciones',
-                                    hintText:
-                                        'Agrega condiciones o acuerdos relevantes...',
-                                  ),
-                                ),
-                              ),
-                            ]
-                          : [
-                              _clientServiceSection(session,
-                                  isAdvisor: isAdvisor),
-                              const SizedBox(height: AppTheme.space4),
-                              _generalDataSection(selectedDate),
-                              const SizedBox(height: AppTheme.space4),
-                              _serviceConditionsSection(),
-                              const SizedBox(height: AppTheme.space4),
-                              _documentationSection(),
-                            ],
-                    );
-                    final summary = _summaryCard(
-                      context,
-                      session,
-                      existing,
-                      selectedDate,
-                    );
-                    if (!wide) {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          main,
-                          const SizedBox(height: AppTheme.space4),
-                          summary,
-                        ],
-                      );
-                    }
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(child: main),
-                        const SizedBox(width: AppTheme.space4),
-                        SizedBox(width: 300, child: summary),
-                      ],
-                    );
-                  },
-                ),
-              ],
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AppBackButton(
+              label: 'Contratos',
+              onPressed: () => context.go(
+                editing ? '/contratos/${existing.id}' : '/contratos',
+              ),
             ),
-          ),
+            AppPageHeader(
+              eyebrow: editing ? 'Edición' : null,
+              title: editing ? 'Editar contrato' : 'Crear contrato',
+              description: editing
+                  ? 'Actualiza las observaciones del contrato.'
+                  : 'Captura las condiciones generales y específicas del servicio.',
+            ),
+            const SizedBox(height: AppTheme.space5),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final wide = constraints.maxWidth >= 980;
+                final main = Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: editing
+                      ? [
+                          _sectionCard(
+                            number: '1',
+                            title: 'Observaciones',
+                            description: 'Actualiza las notas del contrato.',
+                            child: TextFormField(
+                              controller: _observationsController,
+                              minLines: 5,
+                              maxLines: 8,
+                              decoration: const InputDecoration(
+                                labelText: 'Observaciones',
+                                hintText:
+                                    'Agrega condiciones o acuerdos relevantes...',
+                              ),
+                            ),
+                          ),
+                        ]
+                      : [
+                          _clientServiceSection(session, isAdvisor: isAdvisor),
+                          const SizedBox(height: AppTheme.space4),
+                          _generalDataSection(selectedDate),
+                          const SizedBox(height: AppTheme.space4),
+                          _serviceConditionsSection(),
+                          const SizedBox(height: AppTheme.space4),
+                          _documentationSection(),
+                        ],
+                );
+                final summary = _summaryCard(
+                  context,
+                  session,
+                  existing,
+                  selectedDate,
+                );
+                if (!wide) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      main,
+                      const SizedBox(height: AppTheme.space4),
+                      summary,
+                    ],
+                  );
+                }
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: main),
+                    const SizedBox(width: AppTheme.space4),
+                    SizedBox(width: 300, child: summary),
+                  ],
+                );
+              },
+            ),
+          ],
         ),
       ),
     );

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_theme.dart';
+import '../../../../core/export/document_export_service.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_back_button.dart';
 import '../../../../core/widgets/app_data_column.dart';
@@ -121,9 +122,7 @@ class ServicioDetallePage extends ConsumerWidget {
             description: service.descripcionDemo,
             actions: [
               FilledButton.icon(
-                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Exportación preparada')),
-                ),
+                onPressed: () => _exportService(context, service, items),
                 icon: const Icon(Icons.download_outlined),
                 label: const Text('Exportar'),
               ),
@@ -273,6 +272,48 @@ class ServicioDetallePage extends ConsumerWidget {
           ],
         ),
       );
+}
+
+Future<void> _exportService(
+  BuildContext context,
+  ServicioModel service,
+  List<ContratoModel> contracts,
+) async {
+  final rows = [
+    for (final contract in contracts)
+      [
+        contract.folio,
+        contract.clienteNombre,
+        contract.asesorNombre,
+        contract.estadoNombre,
+        contract.montoMensual ?? '—',
+      ],
+  ];
+  try {
+    await DocumentExportService.pdf(
+      filename: 'servicio-${service.clave}.pdf',
+      title: 'H3GA Finanzas · ${service.nombre}',
+      subtitle: service.descripcionDemo,
+      headers: const [
+        'Contrato',
+        'Cliente',
+        'Asesor',
+        'Estado',
+        'Monto mensual'
+      ],
+      rows: rows,
+    );
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Servicio exportado en PDF.')),
+      );
+    }
+  } catch (error) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('No se pudo exportar: $error')));
+    }
+  }
 }
 
 class _PipelineStep extends StatelessWidget {

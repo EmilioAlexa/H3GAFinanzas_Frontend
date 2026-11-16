@@ -3,10 +3,14 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:printing/printing.dart';
 
 import '../../../../app/theme/app_theme.dart';
+import '../../../../core/export/report_export_service.dart';
+import '../../../../core/platform/file_platform_factory.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/responsive/window_size_class.dart';
+import '../../../../core/utils/dialog_lifecycle.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_data_column.dart';
@@ -64,7 +68,10 @@ class _ReportOverview extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final income = ReportesDemoFixtures.reports[ReportType.ingresos]!;
+    final income = _applyOverviewFilters(
+      ReportesDemoFixtures.reports[ReportType.ingresos]!,
+      filters,
+    );
     final imss = ReportesDemoFixtures.reports[ReportType.imss]!;
     final commissions =
         ReportesDemoFixtures.reports[ReportType.comisionesDestino]!;
@@ -79,7 +86,11 @@ class _ReportOverview extends ConsumerWidget {
               'Información calculada para consulta y toma de decisiones.',
           actions: [
             OutlinedButton.icon(
-              onPressed: () => _showExportDialog(context),
+              onPressed: () => _showExportDialog(
+                context,
+                report: income,
+                filters: filters,
+              ),
               icon: const Icon(Icons.download_outlined),
               label: const Text('Exportar reporte'),
             ),
@@ -200,7 +211,11 @@ class _ReportDetail extends ConsumerWidget {
           description: report.type.description,
           actions: [
             OutlinedButton.icon(
-              onPressed: () => _showExportDialog(context),
+              onPressed: () => _showExportDialog(
+                context,
+                report: report,
+                filters: filters,
+              ),
               icon: const Icon(Icons.download_outlined),
               label: const Text('Exportar reporte'),
             ),
@@ -296,7 +311,7 @@ class _ReportFilters extends ConsumerWidget {
             ),
             _fixedSelect(
               label: 'Servicio',
-              value: 'Todos los servicios',
+              value: filters.service,
               values: const [
                 'Todos los servicios',
                 'Modalidad 10',
@@ -304,24 +319,30 @@ class _ReportFilters extends ConsumerWidget {
                 'M40 Retroactiva',
                 'APD',
               ],
-              onChanged: (_) {},
+              onChanged: (value) {
+                if (value != null) controller.setService(value);
+              },
             ),
             _fixedSelect(
               label: 'Tipo de venta',
-              value: 'Todos los tipos',
+              value: filters.saleType,
               values: const ['Todos los tipos', 'Cambaceo', 'Marketing'],
-              onChanged: (_) {},
+              onChanged: (value) {
+                if (value != null) controller.setSaleType(value);
+              },
             ),
             _fixedSelect(
               label: 'Método de pago',
-              value: 'Todos los métodos',
+              value: filters.paymentMethod,
               values: const [
                 'Todos los métodos',
                 'Transferencia',
                 'Depósito',
                 'Efectivo',
               ],
-              onChanged: (_) {},
+              onChanged: (value) {
+                if (value != null) controller.setPaymentMethod(value);
+              },
             ),
             FilledButton(
               onPressed: () {
@@ -508,74 +529,110 @@ class _ReportFilters extends ConsumerWidget {
       );
 }
 
-Future<void> _showExportDialog(BuildContext context) async {
-  final export = await showDialog<bool>(
+Future<void> _showExportDialog(
+  BuildContext context, {
+  required ReportDataModel report,
+  required ReportFiltersModel filters,
+}) async {
+  var format = 'PDF';
+  var period = 'Periodo actual';
+  final selection = await showDialog<String>(
     context: context,
-    builder: (dialogContext) => AppDialog(
-      title: 'Exportar',
-      description: 'Selecciona el formato y periodo para la exportación.',
-      icon: Icons.download_outlined,
-      maxWidth: 560,
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(dialogContext, false),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(dialogContext, true),
-          child: const Text('Preparar exportación'),
-        ),
-      ],
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          DropdownButtonFormField<String>(
-            initialValue: 'PDF',
-            decoration: const InputDecoration(labelText: 'Formato'),
-            items: const [
-              DropdownMenuItem(value: 'PDF', child: Text('PDF')),
-              DropdownMenuItem(value: 'Excel', child: Text('Excel')),
-            ],
-            onChanged: (_) {},
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (context, setDialogState) => AppDialog(
+        title: 'Exportar',
+        description: 'Selecciona el formato y periodo para la exportación.',
+        icon: Icons.download_outlined,
+        maxWidth: 560,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancelar'),
           ),
-          const SizedBox(height: AppTheme.space4),
-          DropdownButtonFormField<String>(
-            initialValue: 'Periodo actual',
-            decoration: const InputDecoration(labelText: 'Periodo'),
-            items: const [
-              DropdownMenuItem(
-                value: 'Periodo actual',
-                child: Text('Periodo actual'),
-              ),
-              DropdownMenuItem(
-                value: 'Todo el historial',
-                child: Text('Todo el historial'),
-              ),
-            ],
-            onChanged: (_) {},
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, '$format|$period'),
+            child: const Text('Exportar archivo'),
           ),
         ],
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DropdownButtonFormField<String>(
+              initialValue: format,
+              decoration: const InputDecoration(labelText: 'Formato'),
+              items: const [
+                DropdownMenuItem(value: 'PDF', child: Text('PDF')),
+                DropdownMenuItem(value: 'Excel', child: Text('Excel')),
+              ],
+              onChanged: (value) =>
+                  setDialogState(() => format = value ?? format),
+            ),
+            const SizedBox(height: AppTheme.space4),
+            DropdownButtonFormField<String>(
+              initialValue: period,
+              decoration: const InputDecoration(labelText: 'Periodo'),
+              items: const [
+                DropdownMenuItem(
+                  value: 'Periodo actual',
+                  child: Text('Periodo actual'),
+                ),
+                DropdownMenuItem(
+                  value: 'Todo el historial',
+                  child: Text('Todo el historial'),
+                ),
+              ],
+              onChanged: (value) =>
+                  setDialogState(() => period = value ?? period),
+            ),
+          ],
+        ),
       ),
     ),
   );
-  if (export != true || !context.mounted) return;
-  await showDialog<void>(
-    context: context,
-    builder: (dialogContext) => AppDialog(
-      title: 'Exportación preparada',
-      description: 'Se prepararon los datos correctamente.',
-      icon: Icons.check_circle_outline,
-      iconColor: AppTheme.success,
-      maxWidth: 520,
-      actions: [
-        OutlinedButton(
-          onPressed: () => Navigator.pop(dialogContext),
-          child: const Text('Cerrar'),
-        ),
-      ],
-      child: const SizedBox.shrink(),
-    ),
-  );
+  if (selection == null || !context.mounted) return;
+  await waitForDialogDismissal();
+  final values = selection.split('|');
+  final selectedFormat = values.first;
+  final selectedPeriod = values.length > 1 ? values[1] : 'Periodo actual';
+  final rows = selectedPeriod == 'Todo el historial'
+      ? report.rows
+      : _filteredRows(report, filters);
+  try {
+    if (selectedFormat == 'PDF') {
+      final bytes = await ReportExportService.pdf(
+        report: report,
+        rows: rows,
+        period: selectedPeriod,
+      );
+      await Printing.sharePdf(
+        bytes: bytes,
+        filename: 'reporte-${report.type.key}.pdf',
+      );
+    } else {
+      final bytes = ReportExportService.excel(
+        report: report,
+        rows: rows,
+        period: selectedPeriod,
+      );
+      // The platform implementation downloads on web and opens the save
+      // dialog on desktop/mobile.
+      await createFilePlatform().downloadFile(
+        'reporte-${report.type.key}.xlsx',
+        bytes,
+      );
+    }
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Reporte exportado en $selectedFormat.')),
+      );
+    }
+  } catch (error) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo exportar el reporte: $error')),
+      );
+    }
+  }
 }
 
 Widget _detailTable(
@@ -985,6 +1042,54 @@ AppBadge _statusBadge(String status) => AppBadge(
         _ => AppBadgeTone.neutral,
       },
     );
+
+ReportDataModel _applyOverviewFilters(
+  ReportDataModel report,
+  ReportFiltersModel filters,
+) {
+  if (filters.service == 'Todos los servicios') return report;
+  final selected = report.serviceBreakdown
+      .where((row) => row.title == filters.service)
+      .firstOrNull;
+  if (selected == null) {
+    return ReportDataModel(
+        type: report.type, total: Decimal.zero, rows: const []);
+  }
+  final factor = (selected.percentage ?? Decimal.zero).toDouble() / 100;
+  Decimal scaled(Decimal value) =>
+      Decimal.parse((value.toDouble() * factor).toStringAsFixed(2));
+  ReportRowModel scaleRow(ReportRowModel row) => ReportRowModel(
+        title: row.title,
+        subtitle: row.subtitle,
+        service: row.service,
+        count: row.count,
+        amount: scaled(row.amount),
+        percentage: row.percentage,
+        average: row.average,
+        status: row.status,
+      );
+  return ReportDataModel(
+    type: report.type,
+    total: selected.amount,
+    comparisonTotal:
+        report.comparisonTotal == null ? null : scaled(report.comparisonTotal!),
+    points: [
+      for (final point in report.points)
+        ReportPointModel(
+          label: point.label,
+          amount: scaled(point.amount),
+        ),
+    ],
+    serviceBreakdown: [
+      ReportRowModel(
+        title: selected.title,
+        amount: selected.amount,
+        percentage: Decimal.fromInt(100),
+      ),
+    ],
+    rows: [for (final row in report.rows) scaleRow(row)],
+  );
+}
 
 List<ReportRowModel> _filteredRows(
     ReportDataModel report, ReportFiltersModel filters) {
