@@ -71,6 +71,6 @@ abstract final class DocumentExportService {
         );
       }
     }
-    return Uint8List.fromList(workbook.save() ?? const <int>[]);
+    return Uint8List.fromList(workbook.encode() ?? const <int>[]);
   }
 }

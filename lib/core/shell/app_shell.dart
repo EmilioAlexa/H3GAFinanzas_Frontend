@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/theme/app_theme.dart';
 import '../../modules/auth/auth.dart';
 import '../../modules/busqueda/busqueda.dart';
+import '../../modules/pagos/pagos.dart';
 import '../responsive/responsive.dart';
 import '../responsive/window_size_class.dart';
 import 'shell_item.dart';
@@ -39,7 +40,7 @@ class AppShell extends ConsumerWidget {
                     ),
                     title: _searchControl(context, session.role),
                     actions: [
-                      _notificationButton(context),
+                      _notificationButton(context, session.role, ref),
                       Padding(
                         padding: const EdgeInsets.only(right: AppTheme.space3),
                         child: CircleAvatar(
@@ -91,7 +92,7 @@ class AppShell extends ConsumerWidget {
                 ),
               Expanded(
                 child: Column(children: [
-                  if (!usesDrawer) _desktopTopBar(context, session),
+                  if (!usesDrawer) _desktopTopBar(context, session, ref),
                   Expanded(
                     child: LayoutBuilder(
                       builder: (context, contentConstraints) => Align(
@@ -206,6 +207,7 @@ class AppShell extends ConsumerWidget {
                       item,
                       selected: _isSelected(item.path, currentPath),
                       compact: compact,
+                      validationCount: _pendingValidationCount(ref, user.role),
                     ),
                 ],
             ],
@@ -283,6 +285,7 @@ class AppShell extends ConsumerWidget {
     ShellItem item, {
     required bool selected,
     required bool compact,
+    required int validationCount,
   }) =>
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: AppTheme.space2),
@@ -332,7 +335,7 @@ class AppShell extends ConsumerWidget {
                     ),
                   ),
                 ),
-                if (item.path == '/validacion')
+                if (item.path == '/validacion' && validationCount > 0)
                   Container(
                     width: 24,
                     height: 24,
@@ -341,8 +344,8 @@ class AppShell extends ConsumerWidget {
                       color: AppTheme.gold,
                       shape: BoxShape.circle,
                     ),
-                    child: const Text(
-                      '8',
+                    child: Text(
+                      '$validationCount',
                       style: TextStyle(
                         color: AppTheme.black,
                         fontSize: 11,
@@ -442,6 +445,7 @@ class AppShell extends ConsumerWidget {
   Widget _desktopTopBar(
     BuildContext context,
     AuthSessionModel user,
+    WidgetRef ref,
   ) {
     final searchWidth =
         (MediaQuery.sizeOf(context).width * .38).clamp(300.0, 520.0).toDouble();
@@ -465,7 +469,7 @@ class AppShell extends ConsumerWidget {
           child: _searchControl(context, user.role),
         ),
         const Spacer(),
-        _notificationButton(context),
+        _notificationButton(context, user.role, ref),
         const SizedBox(width: AppTheme.space3),
         const VerticalDivider(indent: 14, endIndent: 14),
         const SizedBox(width: AppTheme.space3),
@@ -501,9 +505,14 @@ class AppShell extends ConsumerWidget {
         .toUpperCase();
   }
 
-  Widget _notificationButton(BuildContext context) {
+  Widget _notificationButton(
+    BuildContext context,
+    UserRole role,
+    WidgetRef ref,
+  ) {
     final screenWidth = MediaQuery.sizeOf(context).width;
     final menuWidth = screenWidth < 352 ? screenWidth - 32 : 328.0;
+    final notifications = _notifications(ref, role);
     return PopupMenuButton<int>(
       tooltip: 'Notificaciones',
       offset: const Offset(0, 46),
@@ -517,10 +526,30 @@ class AppShell extends ConsumerWidget {
         side: const BorderSide(color: AppTheme.line),
       ),
       onSelected: (selection) {
-        if (selection == 1) context.go('/validacion');
+        if (selection > 0 && selection <= notifications.length) {
+          context.go(notifications[selection - 1].route);
+        }
       },
-      icon:
+      icon: Stack(
+        clipBehavior: Clip.none,
+        children: [
           const Icon(Icons.notifications_none_outlined, color: AppTheme.muted),
+          if (notifications.isNotEmpty)
+            Positioned(
+              top: -2,
+              right: -2,
+              child: Container(
+                width: 9,
+                height: 9,
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppTheme.surface, width: 1.5),
+                ),
+              ),
+            ),
+        ],
+      ),
       itemBuilder: (menuContext) => [
         PopupMenuItem<int>(
           enabled: false,
@@ -551,41 +580,118 @@ class AppShell extends ConsumerWidget {
             ),
           ),
         ),
-        PopupMenuItem<int>(
-          enabled: false,
-          padding: EdgeInsets.zero,
-          child: SizedBox(
-            width: menuWidth - 24,
-            child: const Padding(
-              padding: EdgeInsets.fromLTRB(
-                AppTheme.space4,
-                AppTheme.space4,
-                AppTheme.space4,
-                AppTheme.space3,
-              ),
-              child: Column(
-                children: [
-                  Icon(Icons.notifications_off_outlined,
-                      size: 32, color: AppTheme.muted),
-                  SizedBox(height: AppTheme.space2),
-                  Text(
-                    'No hay notificaciones nuevas',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  SizedBox(height: AppTheme.space1),
-                  Text(
-                    'Las alertas aparecerán aquí cuando estén disponibles.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: AppTheme.muted, fontSize: 12),
-                  ),
-                ],
+        if (notifications.isEmpty)
+          PopupMenuItem<int>(
+            enabled: false,
+            padding: EdgeInsets.zero,
+            child: SizedBox(
+              width: menuWidth - 24,
+              child: const Padding(
+                padding: EdgeInsets.fromLTRB(
+                  AppTheme.space4,
+                  AppTheme.space4,
+                  AppTheme.space4,
+                  AppTheme.space3,
+                ),
+                child: Column(
+                  children: [
+                    Icon(Icons.notifications_off_outlined,
+                        size: 32, color: AppTheme.muted),
+                    SizedBox(height: AppTheme.space2),
+                    Text(
+                      'No hay notificaciones nuevas',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    SizedBox(height: AppTheme.space1),
+                    Text(
+                      'Las alertas aparecerán aquí cuando estén disponibles.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: AppTheme.muted, fontSize: 12),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ),
+          )
+        else
+          for (var index = 0; index < notifications.length; index++)
+            PopupMenuItem<int>(
+              value: index + 1,
+              padding: EdgeInsets.zero,
+              child: SizedBox(
+                width: menuWidth - 24,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppTheme.space2,
+                    vertical: AppTheme.space1,
+                  ),
+                  child: ListTile(
+                    leading: Icon(notifications[index].icon,
+                        color: AppTheme.secondaryDark),
+                    title: Text(notifications[index].title),
+                    subtitle: Text(notifications[index].detail),
+                    dense: true,
+                  ),
+                ),
+              ),
+            ),
       ],
     );
+  }
+
+  int _pendingValidationCount(WidgetRef ref, UserRole role) {
+    final state = ref.watch(pagosControllerProvider(role)).valueOrNull;
+    return state?.payments
+            .where((payment) => payment.estado == 'Por revisar')
+            .length ??
+        0;
+  }
+
+  List<({String title, String detail, String route, IconData icon})>
+      _notifications(WidgetRef ref, UserRole role) {
+    final state = ref.watch(pagosControllerProvider(role)).valueOrNull;
+    if (state == null) return const [];
+    final result =
+        <({String title, String detail, String route, IconData icon})>[];
+    if (role == UserRole.asesor) {
+      for (final payment in state.payments.where((payment) =>
+          payment.estado == 'Validado' || payment.estado == 'Rechazado')) {
+        result.add((
+          title:
+              payment.estado == 'Validado' ? 'Pago validado' : 'Pago rechazado',
+          detail: '${payment.folio} · ${payment.clienteNombre}',
+          route: '/pagos/${payment.id}',
+          icon: payment.estado == 'Validado'
+              ? Icons.check_circle_outline
+              : Icons.cancel_outlined,
+        ));
+      }
+    } else {
+      for (final payment in state.payments
+          .where((payment) => payment.estado == 'Por revisar')) {
+        result.add((
+          title: 'Pago pendiente de validar',
+          detail: '${payment.folio} · ${payment.clienteNombre}',
+          route: '/validacion/${payment.id}',
+          icon: Icons.fact_check_outlined,
+        ));
+      }
+    }
+    for (final schedule in state.scheduled.where((schedule) {
+      final date = schedule.fechaVencimiento;
+      if (date == null || schedule.estado != 'Pendiente') return false;
+      final days = date.difference(DateTime.now()).inDays;
+      return days >= 0 && days <= 30;
+    })) {
+      result.add((
+        title: 'Fecha próxima de pago',
+        detail: '${schedule.clienteNombre} · ${schedule.contratoFolio}',
+        route: '/pagos-programados',
+        icon: Icons.event_outlined,
+      ));
+    }
+    return result.take(8).toList();
   }
 
   String _sectionLabel(ShellSection section) => switch (section) {

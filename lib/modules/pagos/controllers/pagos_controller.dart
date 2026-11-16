@@ -9,6 +9,7 @@ import '../../auth/models/user_role_model.dart';
 import '../../contratos/contratos.dart';
 import '../models/pago_model.dart';
 import '../models/pago_programado_model.dart';
+import '../models/evidencia_pago_model.dart';
 import '../repositories/pagos_repository.dart';
 
 final pagosRepositoryProvider =
@@ -117,6 +118,41 @@ class PagosController extends StateNotifier<AsyncValue<PagosState?>> {
         expectedDate: expectedDate,
         dueDate: dueDate,
         period: period);
+    _refresh();
+    return value;
+  }
+
+  PagoModel resubmitRejectedDemo({
+    required String paymentId,
+    required ContratoModel contract,
+    required int methodId,
+    required String method,
+    required Decimal amount,
+    required DateTime date,
+    required String reference,
+    required String observations,
+    required String? scheduleId,
+    required String? receiptFolio,
+    required String? receivedBy,
+    required List<EvidenciaPagoModel> existingEvidence,
+    required List<SelectedFile> evidenceFiles,
+  }) {
+    final value = _repository.resubmitRejectedDemo(
+      paymentId: paymentId,
+      role: _role,
+      contract: contract,
+      methodId: methodId,
+      method: method,
+      amount: amount,
+      date: date,
+      reference: reference,
+      observations: observations,
+      scheduleId: scheduleId,
+      receiptFolio: receiptFolio,
+      receivedBy: receivedBy,
+      existingEvidence: existingEvidence,
+      evidenceFiles: evidenceFiles,
+    );
     _refresh();
     return value;
   }

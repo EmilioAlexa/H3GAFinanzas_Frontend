@@ -13,7 +13,10 @@ import '../../../../core/widgets/app_state_panel.dart';
 import '../../../auth/auth.dart';
 import '../../../contratos/fixtures/contratos_demo_fixtures.dart';
 import '../../../contratos/models/contrato_model.dart';
+import '../../../usuarios/usuarios.dart';
 import '../../controllers/pagos_controller.dart';
+import '../../models/evidencia_pago_model.dart';
+import '../../models/pago_model.dart';
 import '../../models/pago_programado_model.dart';
 
 const maxEvidenceBytes = 10 * 1024 * 1024;
@@ -30,7 +33,9 @@ String? validateEvidence(SelectedFile file) {
 }
 
 class PagoFormPage extends ConsumerStatefulWidget {
-  const PagoFormPage({super.key});
+  const PagoFormPage({this.paymentId, super.key});
+
+  final String? paymentId;
 
   @override
   ConsumerState<PagoFormPage> createState() => _PagoFormPageState();
@@ -42,8 +47,8 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
   final _reference = TextEditingController();
   final _observations = TextEditingController();
   final _receipt = TextEditingController();
-  final _place = TextEditingController();
   final List<SelectedFile> _files = [];
+  final List<EvidenciaPagoModel> _existingEvidence = [];
 
   String? _clientId;
   String? _contractId;
@@ -53,6 +58,7 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
   int _methodId = 1;
   DateTime _date = DateTime.now();
   bool _saving = false;
+  bool _editInitialized = false;
 
   @override
   void initState() {
@@ -67,12 +73,33 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
     _reference.dispose();
     _observations.dispose();
     _receipt.dispose();
-    _place.dispose();
     super.dispose();
   }
 
   void _refreshSummary() {
     if (mounted) setState(() {});
+  }
+
+  void _initializeRejectedPayment(PagoModel payment) {
+    _editInitialized = true;
+    _clientId = ContratosDemoFixtures.contracts
+        .where((contract) => contract.id == payment.contratoId)
+        .map((contract) => contract.clienteId)
+        .firstOrNull;
+    _contractId = payment.contratoId;
+    _scheduleId = payment.pagoProgramadoId;
+    _methodId = payment.formaPagoId;
+    _date = payment.fechaPago;
+    _receivedById = payment.recibidoPor;
+    _amount.removeListener(_refreshSummary);
+    _amount.text = payment.monto.toString();
+    _amount.addListener(_refreshSummary);
+    _reference.text = payment.referencia;
+    _observations.text = payment.observaciones;
+    _receipt.text = payment.folioRecibo ?? '';
+    _existingEvidence
+      ..clear()
+      ..addAll(payment.evidencias);
   }
 
   @override
@@ -98,6 +125,26 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
         .where((item) =>
             session.role != UserRole.asesor || item.assignedToCurrentAdvisor)
         .toList();
+    final editingPayment = paymentState.valueOrNull?.payments
+        .where((payment) => payment.id == widget.paymentId)
+        .firstOrNull;
+    if (widget.paymentId != null) {
+      if (paymentState.isLoading) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      if (session.role != UserRole.asesor ||
+          editingPayment == null ||
+          editingPayment.estado != 'Rechazado') {
+        return const AppStatePanel(
+          icon: Icons.lock_outline,
+          title: 'Pago no editable',
+          message: 'Solo puedes editar pagos rechazados que te pertenecen.',
+        );
+      }
+      if (!_editInitialized) {
+        _initializeRejectedPayment(editingPayment);
+      }
+    }
     final clients = <String, String>{
       for (final contract in contracts)
         contract.clienteId: contract.clienteNombre,
@@ -120,9 +167,13 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
               label: 'Pagos',
               onPressed: () => context.go('/pagos'),
             ),
-            const AppPageHeader(
-              eyebrow: 'Nuevo registro',
-              title: 'Registrar pago',
+            AppPageHeader(
+              eyebrow: widget.paymentId == null
+                  ? 'Nuevo registro'
+                  : 'Reenvío de pago',
+              title: widget.paymentId == null
+                  ? 'Registrar pago'
+                  : 'Editar y reenviar pago',
               description:
                   'Captura la información y adjunta las evidencias correspondientes.',
             ),
@@ -321,51 +372,53 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
     );
   }
 
-  Widget _cashFields() => Container(
-        padding: const EdgeInsets.all(AppTheme.space3),
-        decoration: BoxDecoration(
-          color: AppTheme.warningBackground,
-          borderRadius: BorderRadius.circular(AppTheme.radiusField),
-          border:
-              Border.all(color: AppTheme.warningBase.withValues(alpha: .35)),
-        ),
-        child: _fieldGrid(
-          columns: 3,
-          children: [
-            TextFormField(
-              controller: _receipt,
-              decoration: const InputDecoration(labelText: 'Folio de recibo *'),
-              validator: (value) =>
-                  _methodId == 3 && (value?.trim().isEmpty ?? true)
-                      ? 'Ingresa el folio del recibo.'
-                      : null,
-            ),
-            _dropdown<String>(
-              label: 'Recibido por *',
-              value: _receivedById,
-              items: const [
-                DropdownMenuItem(
-                  value: 'receiver-1',
-                  child: Text('Mariana López'),
-                ),
-                DropdownMenuItem(
-                  value: 'receiver-2',
-                  child: Text('Ricardo Pérez'),
-                ),
-              ],
-              onChanged: (value) => setState(() => _receivedById = value),
-              validator: (value) => _methodId == 3 && value == null
-                  ? 'Selecciona quién recibió el pago.'
-                  : null,
-            ),
-            TextFormField(
-              controller: _place,
-              decoration:
-                  const InputDecoration(labelText: 'Lugar de recepción'),
-            ),
-          ],
-        ),
-      );
+  Widget _cashFields() {
+    final users = ref.watch(usuariosControllerProvider).valueOrNull ??
+        const <UsuarioModel>[];
+    final receiverNames = users
+        .where((user) => user.activo)
+        .map((user) => user.nombreCompleto)
+        .toList();
+    if (_receivedById != null && !receiverNames.contains(_receivedById)) {
+      receiverNames.insert(0, _receivedById!);
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(AppTheme.space3),
+      decoration: BoxDecoration(
+        color: AppTheme.warningBackground,
+        borderRadius: BorderRadius.circular(AppTheme.radiusField),
+        border: Border.all(color: AppTheme.warningBase.withValues(alpha: .35)),
+      ),
+      child: _fieldGrid(
+        columns: 3,
+        children: [
+          TextFormField(
+            controller: _receipt,
+            decoration: const InputDecoration(labelText: 'Folio de recibo *'),
+            validator: (value) =>
+                _methodId == 3 && (value?.trim().isEmpty ?? true)
+                    ? 'Ingresa el folio del recibo.'
+                    : null,
+          ),
+          _dropdown<String>(
+            label: 'Recibido por *',
+            value: _receivedById,
+            items: receiverNames
+                .map((name) => DropdownMenuItem<String>(
+                      value: name,
+                      child: Text(name),
+                    ))
+                .toList(),
+            onChanged: (value) => setState(() => _receivedById = value),
+            validator: (value) => _methodId == 3 && value == null
+                ? 'Selecciona quién recibió el pago.'
+                : null,
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _evidenceSection() => _sectionCard(
         number: '3',
@@ -763,20 +816,36 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
     final amount = _parsedAmount();
     if (contract == null || amount == null) return;
     setState(() => _saving = true);
-    final payment =
-        ref.read(pagosControllerProvider(role).notifier).createPayment(
-              contract: contract,
-              methodId: _methodId,
-              method: _methodLabel,
-              amount: amount,
-              date: _date,
-              reference: _reference.text.trim(),
-              observations: _observations.text.trim(),
-              scheduleId: _scheduleId,
-              receiptFolio: _receipt.text.trim(),
-              receivedBy: _receivedById,
-              evidenceFiles: _files,
-            );
+    final controller = ref.read(pagosControllerProvider(role).notifier);
+    final payment = widget.paymentId == null
+        ? controller.createPayment(
+            contract: contract,
+            methodId: _methodId,
+            method: _methodLabel,
+            amount: amount,
+            date: _date,
+            reference: _reference.text.trim(),
+            observations: _observations.text.trim(),
+            scheduleId: _scheduleId,
+            receiptFolio: _receipt.text.trim(),
+            receivedBy: _receivedById,
+            evidenceFiles: _files,
+          )
+        : controller.resubmitRejectedDemo(
+            paymentId: widget.paymentId!,
+            contract: contract,
+            methodId: _methodId,
+            method: _methodLabel,
+            amount: amount,
+            date: _date,
+            reference: _reference.text.trim(),
+            observations: _observations.text.trim(),
+            scheduleId: _scheduleId,
+            receiptFolio: _receipt.text.trim(),
+            receivedBy: _receivedById,
+            existingEvidence: _existingEvidence,
+            evidenceFiles: _files,
+          );
     if (!mounted) return;
     setState(() => _saving = false);
     context.go('/pagos/${payment.id}');
