@@ -6,6 +6,7 @@ import '../../../../app/theme/app_theme.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/responsive/window_size_class.dart';
 import '../../../../core/utils/money_formatter.dart';
+import '../../../../core/widgets/app_back_button.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_state_panel.dart';
@@ -112,13 +113,9 @@ class PagoDetallePage extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: () => context.go('/pagos'),
-              icon: const Icon(Icons.arrow_back, size: 16),
-              label: const Text('Pagos'),
-            ),
+          AppBackButton(
+            label: 'Pagos',
+            onPressed: () => context.go('/pagos'),
           ),
           AppPageHeader(
             eyebrow: 'Pago ${payment.folio}',

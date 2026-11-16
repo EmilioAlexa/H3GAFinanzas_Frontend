@@ -7,6 +7,7 @@ import '../../../../core/responsive/responsive.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_data_column.dart';
 import '../../../../core/widgets/app_dialog.dart';
+import '../../../../core/widgets/app_filter_button.dart';
 import '../../../../core/widgets/app_filter_dropdown.dart';
 import '../../../../core/widgets/app_metric_card.dart';
 import '../../../../core/widgets/app_page_header.dart';
@@ -176,7 +177,7 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
             padding: const EdgeInsets.all(AppTheme.space4),
             child: LayoutBuilder(builder: (context, constraints) {
               final compact = Responsive.isCompact(constraints.maxWidth);
-              final filtersVisible = _filtersExpanded ?? !compact;
+              final filtersVisible = _filtersExpanded ?? false;
               final search = SizedBox(
                 width: compact ? null : 330,
                 child: TextField(
@@ -191,19 +192,10 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
                   ),
                 ),
               );
-              final filterButton = SizedBox(
-                width: 96,
-                height: 48,
-                child: OutlinedButton.icon(
-                  onPressed: () =>
-                      setState(() => _filtersExpanded = !filtersVisible),
-                  icon: const Icon(Icons.filter_list_rounded, size: 19),
-                  label: const Text('Filtros'),
-                  style: OutlinedButton.styleFrom(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: AppTheme.space2),
-                  ),
-                ),
+              final filterButton = AppFilterButton(
+                expanded: filtersVisible,
+                onPressed: () =>
+                    setState(() => _filtersExpanded = !filtersVisible),
               );
               final statusFilter = AppFilterDropdown<String>(
                 value: _statusFilter,

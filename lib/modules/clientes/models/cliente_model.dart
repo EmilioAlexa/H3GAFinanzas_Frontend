@@ -16,6 +16,11 @@ class ClienteModel {
     this.curp,
     this.rfc,
     this.asesorId,
+    this.fechaIngreso,
+    this.fechaNacimiento,
+    this.direccion,
+    this.referidoPor,
+    this.observaciones,
     this.demoMetadata,
   });
 
@@ -28,6 +33,11 @@ class ClienteModel {
   final String? curp;
   final String? rfc;
   final String? asesorId;
+  final DateTime? fechaIngreso;
+  final DateTime? fechaNacimiento;
+  final String? direccion;
+  final String? referidoPor;
+  final String? observaciones;
 
   /// Campos de la muestra Figma que no son parte de los DTO actuales.
   final ClienteDemoMetadata? demoMetadata;
@@ -47,5 +57,10 @@ class ClienteModel {
         'correo_electronico': correoElectronico,
         'curp': curp,
         'rfc': rfc,
+        'fecha_ingreso': fechaIngreso?.toIso8601String(),
+        'fecha_nacimiento': fechaNacimiento?.toIso8601String(),
+        'direccion': direccion,
+        'referido_por': referidoPor,
+        'observaciones': observaciones,
       };
 }

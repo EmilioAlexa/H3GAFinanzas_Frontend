@@ -12,6 +12,7 @@ import '../../../../core/widgets/app_data_column.dart';
 import '../../../../core/widgets/app_metric_card.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_responsive_collection.dart';
+import '../../../../core/widgets/app_search_field.dart';
 import '../../../../core/widgets/app_state_panel.dart';
 import '../../../auth/auth.dart';
 import '../../controllers/comisiones_controller.dart';
@@ -209,16 +210,16 @@ class _ComisionesPageState extends ConsumerState<ComisionesPage> {
             Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           LayoutBuilder(builder: (context, constraints) {
             final compact = Responsive.of(context) == WindowSizeClass.compacto;
-            final search = TextField(
+            final search = AppSearchField(
               controller: _searchController,
               onChanged: (value) => setState(() => _query = value),
-              decoration: const InputDecoration(
-                labelText: 'Buscar cliente, pago o contrato',
-                prefixIcon: Icon(Icons.search),
-              ),
+              hintText: 'Buscar cliente, pago o contrato',
             );
             if (compact) return search;
-            return Row(children: [Expanded(child: search)]);
+            return Align(
+              alignment: Alignment.centerLeft,
+              child: SizedBox(width: 330, child: search),
+            );
           }),
           const Divider(height: AppTheme.space6),
           if (payments.isEmpty)

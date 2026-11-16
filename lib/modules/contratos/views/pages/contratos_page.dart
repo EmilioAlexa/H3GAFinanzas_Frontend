@@ -8,6 +8,7 @@ import '../../../../core/responsive/responsive.dart';
 import '../../../../core/responsive/window_size_class.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_data_column.dart';
+import '../../../../core/widgets/app_filter_button.dart';
 import '../../../../core/widgets/app_filter_dropdown.dart';
 import '../../../../core/widgets/app_metric_card.dart';
 import '../../../../core/widgets/app_page_header.dart';
@@ -238,7 +239,7 @@ class _ContratosPageState extends ConsumerState<ContratosPage> {
       );
 
   Widget _filters(BuildContext context, WindowSizeClass size) {
-    final filtersVisible = _filtersExpanded ?? size != WindowSizeClass.compacto;
+    final filtersVisible = _filtersExpanded ?? false;
     final search = TextField(
       key: const Key('contratos-search'),
       controller: _searchController,
@@ -248,20 +249,11 @@ class _ContratosPageState extends ConsumerState<ContratosPage> {
         prefixIcon: Icon(Icons.search),
         isDense: true,
         contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        border: OutlineInputBorder(),
       ),
     );
-    final filterButton = SizedBox(
-      width: 96,
-      height: 48,
-      child: OutlinedButton.icon(
-        onPressed: () => setState(() => _filtersExpanded = !filtersVisible),
-        icon: const Icon(Icons.filter_list_rounded, size: 19),
-        label: const Text('Filtros'),
-        style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: AppTheme.space2),
-        ),
-      ),
+    final filterButton = AppFilterButton(
+      expanded: filtersVisible,
+      onPressed: () => setState(() => _filtersExpanded = !filtersVisible),
     );
     final service = AppFilterDropdown<String>(
       value: _service,
@@ -313,7 +305,7 @@ class _ContratosPageState extends ConsumerState<ContratosPage> {
       spacing: AppTheme.space2,
       runSpacing: AppTheme.space2,
       children: [
-        SizedBox(width: 300, child: search),
+        SizedBox(width: 330, child: search),
         filterButton,
         if (filtersVisible) ...[
           SizedBox(width: 220, child: service),

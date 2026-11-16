@@ -443,6 +443,8 @@ class AppShell extends ConsumerWidget {
     BuildContext context,
     AuthSessionModel user,
   ) {
+    final searchWidth =
+        (MediaQuery.sizeOf(context).width * .38).clamp(300.0, 520.0).toDouble();
     final roleText = switch (user.role) {
       UserRole.administrador => 'Administrador',
       UserRole.administradorFinanciero => 'Admin. financiero',
@@ -458,7 +460,11 @@ class AppShell extends ConsumerWidget {
         boxShadow: const [AppTheme.shadowXs],
       ),
       child: Row(children: [
-        Expanded(child: _searchControl(context, user.role)),
+        SizedBox(
+          width: searchWidth,
+          child: _searchControl(context, user.role),
+        ),
+        const Spacer(),
         _notificationButton(context),
         const SizedBox(width: AppTheme.space3),
         const VerticalDivider(indent: 14, endIndent: 14),
@@ -575,21 +581,6 @@ class AppShell extends ConsumerWidget {
                   ),
                 ],
               ),
-            ),
-          ),
-        ),
-        PopupMenuItem<int>(
-          value: 1,
-          padding: EdgeInsets.zero,
-          child: SizedBox(
-            width: menuWidth - 24,
-            child: const ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.fact_check_outlined,
-                  color: AppTheme.secondaryDark),
-              title: Text('Abrir bandeja de validación'),
-              trailing: Icon(Icons.chevron_right),
             ),
           ),
         ),

@@ -5,8 +5,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/utils/money_formatter.dart';
+import '../../../../core/widgets/app_back_button.dart';
 import '../../../../core/widgets/app_badge.dart';
-import '../../../../core/widgets/app_notice.dart';
+import '../../../../core/widgets/app_dialog.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_state_panel.dart';
 import '../../../auth/auth.dart';
@@ -17,6 +18,7 @@ import '../../utils/commission_math.dart';
 
 class ComisionDetallePage extends ConsumerWidget {
   const ComisionDetallePage({required this.paymentId, super.key});
+
   final String paymentId;
 
   @override
@@ -33,234 +35,398 @@ class ComisionDetallePage extends ConsumerWidget {
     final payment = ref
         .read(comisionesControllerProvider(session.role).notifier)
         .findPayment(paymentId);
-    if (state.isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    if (state.isLoading) return const Center(child: CircularProgressIndicator());
     if (payment == null) {
       return const AppStatePanel(
         icon: Icons.search_off_outlined,
         title: 'Comisión no disponible',
-        message:
-            'No se encontró este pago o no está disponible para tu perfil.',
+        message: 'No se encontró este pago o no está disponible para tu perfil.',
       );
     }
-    return _content(context, ref, session, payment);
+    return _page(context, ref, session, payment);
   }
 
-  Widget _content(
+  Widget _page(
     BuildContext context,
     WidgetRef ref,
     AuthSessionModel session,
     CommissionPaymentModel payment,
   ) {
-    final isAdvisor = session.role == UserRole.asesor;
-    final myCommission = payment.snapshot
-        .where((item) => item.conceptId == 1)
-        .fold(Decimal.zero, (sum, item) => sum + item.amount);
-    final companyReference = payment.paymentAmount - myCommission;
-    final companyRemainder = CommissionMath.remainderAmount(
+    final advisor = session.role == UserRole.asesor;
+    final dispersed = _isDispersed(payment);
+    final totalAssigned = payment.snapshot.fold(
+        Decimal.zero, (sum, item) => sum + item.amount);
+    final companyAmount = CommissionMath.remainderAmount(
       payment.paymentAmount,
       payment.snapshot.map((item) => item.amount),
     );
-    final distributed =
-        payment.snapshot.fold(Decimal.zero, (sum, item) => sum + item.amount);
-    final status = payment.snapshot.every((item) => item.status == 'Dispersada')
-        ? 'Dispersada'
-        : 'Pendiente de dispersión';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.space6),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        AppPageHeader(
-          eyebrow: isAdvisor
-              ? 'Mi comisión · ${payment.paymentFolio}'
-              : 'Dispersión · ${payment.paymentFolio}',
-          title: MoneyFormatter.format(payment.paymentAmount),
-          description:
-              'Pago ${payment.paymentFolio} · Contrato ${payment.contractFolio}',
-          actions: [
-            OutlinedButton.icon(
-              onPressed: () => context.go('/comisiones'),
-              icon: const Icon(Icons.arrow_back),
-              label: const Text('Volver a comisiones'),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1220),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AppBackButton(
+                label: 'Comisiones',
+                onPressed: () => context.go('/comisiones'),
+              ),
+              AppPageHeader(
+                eyebrow: advisor
+                    ? 'Mi comisión · ${payment.paymentFolio}'
+                    : 'Dispersión ${payment.paymentFolio} · Cambaceo',
+                title: MoneyFormatter.format(payment.paymentAmount),
+                description:
+                    'Generada a partir del pago ${payment.paymentFolio} · Contrato ${payment.contractFolio}',
+                actions: [
+                  OutlinedButton.icon(
+                    onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Detalle listo para exportar.'))),
+                    icon: const Icon(Icons.download_outlined),
+                    label: const Text('Exportar detalle'),
+                  ),
+                ],
+              ),
+              _statusCard(context, payment, advisor, dispersed),
+              const SizedBox(height: AppTheme.space4),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final origin = _originCard(context, payment, advisor);
+                  final reconciliation = advisor
+                      ? _advisorSummary(context, payment)
+                      : _reconciliationCard(context, payment, totalAssigned,
+                          companyAmount);
+                  if (constraints.maxWidth < 900) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        origin,
+                        const SizedBox(height: AppTheme.space4),
+                        reconciliation,
+                      ],
+                    );
+                  }
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(flex: 2, child: origin),
+                      const SizedBox(width: AppTheme.space4),
+                      Expanded(child: reconciliation),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: AppTheme.space4),
+              advisor
+                  ? _advisorCommissionCard(context, payment)
+                  : _distributionCard(context, ref, session, payment),
+              if (!advisor) ...[
+                const SizedBox(height: AppTheme.space4),
+                _configurationCard(context, payment),
+                const SizedBox(height: AppTheme.space4),
+                _historyCard(context, payment),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _statusCard(
+    BuildContext context,
+    CommissionPaymentModel payment,
+    bool advisor,
+    bool dispersed,
+  ) =>
+      Container(
+        padding: const EdgeInsets.all(AppTheme.space5),
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          border: Border.all(color: AppTheme.line),
+          borderRadius: BorderRadius.circular(AppTheme.radius),
+          boxShadow: AppTheme.elevation,
+        ),
+        child: Row(
+          children: [
+            _statusBadge(advisor ? _myStatus(payment) : dispersed ? 'Dispersada' : 'Pendiente de dispersión'),
+            const SizedBox(width: AppTheme.space4),
+            Expanded(
+              child: Text(
+                advisor
+                    ? (dispersed
+                        ? 'Tu comisión ya fue dispersada.'
+                        : 'Tu comisión queda pendiente de dispersión.')
+                    : dispersed
+                        ? 'Dispersión conservada tal como se aplicó al validar el pago.'
+                        : 'La distribución queda pendiente de dispersión.',
+                style: const TextStyle(color: AppTheme.muted),
+              ),
             ),
           ],
         ),
-        _section(context, 'Estado', [
-          AppBadge(
-            label: isAdvisor ? _myStatus(payment) : status,
-            tone: status == 'Dispersada'
-                ? AppBadgeTone.success
-                : AppBadgeTone.warning,
-          ),
+      );
+
+  Widget _originCard(
+    BuildContext context,
+    CommissionPaymentModel payment,
+    bool advisor,
+  ) =>
+      _panel(
+        context,
+        title: 'Origen de los recursos',
+        child: Wrap(
+          spacing: AppTheme.space8,
+          runSpacing: AppTheme.space5,
+          children: [
+            if (!advisor) _field('Asesor', payment.advisorName),
+            _field('Cliente', payment.clientName),
+            _field('Contrato', payment.contractFolio),
+            _field('Servicio', payment.serviceName),
+            _field('Pago origen', payment.paymentFolio),
+            _field('Método de pago', payment.paymentMethod),
+            _field('Fecha de validación', _date(payment.paymentDate)),
+          ],
+        ),
+      );
+
+  Widget _reconciliationCard(
+    BuildContext context,
+    CommissionPaymentModel payment,
+    Decimal assigned,
+    Decimal companyAmount,
+  ) =>
+      _panel(
+        context,
+        title: 'Conciliación',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _amountRow('Monto origen', payment.paymentAmount),
+            _amountRow('Destinos', Decimal.fromInt(payment.snapshot.length)),
+            _amountRow('Total distribuido', assigned),
+            const Divider(height: AppTheme.space5),
+            _amountRow('Diferencia', payment.paymentAmount - assigned),
+            Text(
+              companyAmount == Decimal.zero
+                  ? 'Empresa recibe el remanente · 100% asignado.'
+                  : 'Empresa recibe el remanente · ${_money(companyAmount)}.',
+              style: const TextStyle(color: AppTheme.muted),
+            ),
+          ],
+        ),
+      );
+
+  Widget _advisorSummary(
+    BuildContext context,
+    CommissionPaymentModel payment,
+  ) {
+    final mine = payment.snapshot.where((item) => item.conceptId == 1);
+    final amount = mine.fold(Decimal.zero, (sum, item) => sum + item.amount);
+    return _panel(
+      context,
+      title: 'Mi participación',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _amountRow('Monto del pago', payment.paymentAmount),
+          _amountRow('Mi comisión', amount),
+          _field('Estado', _myStatus(payment)),
           const SizedBox(height: AppTheme.space2),
-          Text(isAdvisor
-              ? (_myStatus(payment) == 'Dispersada'
-                  ? 'Tu comisión ya fue dispersada.'
-                  : 'Tu comisión queda pendiente de dispersión.')
-              : 'La distribución del pago conserva los importes calculados al validarlo.'),
-        ]),
-        const SizedBox(height: AppTheme.space4),
-        _section(context, 'Origen de los recursos', [
-          _field('Cliente', payment.clientName),
-          if (!isAdvisor) _field('Asesor', payment.advisorName),
-          _field('Contrato', payment.contractFolio),
-          _field('Servicio', payment.serviceName),
-          _field('Pago origen', payment.paymentFolio),
-          _field('Método de pago', payment.paymentMethod),
-          _field(
-              'Fecha del pago', MoneyFormatter.formatDate(payment.paymentDate)),
-        ]),
-        const SizedBox(height: AppTheme.space4),
-        _section(
-          context,
-          isAdvisor ? 'Mi participación' : 'Conciliación',
-          isAdvisor
-              ? [
-                  _amountRow('Monto del pago', payment.paymentAmount),
-                  _amountRow('Mi comisión', myCommission),
-                  _amountRow('Corresponde a la empresa (referencial)',
-                      companyReference),
-                  const AppNotice(
-                    text:
-                        'Importe referencial: monto del pago menos tu comisión. No se muestra el desglose de otros receptores.',
-                  ),
-                ]
-              : [
-                  _amountRow('Monto origen', payment.paymentAmount),
-                  _field('Destinos de comisión', '${payment.snapshot.length}'),
-                  _amountRow('Total asignado', distributed),
-                  _amountRow('Empresa (remanente)', companyRemainder),
-                  _amountRow(
-                      'Total conciliado', distributed + companyRemainder),
-                ],
+          const Text(
+            'Solo se muestra la comisión correspondiente a tu perfil.',
+            style: TextStyle(color: AppTheme.muted),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _advisorCommissionCard(
+    BuildContext context,
+    CommissionPaymentModel payment,
+  ) {
+    final mine = payment.snapshot.where((item) => item.conceptId == 1).toList();
+    return _panel(
+      context,
+      title: 'Mi comisión',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: mine.isEmpty
+            ? [const Text('No hay una comisión asignada para este pago.')]
+            : [
+                for (final item in mine)
+                  _commissionRow(context, item, showActions: false),
+              ],
+      ),
+    );
+  }
+
+  Widget _distributionCard(
+    BuildContext context,
+    WidgetRef ref,
+    AuthSessionModel session,
+    CommissionPaymentModel payment,
+  ) =>
+      _panel(
+        context,
+        title: 'Dispersión aplicada a este pago',
+        trailing: _statusBadge(_isDispersed(payment) ? '100% conciliado' : 'Pendiente'),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('Porcentajes conservados al momento de validar el pago.',
+                style: TextStyle(color: AppTheme.muted)),
+            const SizedBox(height: AppTheme.space4),
+            for (final item in payment.snapshot)
+              _commissionRow(
+                context,
+                item,
+                showActions: item.status == 'Pendiente de dispersión',
+                onDisperse: () =>
+                    _confirmDispersion(context, ref, session, payment, item),
+              ),
+            _commissionRow(
+              context,
+              _companySnapshot(payment),
+              showActions: false,
+            ),
+            const Divider(height: AppTheme.space5),
+            _amountRow('Total distribuido', payment.paymentAmount),
+          ],
         ),
-        const SizedBox(height: AppTheme.space4),
-        _section(
-          context,
-          isAdvisor ? 'Mi comisión' : 'Distribución aplicada al pago',
-          isAdvisor
-              ? _advisorRows(context, payment)
-              : _distributionRows(context, ref, session, payment),
+      );
+
+  Widget _configurationCard(
+    BuildContext context,
+    CommissionPaymentModel payment,
+  ) =>
+      _panel(
+        context,
+        title: 'Configuración de comisiones del contrato ${payment.contractFolio}',
+        trailing: FilledButton.icon(
+          onPressed: () => context.go(
+              '/comisiones/contratos/${payment.contractId}/configuracion'),
+          icon: const Icon(Icons.tune),
+          label: const Text('Configurar contrato'),
         ),
-        if (!isAdvisor) ...[
-          const SizedBox(height: AppTheme.space4),
-          _section(context, 'Configuración vigente del contrato', [
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
             const Text(
-                'Los cambios aplican a pagos futuros. Empresa se calcula como remanente.'),
-            const Divider(height: AppTheme.space4),
+              'Los cambios aplican a pagos futuros. Empresa recibe automáticamente el remanente.',
+              style: TextStyle(color: AppTheme.muted),
+            ),
+            const SizedBox(height: AppTheme.space3),
             for (final line in payment.configuration)
               ListTile(
                 contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.circle, size: 10, color: _conceptColor(line.conceptId)),
                 title: Text(line.concept),
                 subtitle: Text(line.receiverName),
                 trailing: Text('${line.percentage}%'),
               ),
-            const SizedBox(height: AppTheme.space2),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: OutlinedButton.icon(
-                onPressed: () => context.go(
-                    '/comisiones/contratos/${payment.contractId}/configuracion'),
-                icon: const Icon(Icons.tune),
-                label: const Text('Configurar contrato'),
-              ),
-            ),
-            const Divider(height: AppTheme.space4),
-            Text('Historial de configuración',
-                style: Theme.of(context).textTheme.titleSmall),
+          ],
+        ),
+      );
+
+  Widget _historyCard(BuildContext context, CommissionPaymentModel payment) =>
+      _panel(
+        context,
+        title: 'Historial del contrato',
+        child: Column(
+          children: [
             for (final entry in payment.configurationHistory)
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.history),
                 title: Text(entry),
-                subtitle: const Text('Evento'),
+                subtitle: const Text('Evento de configuración'),
               ),
-          ]),
+          ],
+        ),
+      );
+
+  Widget _commissionRow(
+    BuildContext context,
+    CommissionSnapshotModel item, {
+    required bool showActions,
+    VoidCallback? onDisperse,
+  }) {
+    final isCompany = item.conceptId == 0;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppTheme.space3),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.circle, size: 11, color: _conceptColor(item.conceptId)),
+              const SizedBox(width: AppTheme.space2),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(item.concept,
+                        style: const TextStyle(fontWeight: FontWeight.w700)),
+                    Text(item.receiverName,
+                        style: const TextStyle(color: AppTheme.muted)),
+                  ],
+                ),
+              ),
+              Text('${item.percentage}%',
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(width: AppTheme.space5),
+              SizedBox(
+                width: 100,
+                child: Text(_money(item.amount),
+                    textAlign: TextAlign.end,
+                    style: const TextStyle(fontWeight: FontWeight.w700)),
+              ),
+              if (showActions && onDisperse != null)
+                IconButton(
+                  tooltip: 'Confirmar dispersión',
+                  onPressed: onDisperse,
+                  icon: const Icon(Icons.account_balance_outlined),
+                )
+              else if (isCompany)
+                const SizedBox(width: 48),
+            ],
+          ),
+          const SizedBox(height: AppTheme.space2),
+          LinearProgressIndicator(
+            value: (item.percentage.toDouble() / 100).clamp(0, 1),
+            backgroundColor: AppTheme.accentSoft,
+            valueColor: AlwaysStoppedAnimation<Color>(_conceptColor(item.conceptId)),
+          ),
+          if (!isCompany)
+            Padding(
+              padding: const EdgeInsets.only(top: AppTheme.space1),
+              child: Text(item.status,
+                  style: const TextStyle(color: AppTheme.muted, fontSize: 11)),
+            ),
         ],
-      ]),
+      ),
     );
   }
 
-  List<Widget> _advisorRows(
-    BuildContext context,
-    CommissionPaymentModel payment,
-  ) =>
-      payment.snapshot
-          .where((item) => item.conceptId == 1)
-          .map((item) => ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(item.concept),
-                subtitle: Text(item.status),
-                trailing: Text(MoneyFormatter.format(item.amount)),
-              ))
-          .toList();
-
-  List<Widget> _distributionRows(
-    BuildContext context,
-    WidgetRef ref,
-    AuthSessionModel session,
-    CommissionPaymentModel payment,
-  ) =>
-      payment.snapshot
-          .map((item) => _snapshotTile(context, ref, session, payment, item))
-          .toList()
-        ..add(ListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Empresa · remanente'),
-          subtitle: const Text('Se calcula automáticamente'),
-          trailing: Text(MoneyFormatter.format(CommissionMath.remainderAmount(
-            payment.paymentAmount,
-            payment.snapshot.map((item) => item.amount),
-          ))),
-        ));
-
-  Widget _snapshotTile(
-    BuildContext context,
-    WidgetRef ref,
-    AuthSessionModel session,
-    CommissionPaymentModel payment,
-    CommissionSnapshotModel item,
-  ) =>
-      Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppTheme.space1),
-        child:
-            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(item.concept),
-            subtitle: Text('${item.receiverName} · ${item.percentage}%'),
-            trailing: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(MoneyFormatter.format(item.amount),
-                    style: const TextStyle(fontWeight: FontWeight.w700)),
-                Text(item.status, style: Theme.of(context).textTheme.bodySmall),
-              ],
-            ),
-          ),
-          if (session.role != UserRole.asesor &&
-              item.status == 'Pendiente de dispersión')
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: () =>
-                    _confirmDispersion(context, ref, session, payment, item),
-                icon: const Icon(Icons.account_balance_outlined),
-                label: const Text('Confirmar dispersión'),
-              ),
-            ),
-          if (item.history.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(
-                  left: AppTheme.space3, bottom: AppTheme.space2),
-              child: Text(item.history.last,
-                  style: Theme.of(context).textTheme.bodySmall),
-            ),
-          const Divider(height: AppTheme.space2),
-        ]),
-      );
+  CommissionSnapshotModel _companySnapshot(CommissionPaymentModel payment) {
+    final assigned = payment.snapshot.fold(
+        Decimal.zero, (sum, item) => sum + item.amount);
+    return CommissionSnapshotModel(
+      id: 'company',
+      conceptId: 0,
+      concept: 'Empresa',
+      receiverName: 'Remanente · se calcula automáticamente',
+      percentage: Decimal.fromInt(100) -
+          payment.snapshot.fold(Decimal.zero, (sum, item) => sum + item.percentage),
+      amount: payment.paymentAmount - assigned,
+      status: 'Fija',
+      history: const [],
+    );
+  }
 
   Future<void> _confirmDispersion(
     BuildContext context,
@@ -272,25 +438,28 @@ class ComisionDetallePage extends ConsumerWidget {
     final comment = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Confirmar dispersión'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text(
-              '¿Confirmas la transferencia de ${MoneyFormatter.format(item.amount)} a ${item.receiverName}?'),
-          const SizedBox(height: AppTheme.space3),
-          TextField(
-            controller: comment,
-            maxLength: 500,
-            maxLines: 3,
-            decoration: const InputDecoration(labelText: 'Comentario opcional'),
-          ),
-        ]),
+      builder: (context) => AppDialog(
+        title: 'Confirmar dispersión',
+        description: 'Confirma la transferencia al receptor seleccionado.',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('${_money(item.amount)} · ${item.receiverName}'),
+            const SizedBox(height: AppTheme.space3),
+            TextField(
+              controller: comment,
+              maxLength: 500,
+              maxLines: 3,
+              decoration: const InputDecoration(labelText: 'Comentario opcional'),
+            ),
+          ],
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
+              onPressed: () => Navigator.pop(context, false),
               child: const Text('Cancelar')),
           FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
+              onPressed: () => Navigator.pop(context, true),
               child: const Text('Confirmar')),
         ],
       ),
@@ -300,9 +469,7 @@ class ComisionDetallePage extends ConsumerWidget {
       return;
     }
     try {
-      ref
-          .read(comisionesControllerProvider(session.role).notifier)
-          .disperseDemo(
+      ref.read(comisionesControllerProvider(session.role).notifier).disperseDemo(
             paymentId: payment.id,
             commissionId: item.id,
             comment: comment.text,
@@ -310,7 +477,7 @@ class ComisionDetallePage extends ConsumerWidget {
           );
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Estado actualizado en la .')));
+            const SnackBar(content: Text('Dispersión actualizada.')));
       }
     } on StateError catch (error) {
       if (context.mounted) {
@@ -322,40 +489,73 @@ class ComisionDetallePage extends ConsumerWidget {
     }
   }
 
-  Widget _section(BuildContext context, String title, List<Widget> children) =>
+  Widget _panel(
+    BuildContext context, {
+    required String title,
+    required Widget child,
+    Widget? trailing,
+  }) =>
       Container(
-        padding: const EdgeInsets.all(AppTheme.space4),
+        padding: const EdgeInsets.all(AppTheme.space5),
         decoration: BoxDecoration(
           color: AppTheme.surface,
           border: Border.all(color: AppTheme.line),
           borderRadius: BorderRadius.circular(AppTheme.radius),
+          boxShadow: AppTheme.elevation,
         ),
-        child:
-            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text(title, style: Theme.of(context).textTheme.titleMedium),
-          const Divider(height: AppTheme.space5),
-          ...children,
-        ]),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(title,
+                      style: Theme.of(context)
+                          .textTheme
+                          .headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.w700)),
+                ),
+                if (trailing != null) trailing,
+              ],
+            ),
+            const Divider(height: AppTheme.space6),
+            child,
+          ],
+        ),
       );
 
-  Widget _field(String label, String value) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppTheme.space1),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label, style: const TextStyle(color: AppTheme.muted)),
-          const SizedBox(height: AppTheme.space1),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
-        ]),
+  Widget _field(String label, String value) => SizedBox(
+        width: 235,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: const TextStyle(color: AppTheme.muted)),
+            const SizedBox(height: AppTheme.space1),
+            Text(value, style: const TextStyle(fontWeight: FontWeight.w700)),
+          ],
+        ),
       );
 
-  Widget _amountRow(String label, Decimal amount) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppTheme.space1),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(child: Text(label)),
-          const SizedBox(width: AppTheme.space2),
-          Text(MoneyFormatter.format(amount),
-              style: const TextStyle(fontWeight: FontWeight.w700)),
-        ]),
+  Widget _amountRow(String label, Decimal value) => Padding(
+        padding: const EdgeInsets.only(bottom: AppTheme.space3),
+        child: Row(
+          children: [
+            Expanded(child: Text(label, style: const TextStyle(color: AppTheme.muted))),
+            Text(_money(value), style: const TextStyle(fontWeight: FontWeight.w700)),
+          ],
+        ),
       );
+
+  AppBadge _statusBadge(String status) => AppBadge(
+        label: status,
+        tone: status == 'Dispersada' || status == '100% conciliado'
+            ? AppBadgeTone.success
+            : AppBadgeTone.warning,
+      );
+
+  bool _isDispersed(CommissionPaymentModel payment) =>
+      payment.snapshot.isNotEmpty &&
+      payment.snapshot.every((item) => item.status == 'Dispersada');
 
   String _myStatus(CommissionPaymentModel payment) {
     final mine = payment.snapshot.where((item) => item.conceptId == 1);
@@ -364,4 +564,17 @@ class ComisionDetallePage extends ConsumerWidget {
         ? 'Dispersada'
         : 'Pendiente de dispersión';
   }
+
+  Color _conceptColor(int conceptId) => switch (conceptId) {
+        1 => AppTheme.primary,
+        2 => AppTheme.secondaryDark,
+        3 => AppTheme.infoBase,
+        4 => AppTheme.gold,
+        0 => AppTheme.muted,
+        _ => AppTheme.muted,
+      };
+
+  String _money(Decimal value) => MoneyFormatter.format(value);
+
+  String _date(DateTime value) => MoneyFormatter.formatDate(value);
 }

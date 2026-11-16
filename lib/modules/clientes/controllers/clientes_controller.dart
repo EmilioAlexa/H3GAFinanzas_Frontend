@@ -60,4 +60,10 @@ class ClientesController
     state = AsyncData(_repository.loadSynchronously(_role));
     return updated;
   }
+
+  ClienteModel toggleStatusDemo(String clientId) {
+    final updated = _repository.toggleStatusDemo(clientId);
+    state = AsyncData(_repository.loadSynchronously(_role));
+    return updated;
+  }
 }

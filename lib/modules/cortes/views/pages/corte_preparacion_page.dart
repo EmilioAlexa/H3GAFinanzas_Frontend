@@ -6,6 +6,7 @@ import '../../../../app/theme/app_theme.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/responsive/window_size_class.dart';
 import '../../../../core/utils/money_formatter.dart';
+import '../../../../core/widgets/app_back_button.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_metric_card.dart';
 import '../../../../core/widgets/app_notice.dart';
@@ -70,11 +71,9 @@ class CortePreparacionPage extends ConsumerWidget {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.space6),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        TextButton.icon(
+        AppBackButton(
+          label: 'Cortes financieros',
           onPressed: () => context.go('/cortes'),
-          icon: const Icon(Icons.arrow_back),
-          label: const Text('Cortes financieros'),
-          style: TextButton.styleFrom(alignment: Alignment.centerLeft),
         ),
         AppPageHeader(
           eyebrow: 'Preparación de corte · ${cut.folio}',

@@ -84,7 +84,10 @@ class AppPageHeader extends StatelessWidget {
               children: [
                 Expanded(child: heading),
                 const SizedBox(width: AppTheme.space4),
-                Flexible(
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: constraints.maxWidth * 0.6,
+                  ),
                   child: Wrap(
                     alignment: WrapAlignment.end,
                     spacing: AppTheme.space2,

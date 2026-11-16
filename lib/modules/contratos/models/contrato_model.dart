@@ -14,6 +14,9 @@ class ContratoModel {
     required this.estadoNombre,
     this.cantidadPagos,
     this.observaciones,
+    this.totalPagar,
+    this.montoMensual,
+    this.saldoPendiente,
     this.assignedToCurrentAdvisor = false,
   });
 
@@ -26,6 +29,9 @@ class ContratoModel {
   final int estadoContratoId;
   final int? cantidadPagos;
   final String? observaciones;
+  final String? totalPagar;
+  final String? montoMensual;
+  final String? saldoPendiente;
   final DateTime creadoEn;
   final String clienteNombre;
   final String servicioNombre;

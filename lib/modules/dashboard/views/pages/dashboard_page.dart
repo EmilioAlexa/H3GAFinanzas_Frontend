@@ -90,27 +90,19 @@ class DashboardPage extends ConsumerWidget {
                 description: model.isAdvisor
                     ? 'Resumen de tus clientes y operaciones asignadas.'
                     : 'Este es el estado financiero y operativo de hoy.',
-              ),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Wrap(
-                  alignment: WrapAlignment.start,
-                  spacing: AppTheme.space2,
-                  runSpacing: AppTheme.space2,
-                  children: [
-                    if (!model.isAdvisor)
-                      OutlinedButton.icon(
-                        onPressed: () => _exportDashboard(context, model),
-                        icon: const Icon(Icons.download_outlined),
-                        label: const Text('Exportar'),
-                      ),
-                    ElevatedButton.icon(
-                      onPressed: () => context.go('/pagos/nuevo'),
-                      icon: const Icon(Icons.add),
-                      label: const Text('Registrar pago'),
+                actions: [
+                  if (!model.isAdvisor)
+                    OutlinedButton.icon(
+                      onPressed: () => _exportDashboard(context, model),
+                      icon: const Icon(Icons.download_outlined),
+                      label: const Text('Exportar'),
                     ),
-                  ],
-                ),
+                  ElevatedButton.icon(
+                    onPressed: () => context.go('/pagos/nuevo'),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Registrar pago'),
+                  ),
+                ],
               ),
               const SizedBox(height: AppTheme.space4),
               Container(

@@ -7,6 +7,7 @@ import '../../../../core/platform/file_platform_factory.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/responsive/window_size_class.dart';
 import '../../../../core/utils/money_formatter.dart';
+import '../../../../core/widgets/app_back_button.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_page_header.dart';
@@ -93,6 +94,10 @@ class _ValidacionDetallePageState extends ConsumerState<ValidacionDetallePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          AppBackButton(
+            label: 'Bandeja de validación',
+            onPressed: () => context.go('/validacion'),
+          ),
           AppPageHeader(
             eyebrow: 'Pago ${payment.folio}',
             title: payment.numeroPago == null || payment.cantidadPagos == null
@@ -102,13 +107,7 @@ class _ValidacionDetallePageState extends ConsumerState<ValidacionDetallePage> {
                     : 'Mensualidad ${payment.numeroPago} de ${payment.cantidadPagos}',
             description:
                 '${payment.clienteNombre} · ${payment.contratoFolio} · ${MoneyFormatter.formatDate(payment.fechaPago)}',
-            actions: [
-              OutlinedButton.icon(
-                onPressed: () => context.go('/validacion'),
-                icon: const Icon(Icons.arrow_back),
-                label: const Text('Bandeja de validación'),
-              ),
-            ],
+            actions: const [],
           ),
           _paymentBanner(context, payment),
           const SizedBox(height: AppTheme.space4),

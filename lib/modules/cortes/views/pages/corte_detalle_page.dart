@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/utils/money_formatter.dart';
+import '../../../../core/widgets/app_back_button.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_metric_card.dart';
 import '../../../../core/widgets/app_page_header.dart';
@@ -68,11 +69,9 @@ class CorteDetallePage extends ConsumerWidget {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.space6),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        TextButton.icon(
+        AppBackButton(
+          label: 'Cortes financieros',
           onPressed: () => context.go('/cortes'),
-          icon: const Icon(Icons.arrow_back),
-          label: const Text('Cortes financieros'),
-          style: TextButton.styleFrom(alignment: Alignment.centerLeft),
         ),
         AppPageHeader(
           eyebrow: 'Corte ${cut.folio}',

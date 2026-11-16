@@ -1,7 +1,10 @@
+import 'package:decimal/decimal.dart';
+
 import '../../../core/demo/demo_dataset.dart';
 import '../../../core/demo/demo_metric.dart';
 import '../../../core/demo/demo_record.dart';
 import '../models/contrato_model.dart';
+import '../models/penalizacion_model.dart';
 import '../models/servicio_model.dart';
 
 abstract final class ContratosDemoFixtures {
@@ -11,26 +14,26 @@ abstract final class ContratosDemoFixtures {
       clave: 'm10',
       nombre: 'Modalidad 10',
       descripcionDemo:
-          'Seguimiento de inscripción y mensualidades del servicio.',
+          'Alta voluntaria para independientes; gestión de inscripción y cuotas mensuales.',
     ),
     ServicioModel(
       id: 40,
       clave: 'm40',
       nombre: 'Modalidad 40',
       descripcionDemo:
-          'Control por periodo, salario de cotización y pagos mensuales.',
+          'Cotización sin patrón para elevar salario promedio, sumar semanas y controlar pagos.',
     ),
     ServicioModel(
       id: 41,
       clave: 'm40-retroactiva',
       nombre: 'M40 Retroactiva',
-      descripcionDemo: 'Servicio con obligación de pago única.',
+      descripcionDemo: 'Recuperación de periodos pasados no cotizados mediante pago en exhibición única.',
     ),
     ServicioModel(
       id: 50,
       clave: 'apd',
       nombre: 'APD',
-      descripcionDemo: 'Seguimiento operativo de recursos, cobro y validación.',
+      descripcionDemo: 'Trámite de retiro de recursos con seguimiento de altas, reflejo y cobro porcentual.',
     ),
   ];
 
@@ -45,6 +48,9 @@ abstract final class ContratosDemoFixtures {
       estadoContratoId: 1,
       cantidadPagos: 12,
       observaciones: 'Seguimiento al corriente.',
+      totalPagar: '180000',
+      montoMensual: '10000',
+      saldoPendiente: '120000',
       creadoEn: DateTime(2024, 11, 14, 10),
       clienteNombre: 'Elena Robles Vargas',
       servicioNombre: 'Modalidad 40',
@@ -116,6 +122,18 @@ abstract final class ContratosDemoFixtures {
       servicioNombre: 'Modalidad 40',
       asesorNombre: 'Jorge Silva',
       estadoNombre: 'Pausado',
+    ),
+  ];
+
+  static final penalties = <PenalizacionModel>[
+    PenalizacionModel(
+      id: 'demo-penalty-1',
+      contratoId: 'demo-contract-3',
+      concepto: 'Pago fuera de fecha',
+      monto: Decimal.parse('1250'),
+      fecha: DateTime(2025, 5, 25),
+      estado: 'Pendiente',
+      observaciones: 'Revisar con el asesor antes de autorizar.',
     ),
   ];
 

@@ -11,6 +11,7 @@ import '../../../../core/widgets/app_data_column.dart';
 import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_responsive_collection.dart';
+import '../../../../core/widgets/app_search_field.dart';
 import '../../../../core/widgets/app_state_panel.dart';
 import '../../../../core/widgets/app_tab_strip.dart';
 import '../../../auth/auth.dart';
@@ -156,16 +157,16 @@ class _ValidacionPageState extends ConsumerState<ValidacionPage> {
             Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           LayoutBuilder(builder: (context, constraints) {
             final compact = Responsive.of(context) == WindowSizeClass.compacto;
-            final search = TextField(
+            final search = AppSearchField(
               controller: _search,
               onChanged: (value) => setState(() => _query = value),
-              decoration: const InputDecoration(
-                labelText: 'Buscar pago, cliente o referencia',
-                prefixIcon: Icon(Icons.search),
-              ),
+              hintText: 'Buscar pago, cliente o referencia',
             );
             if (compact) return search;
-            return Row(children: [Expanded(child: search)]);
+            return Align(
+              alignment: Alignment.centerLeft,
+              child: SizedBox(width: 330, child: search),
+            );
           }),
           const Divider(height: AppTheme.space6),
           if (rows.isEmpty)
