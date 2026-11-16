@@ -7,19 +7,21 @@ import '../../../../app/config/env.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_back_button.dart';
-import '../../../../core/widgets/app_notice.dart';
+import '../../../../core/widgets/app_dialog.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_state_panel.dart';
 import '../../../auth/auth.dart';
 import '../../controllers/comisiones_controller.dart';
 import '../../fixtures/comisiones_demo_fixtures.dart';
 import '../../models/commission_line_model.dart';
+import '../../models/commission_concept_model.dart';
 import '../../models/commission_payment_model.dart';
 import '../../models/dispersion_receiver_model.dart';
 import '../../utils/commission_math.dart';
 
 class ComisionConfiguracionPage extends ConsumerStatefulWidget {
   const ComisionConfiguracionPage({required this.contractId, super.key});
+
   final String contractId;
 
   @override
@@ -31,17 +33,7 @@ class _ComisionConfiguracionPageState
     extends ConsumerState<ComisionConfiguracionPage> {
   String? _initializedContract;
   List<CommissionLineModel> _draft = [];
-  int? _addConceptId;
-  String? _addReceiverId;
-  final _addPercentage = TextEditingController(text: '5');
-  String? _error;
   bool _saving = false;
-
-  @override
-  void dispose() {
-    _addPercentage.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +42,7 @@ class _ComisionConfiguracionPageState
       return const AppStatePanel(
         icon: Icons.lock_outline,
         title: 'Acceso restringido',
-        message: 'Solo los perfiles administrativos editan la distribución.',
+        message: 'Solo administración puede configurar la dispersión.',
       );
     }
     if (!AppEnv.demoMode) {
@@ -83,393 +75,979 @@ class _ComisionConfiguracionPageState
           return const AppStatePanel(
             icon: Icons.search_off_outlined,
             title: 'Contrato sin configuración',
-            message: 'No hay una configuración  para este contrato.',
+            message: 'No hay una configuración disponible para este contrato.',
           );
         }
         if (_initializedContract != payment.contractId) {
           _initializedContract = payment.contractId;
           _draft = List.of(payment.configuration);
         }
-        return _body(context, session.role, payment);
+        return _body(context, session, payment);
       },
     );
   }
 
   Widget _body(
-      BuildContext context, UserRole role, CommissionPaymentModel payment) {
-    final totalPercentage =
-        CommissionMath.sum(_draft.map((line) => line.percentage));
-    final remainingPercentage = Decimal.fromInt(100) - totalPercentage;
-    final invalidSteps = _draft.any(
-      (line) => !CommissionMath.isAllowedPercentage(line.percentage),
-    );
-    final exceeds = totalPercentage > Decimal.fromInt(100);
-    final imssOnApd = payment.serviceName == 'APD' &&
-        _draft.any((line) => line.conceptId == 4);
-    final availableConcepts = ComisionesDemoFixtures.concepts
-        .where((concept) =>
-            !(payment.serviceName == 'APD' && concept.onlyImssServices))
-        .toList();
-    final assignedAmounts = _draft.map((line) =>
-        CommissionMath.amountFor(payment.paymentAmount, line.percentage));
+    BuildContext context,
+    AuthSessionModel session,
+    CommissionPaymentModel payment,
+  ) {
+    final assigned = CommissionMath.sum(_draft.map((line) => line.percentage));
+    final companyPercentage = Decimal.fromInt(100) - assigned;
     final companyAmount = CommissionMath.remainderAmount(
       payment.paymentAmount,
-      assignedAmounts,
+      _draft.map((line) =>
+          CommissionMath.amountFor(payment.paymentAmount, line.percentage)),
     );
-    final valid = !invalidSteps && !exceeds && !imssOnApd;
+    final invalid = assigned > Decimal.fromInt(100) ||
+        _hasDuplicateConcepts ||
+        _draft.any(
+          (line) => !CommissionMath.isAllowedPercentage(line.percentage),
+        ) ||
+        (payment.serviceName == 'APD' &&
+            _draft.any((line) => line.conceptId == 4));
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.space6),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        AppBackButton(
-          label: 'Detalle de comisiones',
-          onPressed: () => context.go('/comisiones/${payment.id}'),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1220),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AppBackButton(
+                label: 'Detalle de comisiones',
+                onPressed: () => context.go('/comisiones/${payment.id}'),
+              ),
+              AppPageHeader(
+                eyebrow: 'Configuración del contrato',
+                title: 'Comisiones · ${payment.contractFolio}',
+                description:
+                    'Los cambios aplican a pagos futuros. Empresa recibe automáticamente el remanente.',
+              ),
+              _contractSummary(
+                  context, payment, assigned, companyPercentage, companyAmount),
+              const SizedBox(height: AppTheme.space4),
+              _configurationCard(context, session, payment),
+              if (invalid) ...[
+                const SizedBox(height: AppTheme.space3),
+                _errorBanner(payment, assigned),
+              ],
+              const SizedBox(height: AppTheme.space4),
+              _historyCard(context, payment),
+            ],
+          ),
         ),
-        AppPageHeader(
-          eyebrow: 'Contrato ${payment.contractFolio}',
-          title: 'Configuración de comisiones',
-          description:
-              'Los cambios aplican a pagos futuros. Los snapshots existentes se conservan.',
-          actions: const [],
-        ),
-        const AppNotice(
-          text:
-              'Empresa se calcula como remanente y no se captura. Selecciona un receptor para cada destino.',
-        ),
-        const SizedBox(height: AppTheme.space4),
-        _section(context, 'Distribución del pago de referencia', [
-          _summary('Pago de referencia',
-              MoneyFormatter.format(payment.paymentAmount)),
-          _summary('Porcentaje asignado', '$totalPercentage%'),
-          _summary('Empresa · remanente',
-              '$remainingPercentage% · ${MoneyFormatter.format(companyAmount)}'),
-        ]),
-        const SizedBox(height: AppTheme.space4),
-        _section(context, 'Destinos configurados', [
-          if (_draft.isEmpty)
-            const Text(
-                'Aún no hay destinos. Agrega al menos uno o guarda la lista vacía.'),
-          for (var index = 0; index < _draft.length; index++)
-            _configRow(context, role, payment.serviceName, index),
-          const Divider(height: AppTheme.space5),
-          Text('Agregar comisión',
-              style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: AppTheme.space2),
-          DropdownButtonFormField<int>(
-            initialValue: _addConceptId,
-            isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Concepto'),
-            items: availableConcepts
-                .map((item) => DropdownMenuItem(
-                      value: item.id,
-                      child: Text(item.name),
-                    ))
-                .toList(),
-            onChanged: (value) => setState(() {
-              _addConceptId = value;
-              _addReceiverId = null;
-              _error = null;
-            }),
-          ),
-          const SizedBox(height: AppTheme.space2),
-          _receiverDropdown(
-            label: 'Receptor',
-            conceptId: _addConceptId,
-            selectedId: _addReceiverId,
-            onChanged: (value) => setState(() => _addReceiverId = value),
-          ),
-          const SizedBox(height: AppTheme.space2),
-          TextField(
-            controller: _addPercentage,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: 'Porcentaje',
-              suffixText: '%',
-              helperText: 'Incrementos de 0.5, desde 0 hasta 100.',
-            ),
-          ),
-          const SizedBox(height: AppTheme.space2),
-          OutlinedButton.icon(
-            onPressed: _draft.length >= 20 ? null : _addLine,
-            icon: const Icon(Icons.add),
-            label: const Text('Agregar destino'),
-          ),
-          if (_error != null) ...[
-            const SizedBox(height: AppTheme.space2),
-            AppNotice(type: AppNoticeType.error, text: _error!),
-          ],
-          if (invalidSteps || exceeds || imssOnApd) ...[
-            const SizedBox(height: AppTheme.space2),
-            AppNotice(
-              type: AppNoticeType.error,
-              text: imssOnApd
-                  ? 'IMSS solo se permite en M10, M40 y M40 Retroactiva.'
-                  : exceeds
-                      ? 'La suma supera 100%; Empresa no puede ser negativa.'
-                      : 'Todos los porcentajes deben avanzar en incrementos de 0.5.',
-            ),
-          ],
-          const SizedBox(height: AppTheme.space3),
-          FilledButton.icon(
-            onPressed: valid && !_saving
-                ? () => _save(role, payment.contractId, payment.contractFolio)
-                : null,
-            icon: _saving
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.save_outlined),
-            label: const Text('Guardar configuración'),
-          ),
-        ]),
-        const SizedBox(height: AppTheme.space4),
-        _section(context, 'Historial del contrato', [
-          for (final entry in payment.configurationHistory)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.history),
-              title: Text(entry),
-              subtitle: const Text('Registro local'),
-            ),
-        ]),
-      ]),
+      ),
     );
   }
 
-  Widget _configRow(
+  Widget _contractSummary(
     BuildContext context,
-    UserRole role,
-    String serviceName,
-    int index,
-  ) {
-    final line = _draft[index];
-    final imssDisallowed = line.conceptId == 4 && serviceName == 'APD';
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppTheme.space3),
-      child: Container(
-        padding: const EdgeInsets.all(AppTheme.space3),
-        decoration: BoxDecoration(
-          color: AppTheme.surfaceSecondary,
-          borderRadius: BorderRadius.circular(AppTheme.radiusField),
-        ),
-        child:
-            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Row(children: [
-            Expanded(
-              child: Text(line.concept,
-                  style: const TextStyle(fontWeight: FontWeight.w700)),
-            ),
-            IconButton(
-              tooltip: 'Quitar ${line.concept}',
-              onPressed: () => _removeLine(index),
-              icon: const Icon(Icons.delete_outline),
-            ),
-          ]),
-          _receiverDropdown(
-            label: 'Receptor',
-            conceptId: line.conceptId,
-            selectedId: line.receiverId,
-            onChanged: (value) {
-              if (value == null) return;
-              final receiver = ref
-                  .read(comisionesControllerProvider(role).notifier)
-                  .activeReceiversFor(line.conceptId)
-                  .where((item) => item.id == value)
-                  .first;
-              setState(() => _draft[index] = line.copyWith(
-                    receiverId: value,
-                    receiverName: receiver.name,
-                  ));
-            },
-          ),
-          const SizedBox(height: AppTheme.space2),
-          TextFormField(
-            key: ValueKey('percentage-$index-${line.conceptId}'),
-            initialValue: line.percentage.toString(),
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration:
-                const InputDecoration(labelText: 'Porcentaje', suffixText: '%'),
-            onChanged: (value) {
-              final decimal = Decimal.tryParse(value);
-              if (decimal != null) {
-                setState(
-                    () => _draft[index] = line.copyWith(percentage: decimal));
-              }
-            },
-          ),
-          if (imssDisallowed)
-            const Padding(
-              padding: EdgeInsets.only(top: AppTheme.space2),
-              child: Text('IMSS no aplica a APD.'),
-            ),
-        ]),
-      ),
-    );
-  }
-
-  Widget _receiverDropdown({
-    required String label,
-    required int? conceptId,
-    required String? selectedId,
-    required ValueChanged<String?> onChanged,
-  }) {
-    final all = conceptId == null
-        ? const <DispersionReceiverModel>[]
-        : ref
-            .read(comisionesControllerProvider(
-                    ref.read(authControllerProvider).valueOrNull!.role)
-                .notifier)
-            .activeReceiversFor(conceptId);
-    final validValue =
-        all.any((receiver) => receiver.id == selectedId) ? selectedId : null;
-    return DropdownButtonFormField<String>(
-      initialValue: validValue,
-      isExpanded: true,
-      decoration: InputDecoration(labelText: label),
-      items: all
-          .map((receiver) => DropdownMenuItem(
-                value: receiver.id,
-                child: Text(
-                  receiver.role == null
-                      ? receiver.name
-                      : '${receiver.name} · ${receiver.role}',
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ))
-          .toList(),
-      onChanged: conceptId == null ? null : onChanged,
-    );
-  }
-
-  void _addLine() {
-    final concept = ComisionesDemoFixtures.concepts
-        .where((item) => item.id == _addConceptId);
-    final receivers = _addConceptId == null
-        ? <DispersionReceiverModel>[]
-        : ref
-            .read(comisionesControllerProvider(
-                    ref.read(authControllerProvider).valueOrNull!.role)
-                .notifier)
-            .activeReceiversFor(_addConceptId!);
-    final receiver = receivers.where((item) => item.id == _addReceiverId);
-    final percentage = Decimal.tryParse(_addPercentage.text.trim());
-    if (concept.isEmpty || receiver.isEmpty || percentage == null) {
-      setState(
-          () => _error = 'Selecciona concepto, receptor e ingresa porcentaje.');
-      return;
-    }
-    if (!CommissionMath.isAllowedPercentage(percentage)) {
-      setState(() => _error = 'Usa porcentajes en incrementos de 0.5.');
-      return;
-    }
-    if (_draft.length >= 20) {
-      setState(() => _error = 'El máximo es 20 destinos.');
-      return;
-    }
-    setState(() {
-      _draft.add(CommissionLineModel(
-        conceptId: concept.first.id,
-        concept: concept.first.name,
-        receiverId: receiver.first.id,
-        receiverName: receiver.first.name,
-        percentage: percentage,
-      ));
-      _error = null;
-      _addReceiverId = null;
-      _addConceptId = null;
-      _addPercentage.text = '5';
-    });
-  }
-
-  Future<void> _removeLine(int index) async {
-    final line = _draft[index];
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Quitar comisión'),
-        content: Text(
-            'Se eliminará ${line.concept} de la configuración. Se guardará el listado completo actualizado.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancelar')),
-          FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Quitar')),
-        ],
-      ),
-    );
-    if (confirmed == true && mounted) {
-      setState(() => _draft.removeAt(index));
-    }
-  }
-
-  Future<void> _save(
-      UserRole role, String contractId, String contractFolio) async {
-    final assigned = CommissionMath.sum(_draft.map((line) => line.percentage));
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Guardar configuración'),
-        content: Text(
-            'Se enviaría la lista completa de destinos del contrato $contractFolio. Total asignado: $assigned%; Empresa conservará el remanente.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Seguir editando')),
-          FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Guardar')),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-    setState(() => _saving = true);
-    try {
-      ref
-          .read(comisionesControllerProvider(role).notifier)
-          .saveConfigurationDemo(
-            contractId: contractId,
-            lines: List.unmodifiable(_draft),
-            actor:
-                ref.read(authControllerProvider).valueOrNull?.name ?? 'Usuario',
-          );
-      if (mounted) {
-        setState(() => _saving = false);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text(
-                'Configuración guardada; los snapshots previos no cambiaron.')));
-      }
-    } on StateError catch (error) {
-      if (mounted) {
-        setState(() {
-          _saving = false;
-          _error = error.message.toString();
-        });
-      }
-    }
-  }
-
-  Widget _section(BuildContext context, String title, List<Widget> children) =>
+    CommissionPaymentModel payment,
+    Decimal assigned,
+    Decimal companyPercentage,
+    Decimal companyAmount,
+  ) =>
       Container(
-        padding: const EdgeInsets.all(AppTheme.space4),
+        padding: const EdgeInsets.all(AppTheme.space5),
         decoration: BoxDecoration(
           color: AppTheme.surface,
           border: Border.all(color: AppTheme.line),
           borderRadius: BorderRadius.circular(AppTheme.radius),
+          boxShadow: AppTheme.elevation,
         ),
-        child:
-            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text(title, style: Theme.of(context).textTheme.titleMedium),
-          const Divider(height: AppTheme.space5),
-          ...children,
-        ]),
+        child: Wrap(
+          spacing: AppTheme.space8,
+          runSpacing: AppTheme.space4,
+          children: [
+            _summaryMetric('Cliente', payment.clientName),
+            _summaryMetric('Servicio', payment.serviceName),
+            _summaryMetric('Pago de referencia', payment.paymentFolio),
+            _summaryMetric('Monto origen', _money(payment.paymentAmount)),
+            _summaryMetric('Asignado', '$assigned%'),
+            _summaryMetric('Empresa · remanente',
+                '$companyPercentage% · ${_money(companyAmount)}'),
+          ],
+        ),
       );
 
-  Widget _summary(String label, String value) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppTheme.space1),
-        child: Row(children: [Expanded(child: Text(label)), Text(value)]),
+  Widget _configurationCard(
+    BuildContext context,
+    AuthSessionModel session,
+    CommissionPaymentModel payment,
+  ) =>
+      Container(
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          border: Border.all(color: AppTheme.line),
+          borderRadius: BorderRadius.circular(AppTheme.radius),
+          boxShadow: AppTheme.elevation,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(AppTheme.space5),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Configuración de comisiones del contrato ${payment.contractFolio}',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: AppTheme.space1),
+                        const Text(
+                          'Agrega o edita destinos. Empresa no se captura: es el remanente automático.',
+                          style: TextStyle(color: AppTheme.muted),
+                        ),
+                      ],
+                    ),
+                  ),
+                  FilledButton.icon(
+                    onPressed: () => _openEditor(context, payment),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Agregar comisión'),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            _tableHeader(payment),
+            for (var index = 0; index < _draft.length; index++)
+              _lineRow(context, session, payment, index),
+            _companyRow(payment),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.all(AppTheme.space5),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Total distribuido ${_money(payment.paymentAmount)}',
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  FilledButton(
+                    onPressed: _saving || !_canSave(payment)
+                        ? null
+                        : () => _save(session, payment),
+                    child: _saving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Guardar configuración del contrato'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       );
+
+  Widget _tableHeader(CommissionPaymentModel payment) => Container(
+        padding: const EdgeInsets.fromLTRB(
+            AppTheme.space5, AppTheme.space3, AppTheme.space5, AppTheme.space3),
+        color: AppTheme.canvas,
+        child: Row(
+          children: [
+            const Expanded(flex: 2, child: Text('DESTINO')),
+            const Expanded(flex: 3, child: Text('RECEPTOR')),
+            const SizedBox(width: 88, child: Text('PORCENTAJE')),
+            SizedBox(
+                width: 125,
+                child: Text('IMPORTE · ${_money(payment.paymentAmount)}')),
+            const SizedBox(width: 116),
+          ],
+        ),
+      );
+
+  Widget _lineRow(
+    BuildContext context,
+    AuthSessionModel session,
+    CommissionPaymentModel payment,
+    int index,
+  ) {
+    final line = _draft[index];
+    final amount =
+        CommissionMath.amountFor(payment.paymentAmount, line.percentage);
+    final locked = line.payrollIncluded && line.conceptId != 4;
+    return Container(
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppTheme.space5, vertical: AppTheme.space4),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: AppTheme.line)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: Row(
+              children: [
+                Icon(Icons.circle,
+                    size: 11, color: _conceptColor(line.conceptId)),
+                const SizedBox(width: AppTheme.space2),
+                Expanded(
+                    child: Text(line.concept,
+                        style: const TextStyle(fontWeight: FontWeight.w700))),
+              ],
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text(
+                '${line.receiverName}${line.payrollName == null ? '' : ' · ${line.payrollName}'}'),
+          ),
+          SizedBox(
+            width: 88,
+            child: Text('${line.percentage}%',
+                style: const TextStyle(fontWeight: FontWeight.w700)),
+          ),
+          SizedBox(width: 125, child: Text(_money(amount))),
+          SizedBox(
+            width: 116,
+            child: locked
+                ? Tooltip(
+                    message:
+                        'Incluida en prenómina ${line.payrollName ?? 'activa'}. No muestran Editar ni Quitar. IMSS sigue editable.',
+                    child:
+                        const Icon(Icons.lock_outline, color: AppTheme.muted),
+                  )
+                : Wrap(
+                    spacing: AppTheme.space1,
+                    children: [
+                      TextButton(
+                        onPressed: () =>
+                            _openEditor(context, payment, index: index),
+                        child: const Text('Editar'),
+                      ),
+                      TextButton(
+                        onPressed: () => _removeLine(context, payment, index),
+                        style: TextButton.styleFrom(
+                            foregroundColor: AppTheme.danger),
+                        child: const Text('Quitar'),
+                      ),
+                    ],
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _companyRow(CommissionPaymentModel payment) {
+    final assignedAmounts = _draft.map((line) =>
+        CommissionMath.amountFor(payment.paymentAmount, line.percentage));
+    final amount =
+        CommissionMath.remainderAmount(payment.paymentAmount, assignedAmounts);
+    final percentage = Decimal.fromInt(100) -
+        CommissionMath.sum(_draft.map((line) => line.percentage));
+    return Container(
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppTheme.space5, vertical: AppTheme.space4),
+      color: AppTheme.canvas,
+      child: Row(
+        children: [
+          const Expanded(
+              flex: 2,
+              child: Text('Empresa',
+                  style: TextStyle(fontWeight: FontWeight.w700))),
+          const Expanded(
+              flex: 3,
+              child: Text('Remanente · se calcula automáticamente',
+                  style: TextStyle(color: AppTheme.muted))),
+          SizedBox(width: 88, child: Text('$percentage%')),
+          SizedBox(width: 125, child: Text(_money(amount))),
+          const SizedBox(
+              width: 116,
+              child: Tooltip(
+                  message: 'Empresa siempre recibe el remanente.',
+                  child: Icon(Icons.lock_outline, color: AppTheme.muted))),
+        ],
+      ),
+    );
+  }
+
+  Widget _historyCard(BuildContext context, CommissionPaymentModel payment) =>
+      Container(
+        padding: const EdgeInsets.all(AppTheme.space5),
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          border: Border.all(color: AppTheme.line),
+          borderRadius: BorderRadius.circular(AppTheme.radius),
+          boxShadow: AppTheme.elevation,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Historial del contrato',
+                style: Theme.of(context).textTheme.titleLarge),
+            const Divider(height: AppTheme.space6),
+            for (final entry in payment.configurationHistory)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.history),
+                title: Text(entry),
+                subtitle: const Text('Evento de configuración'),
+              ),
+          ],
+        ),
+      );
+
+  Widget _errorBanner(CommissionPaymentModel payment, Decimal assigned) {
+    final excess = assigned - Decimal.fromInt(100);
+    final text = assigned > Decimal.fromInt(100)
+        ? 'La suma excede 100% por $excess%; Empresa no puede ser negativa'
+        : _hasDuplicateConcepts
+            ? 'Cada destino solo puede existir una vez por contrato.'
+            : payment.serviceName == 'APD' &&
+                    _draft.any((line) => line.conceptId == 4)
+                ? 'IMSS solo aplica a Modalidad 10, Modalidad 40 y M40 Retroactiva.'
+                : 'Usa porcentajes en incrementos de 0.5.';
+    return Container(
+      padding: const EdgeInsets.all(AppTheme.space3),
+      decoration: BoxDecoration(
+        color: AppTheme.dangerBackground,
+        borderRadius: BorderRadius.circular(AppTheme.radiusField),
+        border: Border.all(color: AppTheme.danger.withValues(alpha: .3)),
+      ),
+      child: Text(text, style: const TextStyle(color: AppTheme.danger)),
+    );
+  }
+
+  Future<void> _openEditor(
+    BuildContext context,
+    CommissionPaymentModel payment, {
+    int? index,
+  }) async {
+    final byConcept = <int, List<DispersionReceiverModel>>{
+      for (final concept in ComisionesDemoFixtures.concepts)
+        concept.id: ref
+            .read(comisionesControllerProvider(
+                    ref.read(authControllerProvider).valueOrNull!.role)
+                .notifier)
+            .activeReceiversFor(concept.id),
+    };
+    final result = await showGeneralDialog<_CommissionEditorResult>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Cerrar panel',
+      barrierColor: AppTheme.primary.withValues(alpha: .28),
+      pageBuilder: (context, animation, secondaryAnimation) => Align(
+        alignment: Alignment.centerRight,
+        child: Material(
+          color: AppTheme.surface,
+          child: SizedBox(
+            width: (MediaQuery.sizeOf(context).width * .9).clamp(360.0, 460.0),
+            height: double.infinity,
+            child: _CommissionEditorPanel(
+              payment: payment,
+              currentLines: _draft,
+              initialIndex: index,
+              receiversByConcept: byConcept,
+            ),
+          ),
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+    final next = List<CommissionLineModel>.of(_draft);
+    final replacing = result.index != null && result.index! < next.length;
+    if (replacing) {
+      final confirmed = await _confirmMutation(
+        context,
+        title: 'Confirmar cambio de comisión',
+        before: next,
+        after: [...next]..[result.index!] = result.line,
+        payment: payment,
+      );
+      if (!confirmed || !mounted) return;
+      next[result.index!] = result.line;
+    } else {
+      next.add(result.line);
+    }
+    setState(() => _draft = next);
+  }
+
+  Future<void> _removeLine(
+    BuildContext context,
+    CommissionPaymentModel payment,
+    int index,
+  ) async {
+    final next = List<CommissionLineModel>.of(_draft)..removeAt(index);
+    final confirmed = await _confirmMutation(
+      context,
+      title: 'Confirmar retiro de comisión',
+      before: _draft,
+      after: next,
+      payment: payment,
+      destructive: true,
+    );
+    if (confirmed && mounted) setState(() => _draft = next);
+  }
+
+  Future<bool> _confirmMutation(
+    BuildContext context, {
+    required String title,
+    required List<CommissionLineModel> before,
+    required List<CommissionLineModel> after,
+    required CommissionPaymentModel payment,
+    bool destructive = false,
+  }) async {
+    final dispersed = payment.snapshot.isNotEmpty &&
+        payment.snapshot.every((item) => item.status == 'Dispersada');
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AppDialog(
+            title: title,
+            description: 'Revisa el impacto antes de confirmar.',
+            maxWidth: 720,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (dispersed)
+                  Container(
+                    padding: const EdgeInsets.all(AppTheme.space3),
+                    color: AppTheme.warningBackground,
+                    child: const Text(
+                      'Este pago ya fue dispersado; el cambio solo afectará pagos futuros del contrato.',
+                      style: TextStyle(color: AppTheme.warning),
+                    ),
+                  ),
+                if (dispersed) const SizedBox(height: AppTheme.space3),
+                _comparisonTable(before, after, payment.paymentAmount),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancelar'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: destructive
+                    ? FilledButton.styleFrom(backgroundColor: AppTheme.danger)
+                    : null,
+                child: Text(destructive ? 'Quitar' : 'Confirmar cambio'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  Widget _comparisonTable(
+    List<CommissionLineModel> before,
+    List<CommissionLineModel> after,
+    Decimal amount,
+  ) {
+    final names = <String>{
+      ...before.map((line) => line.concept),
+      ...after.map((line) => line.concept),
+      'Empresa',
+    }.toList();
+    Decimal percentageFor(List<CommissionLineModel> lines, String name) {
+      if (name == 'Empresa') {
+        return Decimal.fromInt(100) -
+            CommissionMath.sum(lines.map((line) => line.percentage));
+      }
+      return lines
+          .where((line) => line.concept == name)
+          .fold(Decimal.zero, (sum, line) => sum + line.percentage);
+    }
+
+    return Column(
+      children: [
+        const Row(
+          children: [
+            Expanded(child: Text('Destino')),
+            SizedBox(width: 115, child: Text('Antes')),
+            SizedBox(width: 115, child: Text('Después')),
+          ],
+        ),
+        const Divider(),
+        for (final name in names)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppTheme.space1),
+            child: Row(
+              children: [
+                Expanded(child: Text(name)),
+                SizedBox(
+                  width: 115,
+                  child: Text(
+                      '${percentageFor(before, name)}% · ${_money(CommissionMath.amountFor(amount, percentageFor(before, name)))}'),
+                ),
+                SizedBox(
+                  width: 115,
+                  child: Text(
+                      '${percentageFor(after, name)}% · ${_money(CommissionMath.amountFor(amount, percentageFor(after, name)))}'),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _save(
+      AuthSessionModel session, CommissionPaymentModel payment) async {
+    if (!_canSave(payment)) return;
+    setState(() => _saving = true);
+    try {
+      ref
+          .read(comisionesControllerProvider(session.role).notifier)
+          .saveConfigurationDemo(
+            contractId: payment.contractId,
+            lines: List.unmodifiable(_draft),
+            actor: session.name,
+          );
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+              'Configuración actualizada para el contrato ${payment.contractFolio} · aplica a pagos futuros'),
+        ));
+      }
+    } on StateError catch (error) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message.toString())));
+      }
+    }
+  }
+
+  bool get _hasDuplicateConcepts =>
+      _draft.map((line) => line.conceptId).toSet().length != _draft.length;
+
+  bool _canSave(CommissionPaymentModel payment) {
+    final assigned = CommissionMath.sum(_draft.map((line) => line.percentage));
+    return !_hasDuplicateConcepts &&
+        assigned <= Decimal.fromInt(100) &&
+        !(_draft.any((line) =>
+            line.conceptId == 4 &&
+            payment.serviceName == 'APD')) &&
+        _draft.every(
+            (line) => CommissionMath.isAllowedPercentage(line.percentage));
+  }
+
+  Widget _summaryMetric(String label, String value) => SizedBox(
+        width: 195,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label,
+                style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+            const SizedBox(height: AppTheme.space1),
+            Text(value, style: const TextStyle(fontWeight: FontWeight.w700)),
+          ],
+        ),
+      );
+
+  Color _conceptColor(int conceptId) => switch (conceptId) {
+        1 => AppTheme.primary,
+        2 => AppTheme.secondaryDark,
+        3 => AppTheme.infoBase,
+        4 => AppTheme.gold,
+        _ => AppTheme.muted,
+      };
+
+  String _money(Decimal value) => MoneyFormatter.format(value);
+}
+
+class _CommissionEditorPanel extends StatefulWidget {
+  const _CommissionEditorPanel({
+    required this.payment,
+    required this.currentLines,
+    required this.initialIndex,
+    required this.receiversByConcept,
+  });
+
+  final CommissionPaymentModel payment;
+  final List<CommissionLineModel> currentLines;
+  final int? initialIndex;
+  final Map<int, List<DispersionReceiverModel>> receiversByConcept;
+
+  @override
+  State<_CommissionEditorPanel> createState() => _CommissionEditorPanelState();
+}
+
+class _CommissionEditorPanelState extends State<_CommissionEditorPanel> {
+  int? _conceptId;
+  String? _receiverId;
+  int? _editingIndex;
+  late final TextEditingController _percentage;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _editingIndex = widget.initialIndex;
+    final initial = widget.initialIndex == null
+        ? null
+        : widget.currentLines[widget.initialIndex!];
+    _conceptId = initial?.conceptId;
+    _receiverId = initial?.receiverId;
+    _percentage =
+        TextEditingController(text: initial?.percentage.toString() ?? '5');
+  }
+
+  @override
+  void dispose() {
+    _percentage.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final concept = _concept;
+    final candidate = _candidate;
+    final next = _nextLines(candidate);
+    final assigned = CommissionMath.sum(next.map((line) => line.percentage));
+    final excess = assigned - Decimal.fromInt(100);
+    final invalid = candidate == null ||
+        _locked ||
+        !CommissionMath.isAllowedPercentage(candidate.percentage) ||
+        assigned > Decimal.fromInt(100);
+    return SafeArea(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(AppTheme.space5, AppTheme.space5,
+                AppTheme.space3, AppTheme.space4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('CONTRATO ${widget.payment.contractFolio}',
+                          style: const TextStyle(
+                              color: AppTheme.secondaryDark,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.1)),
+                      const SizedBox(height: AppTheme.space2),
+                      Text(
+                        _editingIndex == null || concept == null
+                            ? 'Agregar comisión'
+                            : 'Editar comisión · ${concept.name}',
+                        style: Theme.of(context)
+                            .textTheme
+                            .headlineSmall
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Cerrar',
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(AppTheme.space5),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text('Destino',
+                      style: TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: AppTheme.space2),
+                  _destinationGrid(),
+                  const SizedBox(height: AppTheme.space4),
+                  if (concept != null) ...[
+                    const Text('Receptor',
+                        style: TextStyle(fontWeight: FontWeight.w700)),
+                    const SizedBox(height: AppTheme.space2),
+                    DropdownButtonFormField<String>(
+                      initialValue: _receiverId,
+                      isExpanded: true,
+                      decoration: const InputDecoration(labelText: 'Receptor'),
+                      items: _receivers
+                          .map((item) => DropdownMenuItem(
+                                value: item.id,
+                                child: Text(item.role == null
+                                    ? item.name
+                                    : '${item.name} · ${item.role}'),
+                              ))
+                          .toList(),
+                      onChanged: _locked
+                          ? null
+                          : (value) => setState(() => _receiverId = value),
+                    ),
+                    const SizedBox(height: AppTheme.space3),
+                    TextField(
+                      controller: _percentage,
+                      enabled: !_locked,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(
+                          labelText: 'Porcentaje', suffixText: '%'),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    const SizedBox(height: AppTheme.space4),
+                    Row(
+                      children: [
+                        Expanded(
+                            child: _previewMetric(
+                                'Importe estimado',
+                                candidate == null
+                                    ? '—'
+                                    : _money(CommissionMath.amountFor(
+                                        widget.payment.paymentAmount,
+                                        candidate.percentage)))),
+                        const SizedBox(width: AppTheme.space3),
+                        Expanded(
+                            child: _previewMetric('Empresa (remanente)',
+                                '${Decimal.fromInt(100) - assigned}%')),
+                      ],
+                    ),
+                    if (_error != null ||
+                        assigned > Decimal.fromInt(100) ||
+                        (candidate != null &&
+                            !CommissionMath.isAllowedPercentage(
+                                candidate.percentage))) ...[
+                      const SizedBox(height: AppTheme.space3),
+                      Text(
+                        _error ??
+                            (assigned > Decimal.fromInt(100)
+                                ? 'La suma excede 100% por $excess%; Empresa no puede ser negativa'
+                                : 'Usa porcentajes en incrementos de 0.5.'),
+                        style: const TextStyle(color: AppTheme.danger),
+                      ),
+                    ],
+                  ],
+                ],
+              ),
+            ),
+          ),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.all(AppTheme.space4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancelar')),
+                const SizedBox(width: AppTheme.space2),
+                FilledButton(
+                  onPressed: invalid ? null : _save,
+                  child: Text(_editingIndex == null
+                      ? 'Agregar comisión'
+                      : 'Guardar cambios'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _destinationGrid() => Wrap(
+        spacing: AppTheme.space2,
+        runSpacing: AppTheme.space2,
+        children: [
+          for (final concept in ComisionesDemoFixtures.concepts)
+            _destinationTile(concept),
+        ],
+      );
+
+  Widget _destinationTile(CommissionConceptModel concept) {
+    final existingIndex =
+        widget.currentLines.indexWhere((line) => line.conceptId == concept.id);
+    final disabled = concept.id == 4 && widget.payment.serviceName == 'APD';
+    final selected = _conceptId == concept.id;
+    final child = InkWell(
+      onTap: disabled || _locked ? null : () => _selectConcept(concept.id),
+      borderRadius: BorderRadius.circular(AppTheme.radiusField),
+      child: Container(
+        width: 116,
+        padding: const EdgeInsets.all(AppTheme.space2),
+        decoration: BoxDecoration(
+          color: disabled ? AppTheme.surfaceSecondary : AppTheme.surface,
+          border: Border.all(
+            color: selected ? AppTheme.secondaryDark : AppTheme.line,
+            width: selected ? 1.5 : 1,
+          ),
+          borderRadius: BorderRadius.circular(AppTheme.radiusField),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.circle,
+                    size: 9,
+                    color: disabled ? AppTheme.lineStrong : _color(concept.id)),
+                const SizedBox(width: AppTheme.space1),
+                Expanded(
+                    child: Text(concept.name, overflow: TextOverflow.ellipsis)),
+              ],
+            ),
+            const SizedBox(height: AppTheme.space1),
+            Text(
+                disabled
+                    ? 'No aplica'
+                    : existingIndex >= 0
+                        ? 'Existente'
+                        : 'Nuevo',
+                style: const TextStyle(color: AppTheme.muted, fontSize: 10)),
+          ],
+        ),
+      ),
+    );
+    return disabled
+        ? Tooltip(
+            message:
+                'IMSS solo aplica a Modalidad 10, Modalidad 40 y M40 Retroactiva',
+            child: child,
+          )
+        : child;
+  }
+
+  void _selectConcept(int conceptId) {
+    final existingIndex =
+        widget.currentLines.indexWhere((line) => line.conceptId == conceptId);
+    final existing =
+        existingIndex < 0 ? null : widget.currentLines[existingIndex];
+    setState(() {
+      _conceptId = conceptId;
+      _editingIndex = existingIndex < 0 ? widget.initialIndex : existingIndex;
+      _receiverId = existing?.receiverId ?? _receivers.firstOrNull?.id;
+      _percentage.text = existing?.percentage.toString() ?? '5';
+      _error = null;
+    });
+  }
+
+  CommissionConceptModel? get _concept => _conceptId == null
+      ? null
+      : ComisionesDemoFixtures.concepts
+          .where((item) => item.id == _conceptId)
+          .firstOrNull;
+
+  List<DispersionReceiverModel> get _receivers => _conceptId == null
+      ? const []
+      : widget.receiversByConcept[_conceptId!] ?? const [];
+
+  bool get _locked {
+    final index = _editingIndex;
+    return index != null &&
+        index < widget.currentLines.length &&
+        widget.currentLines[index].payrollIncluded &&
+        widget.currentLines[index].conceptId != 4;
+  }
+
+  CommissionLineModel? get _candidate {
+    final concept = _concept;
+    final receiver =
+        _receivers.where((item) => item.id == _receiverId).firstOrNull;
+    final percentage = Decimal.tryParse(_percentage.text.trim());
+    if (concept == null || receiver == null || percentage == null) return null;
+    return CommissionLineModel(
+      conceptId: concept.id,
+      concept: concept.name,
+      receiverId: receiver.id,
+      receiverName: receiver.name,
+      percentage: percentage,
+      payrollIncluded:
+          _editingIndex != null && _editingIndex! < widget.currentLines.length
+              ? widget.currentLines[_editingIndex!].payrollIncluded
+              : false,
+      payrollName:
+          _editingIndex != null && _editingIndex! < widget.currentLines.length
+              ? widget.currentLines[_editingIndex!].payrollName
+              : null,
+    );
+  }
+
+  List<CommissionLineModel> _nextLines(CommissionLineModel? candidate) {
+    final next = List<CommissionLineModel>.of(widget.currentLines);
+    if (candidate == null) return next;
+    if (_editingIndex != null && _editingIndex! < next.length) {
+      next[_editingIndex!] = candidate;
+    } else {
+      next.add(candidate);
+    }
+    return next;
+  }
+
+  Widget _previewMetric(String label, String value) => Container(
+        padding: const EdgeInsets.all(AppTheme.space3),
+        decoration: BoxDecoration(
+          border: Border.all(color: AppTheme.line),
+          borderRadius: BorderRadius.circular(AppTheme.radiusField),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label,
+                style: const TextStyle(color: AppTheme.muted, fontSize: 11)),
+            const SizedBox(height: AppTheme.space1),
+            Text(value, style: const TextStyle(fontWeight: FontWeight.w700)),
+          ],
+        ),
+      );
+
+  String _money(Decimal value) => MoneyFormatter.format(value);
+
+  Color _color(int id) => switch (id) {
+        1 => AppTheme.primary,
+        2 => AppTheme.secondaryDark,
+        3 => AppTheme.infoBase,
+        4 => AppTheme.gold,
+        _ => AppTheme.muted,
+      };
+
+  void _save() {
+    if (_locked) {
+      setState(() => _error =
+          'Incluida en prenómina. No muestran Editar ni Quitar. IMSS sigue editable.');
+      return;
+    }
+    final candidate = _candidate;
+    if (candidate == null) {
+      setState(
+          () => _error = 'Selecciona destino, receptor e ingresa porcentaje.');
+      return;
+    }
+    final next = _nextLines(candidate);
+    final assigned = CommissionMath.sum(next.map((line) => line.percentage));
+    if (assigned > Decimal.fromInt(100)) {
+      setState(() => _error =
+          'La suma excede 100% por ${assigned - Decimal.fromInt(100)}%; Empresa no puede ser negativa');
+      return;
+    }
+    if (!CommissionMath.isAllowedPercentage(candidate.percentage)) {
+      setState(() => _error = 'Usa porcentajes en incrementos de 0.5.');
+      return;
+    }
+    Navigator.pop(
+      context,
+      _CommissionEditorResult(index: _editingIndex, line: candidate),
+    );
+  }
+}
+
+class _CommissionEditorResult {
+  const _CommissionEditorResult({required this.index, required this.line});
+
+  final int? index;
+  final CommissionLineModel line;
 }

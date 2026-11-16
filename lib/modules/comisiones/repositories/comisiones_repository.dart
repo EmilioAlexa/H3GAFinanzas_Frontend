@@ -86,7 +86,7 @@ class ComisionesRepository {
     }
     final updated = current.withConfiguration(
       lines: List.unmodifiable(lines),
-      historyEntry: 'Configuración demo guardada por $actor',
+      historyEntry: 'Comisiones del contrato editadas por · $actor',
     );
     _payments[contractIndex] = updated;
     return updated;

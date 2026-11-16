@@ -12,7 +12,6 @@ import '../../../../core/widgets/app_dialog.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_state_panel.dart';
 import '../../../auth/auth.dart';
-import '../../../comisiones/fixtures/comisiones_demo_fixtures.dart';
 import '../../../pagos/fixtures/pagos_demo_fixtures.dart';
 import '../../../pagos/models/pago_model.dart';
 import '../../controllers/contratos_controller.dart';
@@ -148,8 +147,6 @@ class ContratoDetallePage extends ConsumerWidget {
           _economicSummary(context, contract),
           const SizedBox(height: AppTheme.space4),
           _paymentCalendar(context, contract),
-          const SizedBox(height: AppTheme.space4),
-          _dispersionCard(context, contract),
           if (contract.servicioId == 50) ...[
             const SizedBox(height: AppTheme.space4),
             _penaltiesCard(context, ref, role, contract, canEdit),
@@ -310,55 +307,6 @@ class ContratoDetallePage extends ConsumerWidget {
           if (payment != null)
             Text(MoneyFormatter.format(payment.monto),
                 style: Theme.of(context).textTheme.bodySmall),
-        ],
-      ),
-    );
-  }
-
-  Widget _dispersionCard(BuildContext context, ContratoModel contract) {
-    final payment = ComisionesDemoFixtures.payments
-        .where((item) => item.contractId == contract.id)
-        .firstOrNull;
-    return _card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text('Dispersión de recursos',
-              style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: AppTheme.space2),
-          const Text('Detalle de comisiones asociado al contrato (solo lectura).'),
-          const Divider(height: AppTheme.space6),
-          if (payment == null)
-            const Text('No hay una dispersiÃ³n asociada a este contrato.')
-          else
-            for (final line in payment.snapshot)
-              Padding(
-                padding: const EdgeInsets.only(bottom: AppTheme.space3),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(line.concept,
-                              style: const TextStyle(fontWeight: FontWeight.w700)),
-                          Text(line.receiverName,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(color: AppTheme.muted)),
-                        ],
-                      ),
-                    ),
-                    AppBadge(label: line.status, tone: line.status == 'Dispersada'
-                        ? AppBadgeTone.success
-                        : AppBadgeTone.warning),
-                    const SizedBox(width: AppTheme.space3),
-                    Text(MoneyFormatter.format(line.amount),
-                        style: const TextStyle(fontWeight: FontWeight.w700)),
-                  ],
-                ),
-              ),
         ],
       ),
     );
