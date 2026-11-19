@@ -447,79 +447,90 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
   ) async {
     await showDialog<void>(
       context: context,
-      builder: (dialogContext) => Dialog(
-        alignment: Alignment.centerRight,
-        insetPadding: EdgeInsets.zero,
-        shape: const RoundedRectangleBorder(),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: 500,
-            minHeight: MediaQuery.sizeOf(context).height,
-            maxHeight: MediaQuery.sizeOf(context).height,
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(AppTheme.space6),
-            child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(children: [
-                    const Expanded(
-                        child: Text('Información compartida con H3GA Ruta',
-                            style: TextStyle(
-                                color: AppTheme.secondaryDark,
-                                fontWeight: FontWeight.w700))),
-                    IconButton(
-                        tooltip: 'Cerrar detalle',
+      builder: (dialogContext) {
+        final size = MediaQuery.sizeOf(dialogContext);
+        final safeHeight =
+            size.height - MediaQuery.paddingOf(dialogContext).vertical;
+        final needsScroll = size.height < 760 || size.width < 600;
+        final content = Padding(
+          padding: const EdgeInsets.all(AppTheme.space6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(children: [
+                const Expanded(
+                    child: Text('Información compartida con H3GA Ruta',
+                        style: TextStyle(
+                            color: AppTheme.secondaryDark,
+                            fontWeight: FontWeight.w700))),
+                IconButton(
+                    tooltip: 'Cerrar detalle',
+                    onPressed: () => Navigator.pop(dialogContext),
+                    icon: const Icon(Icons.close)),
+              ]),
+              const SizedBox(height: AppTheme.space4),
+              Row(children: [
+                CircleAvatar(radius: 30, child: Text(user.iniciales)),
+                const SizedBox(width: AppTheme.space3),
+                Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                      Text(user.nombreCompleto,
+                          style: Theme.of(context).textTheme.headlineSmall),
+                      const SizedBox(height: AppTheme.space2),
+                      _statusBadge(user.activo),
+                    ])),
+              ]),
+              const SizedBox(height: AppTheme.space4),
+              _detailLine('Correo electrónico', user.correo),
+              _detailLine('Rol', user.rolNombre),
+              _detailLine('Fecha de creación',
+                  DateFormat('dd/MM/yyyy', 'es_MX').format(user.fechaCreacion)),
+              const SizedBox(height: AppTheme.space3),
+              const SizedBox(height: AppTheme.space4),
+              if (needsScroll)
+                const SizedBox(height: AppTheme.space4)
+              else
+                const Spacer(),
+              Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: AppTheme.space2,
+                  children: [
+                    OutlinedButton(
                         onPressed: () => Navigator.pop(dialogContext),
-                        icon: const Icon(Icons.close)),
+                        child: const Text('Cerrar')),
+                    FilledButton(
+                        onPressed: () async {
+                          Navigator.pop(dialogContext);
+                          await waitForDialogDismissal();
+                          if (mounted) {
+                            await _showUserForm(repository, users, user: user);
+                          }
+                        },
+                        child: const Text('Editar usuario')),
                   ]),
-                  const SizedBox(height: AppTheme.space4),
-                  Row(children: [
-                    CircleAvatar(radius: 30, child: Text(user.iniciales)),
-                    const SizedBox(width: AppTheme.space3),
-                    Expanded(
-                        child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                          Text(user.nombreCompleto,
-                              style: Theme.of(context).textTheme.headlineSmall),
-                          const SizedBox(height: AppTheme.space2),
-                          _statusBadge(user.activo),
-                        ])),
-                  ]),
-                  const SizedBox(height: AppTheme.space4),
-                  _detailLine('Correo electrónico', user.correo),
-                  _detailLine('Rol', user.rolNombre),
-                  _detailLine(
-                      'Fecha de creación',
-                      DateFormat('dd/MM/yyyy', 'es_MX')
-                          .format(user.fechaCreacion)),
-                  const SizedBox(height: AppTheme.space3),
-                  const SizedBox(height: AppTheme.space4),
-                  const Spacer(),
-                  Wrap(
-                      alignment: WrapAlignment.end,
-                      spacing: AppTheme.space2,
-                      children: [
-                        OutlinedButton(
-                            onPressed: () => Navigator.pop(dialogContext),
-                            child: const Text('Cerrar')),
-                        FilledButton(
-                            onPressed: () async {
-                              Navigator.pop(dialogContext);
-                              await waitForDialogDismissal();
-                              if (mounted) {
-                                await _showUserForm(repository, users,
-                                    user: user);
-                              }
-                            },
-                            child: const Text('Editar usuario')),
-                      ]),
-                ]),
+            ],
           ),
-        ),
-      ),
+        );
+        return Dialog(
+          alignment: Alignment.centerRight,
+          insetPadding: EdgeInsets.zero,
+          shape: const RoundedRectangleBorder(),
+          child: SafeArea(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: 500,
+                maxHeight: safeHeight,
+                minHeight: needsScroll ? 0 : safeHeight,
+              ),
+              child:
+                  needsScroll ? SingleChildScrollView(child: content) : content,
+            ),
+          ),
+        );
+      },
     );
   }
 

@@ -80,7 +80,8 @@ class ServiciosPage extends ConsumerWidget {
                 final spacing = AppTheme.space4;
                 final cardWidth =
                     (constraints.maxWidth - spacing * (columns - 1)) / columns;
-                final cardHeight = size == WindowSizeClass.compacto ? null : 292.0;
+                final cardHeight =
+                    size == WindowSizeClass.expandido ? 292.0 : null;
                 return Wrap(
                   spacing: spacing,
                   runSpacing: spacing,
@@ -89,7 +90,8 @@ class ServiciosPage extends ConsumerWidget {
                       SizedBox(
                         width: cardWidth,
                         height: cardHeight,
-                        child: _serviceCard(context, service, counts[service.id]),
+                        child:
+                            _serviceCard(context, service, counts[service.id]),
                       ),
                   ],
                 );
