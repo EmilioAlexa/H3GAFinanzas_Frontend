@@ -89,9 +89,13 @@ class ServiciosPage extends ConsumerWidget {
                     for (final service in services)
                       SizedBox(
                         width: cardWidth,
-                        height: cardHeight,
-                        child:
-                            _serviceCard(context, service, counts[service.id]),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: cardHeight ?? 0,
+                          ),
+                          child: _serviceCard(
+                              context, service, counts[service.id]),
+                        ),
                       ),
                   ],
                 );
