@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/storage/token_storage.dart';
 import '../models/auth_session_model.dart';
 import '../models/user_role_model.dart';
@@ -15,14 +16,24 @@ class AuthRepository {
     final response = await _dio.post<Map<String, Object?>>(
       '/auth/login',
       data: {'correo_electronico': email, 'contrasena': password},
+      options: Options(extra: {publicLoginRequestKey: true}),
     );
     final body = response.data!;
     final token = body['access_token']! as String;
     await _storage.saveToken(token);
-    return currentUser();
+    try {
+      return await currentUser();
+    } catch (_) {
+      await _storage.clear();
+      rethrow;
+    }
   }
 
   Future<AuthSessionModel> currentUser() async {
+    final token = await _storage.readToken();
+    if (token == null || token.isEmpty) {
+      throw const FormatException('No hay una sesión guardada.');
+    }
     final response = await _dio.get<Map<String, Object?>>('/auth/me');
     final body = response.data!;
     final roles = body['roles']! as Map<String, Object?>;
