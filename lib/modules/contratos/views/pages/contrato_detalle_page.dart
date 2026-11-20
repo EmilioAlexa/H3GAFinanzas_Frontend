@@ -6,6 +6,7 @@ import 'package:pdfrx/pdfrx.dart';
 
 import '../../../../app/config/env.dart';
 import '../../../../app/theme/app_theme.dart';
+import '../../../../core/network/api_error_model.dart';
 import '../../../../core/platform/selected_file.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_back_button.dart';
@@ -42,17 +43,27 @@ class ContratoDetallePage extends ConsumerWidget {
             message: 'El detalle requiere una sesión activa.',
           );
         }
-        final state = ref.watch(contratosControllerProvider(session.role));
+        final AsyncValue<List<ContratoModel>?> state = AppEnv.demoMode
+            ? ref.watch(contratosControllerProvider(session.role))
+            : ref
+                .watch(contratoDetailProvider(contratoId))
+                .whenData((value) => [value]);
         return state.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, stackTrace) => AppStatePanel(
             icon: Icons.cloud_off_outlined,
             title: 'No se pudo cargar el contrato',
-            message: 'Inténtalo de nuevo.',
+            message: ApiErrorModel.fromObject(error).message,
             action: TextButton.icon(
-              onPressed: () => ref
-                  .read(contratosControllerProvider(session.role).notifier)
-                  .load(),
+              onPressed: () {
+                if (!AppEnv.demoMode) {
+                  ref.invalidate(contratoDetailProvider(contratoId));
+                } else {
+                  ref
+                      .read(contratosControllerProvider(session.role).notifier)
+                      .load();
+                }
+              },
               icon: const Icon(Icons.refresh),
               label: const Text('Reintentar'),
             ),
@@ -87,8 +98,9 @@ class ContratoDetallePage extends ConsumerWidget {
     ContratoModel contract,
     UserRole role,
   ) {
-    final canEdit =
-        role != UserRole.asesor || contract.assignedToCurrentAdvisor;
+    final canEdit = role != UserRole.asesor ||
+        !AppEnv.demoMode ||
+        contract.assignedToCurrentAdvisor;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.space6),
       child: Column(
@@ -104,7 +116,7 @@ class ContratoDetallePage extends ConsumerWidget {
             description:
                 '${contract.clienteNombre} · Creado el ${_date(contract.creadoEn)}',
             actions: [
-              if (canEdit && AppEnv.demoMode)
+              if (canEdit)
                 OutlinedButton.icon(
                   onPressed: () =>
                       _showEditDialog(context, ref, role, contract),
@@ -113,7 +125,9 @@ class ContratoDetallePage extends ConsumerWidget {
                 ),
               OutlinedButton.icon(
                 onPressed: () {
-                  final payment = PagosDemoFixtures.payments
+                  final payment = (AppEnv.demoMode
+                          ? PagosDemoFixtures.payments
+                          : <PagoModel>[])
                       .where((item) => item.contratoId == contract.id)
                       .firstOrNull;
                   context
@@ -152,7 +166,8 @@ class ContratoDetallePage extends ConsumerWidget {
           _paymentCalendar(context, contract),
           const SizedBox(height: AppTheme.space4),
           _documentsActivity(context, contract),
-          if (contract.servicioId == 50) ...[
+          if ((AppEnv.demoMode && contract.servicioId == 50) ||
+              contract.servicioNombre.toLowerCase() == 'apd') ...[
             const SizedBox(height: AppTheme.space4),
             _penaltiesCard(context, ref, role, contract, canEdit),
           ],
@@ -213,9 +228,10 @@ class ContratoDetallePage extends ConsumerWidget {
       );
 
   Widget _economicSummary(BuildContext context, ContratoModel contract) {
-    final payments = PagosDemoFixtures.payments
-        .where((item) => item.contratoId == contract.id)
-        .toList();
+    final payments =
+        (AppEnv.demoMode ? PagosDemoFixtures.payments : <PagoModel>[])
+            .where((item) => item.contratoId == contract.id)
+            .toList();
     final monthly = contract.montoMensual == null
         ? payments.firstOrNull?.monto ?? Decimal.zero
         : Decimal.parse(contract.montoMensual!);
@@ -241,9 +257,21 @@ class ContratoDetallePage extends ConsumerWidget {
             spacing: AppTheme.space8,
             runSpacing: AppTheme.space4,
             children: [
-              _field('Total a pagar', MoneyFormatter.format(total)),
-              _field('Monto mensual', MoneyFormatter.format(monthly)),
-              _field('Saldo pendiente', MoneyFormatter.format(balance)),
+              _field(
+                  'Total a pagar',
+                  AppEnv.demoMode
+                      ? MoneyFormatter.format(total)
+                      : 'Pendiente de integración'),
+              _field(
+                  'Monto mensual',
+                  AppEnv.demoMode
+                      ? MoneyFormatter.format(monthly)
+                      : 'Pendiente de integración'),
+              _field(
+                  'Saldo pendiente',
+                  AppEnv.demoMode
+                      ? MoneyFormatter.format(balance)
+                      : 'Pendiente de integración'),
             ],
           ),
         ],
@@ -252,16 +280,20 @@ class ContratoDetallePage extends ConsumerWidget {
   }
 
   Widget _paymentCalendar(BuildContext context, ContratoModel contract) {
-    final payments = PagosDemoFixtures.payments
-        .where((item) => item.contratoId == contract.id)
-        .toList();
+    final payments =
+        (AppEnv.demoMode ? PagosDemoFixtures.payments : <PagoModel>[])
+            .where((item) => item.contratoId == contract.id)
+            .toList();
     final count = contract.cantidadPagos ??
         payments.map((item) => item.cantidadPagos ?? 0).fold<int>(
               0,
               (maximum, value) => maximum > value ? maximum : value,
             );
     if (count == 0) {
-      return _card(child: const Text('No hay mensualidades configuradas.'));
+      return _card(
+          child: const Text(AppEnv.demoMode
+              ? 'No hay mensualidades configuradas.'
+              : 'Calendario de mensualidades: pendiente de integración.'));
     }
     return _card(
       child: Column(
@@ -292,7 +324,8 @@ class ContratoDetallePage extends ConsumerWidget {
   ) {
     final payment =
         payments.where((item) => item.numeroPago == number).firstOrNull;
-    final state = payment?.estado ?? 'Pendiente';
+    final state =
+        payment?.estado ?? (AppEnv.demoMode ? 'Pendiente' : 'Sin integrar');
     final tone = state == 'Validado'
         ? AppBadgeTone.success
         : state.startsWith('Pendiente')
@@ -319,9 +352,10 @@ class ContratoDetallePage extends ConsumerWidget {
     BuildContext context,
     ContratoModel contract,
   ) {
-    final payments = PagosDemoFixtures.payments
-        .where((payment) => payment.contratoId == contract.id)
-        .toList();
+    final payments =
+        (AppEnv.demoMode ? PagosDemoFixtures.payments : <PagoModel>[])
+            .where((payment) => payment.contratoId == contract.id)
+            .toList();
     final signedDocument = contract.documentos.firstOrNull;
     return _card(
       child: Column(
@@ -351,7 +385,10 @@ class ContratoDetallePage extends ConsumerWidget {
             leading: const Icon(Icons.credit_card_outlined,
                 color: AppTheme.secondaryDark),
             title: const Text('Pagos realizados'),
-            trailing: Text('${payments.length}',
+            trailing: Text(
+                AppEnv.demoMode
+                    ? '${payments.length}'
+                    : 'Pendiente de integración',
                 style: const TextStyle(fontWeight: FontWeight.w700)),
           ),
           const Divider(height: 1),
@@ -379,15 +416,15 @@ class ContratoDetallePage extends ConsumerWidget {
           title: 'Vista previa del contrato',
           description: 'Contrato ${contract.folio}',
           icon: Icons.check_circle_outline,
-          child: const Text(
-            'No se encontró ningún contrato firmado o no se tiene adjuntado ningún archivo.',
-          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
               child: const Text('Cerrar'),
             ),
           ],
+          child: const Text(
+            'No se encontró ningún contrato firmado o no se tiene adjuntado ningún archivo.',
+          ),
         ),
       );
       return;
@@ -423,12 +460,20 @@ class ContratoDetallePage extends ConsumerWidget {
         title: 'Historial de cambios',
         description: 'Contrato ${contract.folio}',
         icon: Icons.history,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cerrar'),
+          ),
+        ],
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _historyItem('Contrato creado', _date(contract.fechaContrato)),
+            _historyItem('Contrato creado', _date(contract.creadoEn)),
             _historyItem('Estado actual', contract.estadoNombre),
+            if (!AppEnv.demoMode)
+              const Text('Historial y documentos pendientes de integración.'),
             _historyItem(
               'Documentación',
               contract.documentos.isEmpty
@@ -437,12 +482,6 @@ class ContratoDetallePage extends ConsumerWidget {
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cerrar'),
-          ),
-        ],
       ),
     );
   }
@@ -508,7 +547,9 @@ class ContratoDetallePage extends ConsumerWidget {
           ),
           const Divider(height: AppTheme.space6),
           if (penalties.isEmpty)
-            const Text('No hay penalizaciones asignadas a este contrato.')
+            const Text(AppEnv.demoMode
+                ? 'No hay penalizaciones asignadas a este contrato.'
+                : 'Penalizaciones pendientes de integración.')
           else
             for (final penalty in penalties)
               ListTile(
@@ -551,13 +592,21 @@ class ContratoDetallePage extends ConsumerWidget {
             child: const Text('Cancelar'),
           ),
           FilledButton(
-            onPressed: () {
+            onPressed: () async {
               key.currentState!.save();
-              ref
-                  .read(contratosControllerProvider(role).notifier)
-                  .updateObservationsDemo(
-                      contract.id, observations.isEmpty ? null : observations);
-              Navigator.pop(dialogContext);
+              try {
+                await ref
+                    .read(contratosControllerProvider(role).notifier)
+                    .updateObservations(contract.id,
+                        observations.isEmpty ? null : observations);
+                ref.invalidate(contratoDetailProvider(contract.id));
+                if (dialogContext.mounted) Navigator.pop(dialogContext);
+              } catch (error) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text(ApiErrorModel.fromObject(error).message)));
+                }
+              }
             },
             child: const Text('Guardar'),
           ),

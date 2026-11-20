@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:decimal/decimal.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../auth/auth.dart';
 import '../../../core/platform/selected_file.dart';
+import '../../auth/auth.dart';
 import '../models/contrato_model.dart';
 import '../models/penalizacion_model.dart';
 import '../repositories/contratos_repository.dart';
@@ -24,14 +24,35 @@ class ContratosController
 
   final ContratosRepository _repository;
   final UserRole _role;
+  int _loadVersion = 0;
 
   Future<void> load() async {
+    final version = ++_loadVersion;
     state = const AsyncLoading();
     try {
-      state = AsyncData(await _repository.load(_role));
+      final contracts = await _repository.load(_role);
+      if (mounted && version == _loadVersion) {
+        state = AsyncData(contracts);
+      }
     } catch (error, stackTrace) {
-      state = AsyncError(error, stackTrace);
+      if (mounted && version == _loadVersion) {
+        state = AsyncError(error, stackTrace);
+      }
     }
+  }
+
+  Future<ContratoModel> create(Map<String, dynamic> payload) async {
+    final contract = await _repository.create(payload);
+    if (mounted) await load();
+    return contract;
+  }
+
+  Future<ContratoModel> updateObservations(
+      String id, String? observations) async {
+    final contract =
+        await _repository.updateObservations(id, observations, _role);
+    if (mounted) await load();
+    return contract;
   }
 
   ContratoModel? findById(String id) => _repository.findById(id, _role);
@@ -106,3 +127,9 @@ class ContratosController
     return contract;
   }
 }
+
+final contratoDetailProvider =
+    FutureProvider.autoDispose.family<ContratoModel, String>((ref, id) {
+  final session = ref.watch(authControllerProvider).valueOrNull;
+  return ref.watch(contratosRepositoryProvider).detail(id, session!.role);
+});

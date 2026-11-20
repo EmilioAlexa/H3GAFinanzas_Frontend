@@ -31,6 +31,8 @@ class _ContratosPageState extends ConsumerState<ContratosPage> {
   String _service = 'Todos los servicios';
   String _status = 'Todos los estados';
   bool? _filtersExpanded;
+  Set<String> _serviceNames = {};
+  Set<String> _statusNames = {};
 
   @override
   void dispose() {
@@ -84,6 +86,10 @@ class _ContratosPageState extends ConsumerState<ContratosPage> {
   }
 
   Widget _content(BuildContext context, List<ContratoModel> contracts) {
+    _serviceNames = contracts.map((e) => e.servicioNombre).toSet();
+    _statusNames = contracts.map((e) => e.estadoNombre).toSet();
+    if (!_serviceNames.contains(_service)) _service = 'Todos los servicios';
+    if (!_statusNames.contains(_status)) _status = 'Todos los estados';
     final widthClass = Responsive.of(context);
     final filtered = contracts.where(_matches).toList();
     return SingleChildScrollView(
@@ -96,12 +102,11 @@ class _ContratosPageState extends ConsumerState<ContratosPage> {
             title: 'Contratos',
             description: 'Consulta acuerdos activos e históricos.',
             actions: [
-              if (AppEnv.demoMode)
-                FilledButton.icon(
-                  onPressed: () => context.go('/contratos/nuevo'),
-                  icon: const Icon(Icons.add),
-                  label: const Text('Crear contrato'),
-                ),
+              FilledButton.icon(
+                onPressed: () => context.go('/contratos/nuevo'),
+                icon: const Icon(Icons.add),
+                label: const Text('Crear contrato'),
+              ),
             ],
           ),
           _contractMetrics(context),
@@ -113,7 +118,7 @@ class _ContratosPageState extends ConsumerState<ContratosPage> {
   }
 
   Widget _contractMetrics(BuildContext context) {
-    const metrics = [
+    final metrics = [
       ('Contratos activos', '248', 'Total de la cartera'),
       ('Por finalizar', '17', 'Próximos 30 días'),
       ('Valor contratado', r'$3.8 M', 'En contratos activos'),
@@ -132,8 +137,10 @@ class _ContratosPageState extends ConsumerState<ContratosPage> {
                 width: width,
                 child: AppMetricCard(
                   label: metrics[index].$1,
-                  value: metrics[index].$2,
-                  detail: metrics[index].$3,
+                  value: AppEnv.demoMode ? metrics[index].$2 : '—',
+                  detail: AppEnv.demoMode
+                      ? metrics[index].$3
+                      : 'Pendiente de integración',
                   icon: switch (index) {
                     0 => Icons.description_outlined,
                     1 => Icons.schedule_outlined,
@@ -258,28 +265,22 @@ class _ContratosPageState extends ConsumerState<ContratosPage> {
     final service = AppFilterDropdown<String>(
       value: _service,
       label: 'Servicio',
-      items: const [
-        DropdownMenuItem(
+      items: [
+        const DropdownMenuItem(
             value: 'Todos los servicios', child: Text('Todos los servicios')),
-        DropdownMenuItem(value: 'Modalidad 10', child: Text('Modalidad 10')),
-        DropdownMenuItem(value: 'Modalidad 40', child: Text('Modalidad 40')),
-        DropdownMenuItem(
-            value: 'M40 Retroactiva', child: Text('M40 Retroactiva')),
-        DropdownMenuItem(value: 'APD', child: Text('APD')),
+        for (final name in _serviceNames)
+          DropdownMenuItem(value: name, child: Text(name)),
       ],
       onChanged: (value) => setState(() => _service = value ?? _service),
     );
     final status = AppFilterDropdown<String>(
       value: _status,
       label: 'Estado',
-      items: const [
-        DropdownMenuItem(
+      items: [
+        const DropdownMenuItem(
             value: 'Todos los estados', child: Text('Todos los estados')),
-        DropdownMenuItem(value: 'Activo', child: Text('Activo')),
-        DropdownMenuItem(value: 'En proceso', child: Text('En proceso')),
-        DropdownMenuItem(
-            value: 'Pago pendiente', child: Text('Pago pendiente')),
-        DropdownMenuItem(value: 'Pausado', child: Text('Pausado')),
+        for (final name in _statusNames)
+          DropdownMenuItem(value: name, child: Text(name)),
       ],
       onChanged: (value) => setState(() => _status = value ?? _status),
     );

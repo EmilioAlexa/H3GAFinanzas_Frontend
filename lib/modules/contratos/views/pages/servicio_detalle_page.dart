@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../app/config/env.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/export/document_export_service.dart';
 import '../../../../core/utils/money_formatter.dart';
@@ -16,6 +17,7 @@ import '../../controllers/contratos_controller.dart';
 import '../../controllers/servicios_controller.dart';
 import '../../models/contrato_model.dart';
 import '../../models/servicio_model.dart';
+import '../../repositories/contratos_repository.dart';
 
 class ServicioDetallePage extends ConsumerWidget {
   const ServicioDetallePage({required this.servicioClave, super.key});
@@ -56,6 +58,23 @@ class ServicioDetallePage extends ConsumerWidget {
             message: 'Regresa al catálogo de Servicios.',
           );
         }
+        final detailState = AppEnv.demoMode
+            ? null
+            : ref.watch(servicioDetailProvider(service.id));
+        if (detailState != null && detailState.isLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (detailState != null && detailState.hasError) {
+          return AppStatePanel(
+              icon: Icons.cloud_off_outlined,
+              title: 'No se pudo cargar el detalle',
+              message: 'Inténtalo de nuevo.',
+              action: TextButton(
+                  onPressed: () =>
+                      ref.invalidate(servicioDetailProvider(service.id)),
+                  child: const Text('Reintentar')));
+        }
+        final selectedService = detailState?.valueOrNull ?? service;
         return auth.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, stackTrace) => const AppStatePanel(
@@ -93,7 +112,7 @@ class ServicioDetallePage extends ConsumerWidget {
                       title: 'Sin seguimientos disponibles',
                       message: 'No fue posible consultar los contratos.',
                     )
-                  : _content(context, service, contracts),
+                  : _content(context, selectedService, contracts),
             );
           },
         );
@@ -106,7 +125,7 @@ class ServicioDetallePage extends ConsumerWidget {
     ServicioModel service,
     List<ContratoModel> contracts,
   ) {
-    final items = contracts.take(3).toList();
+    final items = contracts.where((e) => e.servicioId == service.id).toList();
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.space6),
       child: Column(
@@ -223,8 +242,10 @@ class ServicioDetallePage extends ConsumerWidget {
                 width: width,
                 child: AppMetricCard(
                   label: values[index].$1,
-                  value: values[index].$2,
-                  detail: values[index].$3,
+                  value: AppEnv.demoMode ? values[index].$2 : '—',
+                  detail: AppEnv.demoMode
+                      ? values[index].$3
+                      : 'Pendiente de integración',
                   icon: switch (index) {
                     0 => Icons.description_outlined,
                     1 => Icons.account_balance_wallet_outlined,
@@ -262,10 +283,10 @@ class ServicioDetallePage extends ConsumerWidget {
             const SizedBox(height: AppTheme.space4),
             const Row(
               children: [
-                _PipelineStep(label: 'Contrato', complete: true),
-                _PipelineStep(label: 'Documentos', complete: true),
-                _PipelineStep(label: 'Validación', complete: true),
-                _PipelineStep(label: 'Recursos', complete: true),
+                _PipelineStep(label: 'Contrato', complete: AppEnv.demoMode),
+                _PipelineStep(label: 'Documentos', complete: AppEnv.demoMode),
+                _PipelineStep(label: 'Validación', complete: AppEnv.demoMode),
+                _PipelineStep(label: 'Recursos', complete: AppEnv.demoMode),
                 _PipelineStep(label: 'Cobro', complete: false),
               ],
             ),
@@ -353,3 +374,7 @@ class _PipelineStep extends StatelessWidget {
         ),
       );
 }
+
+final servicioDetailProvider = FutureProvider.autoDispose
+    .family<ServicioModel, int>(
+        (ref, id) => ref.watch(contratosRepositoryProvider).serviceDetail(id));
