@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../app/config/env.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/responsive/window_size_class.dart';
 import '../../../../core/utils/dialog_lifecycle.dart';
+import '../../../../core/network/api_error_model.dart';
+import '../../repositories/clientes_repository.dart';
+import 'package:dio/dio.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_data_column.dart';
 import '../../../../core/widgets/app_dialog.dart';
@@ -18,7 +22,6 @@ import '../../../../core/widgets/app_state_panel.dart';
 import '../../../auth/auth.dart';
 import '../../../contratos/fixtures/contratos_demo_fixtures.dart';
 import '../../../pagos/fixtures/pagos_demo_fixtures.dart';
-import '../../../usuarios/repositories/usuarios_repository.dart';
 import '../../controllers/clientes_controller.dart';
 import '../../models/cliente_model.dart';
 
@@ -29,11 +32,17 @@ class ClientesPage extends ConsumerStatefulWidget {
   ConsumerState<ClientesPage> createState() => _ClientesPageState();
 }
 
-enum _ClientAction { view, edit, toggleStatus, delete }
+enum _ClientAction {
+  view,
+  edit,
+  toggleStatus,
+  delete
+}
 
 enum _ClientDialogMode { create, edit, view }
 
 class _ClientesPageState extends ConsumerState<ClientesPage> {
+  bool get _demoMode => ref.read(clientesRepositoryProvider).demoMode;
   static const _pageSize = 5;
   final _searchController = TextEditingController();
 
@@ -42,10 +51,13 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
   String _serviceFilter = 'Todos los servicios';
   int _page = 1;
   bool? _filtersExpanded;
+  Timer? _searchDebounce;
+  UserRole? _activeRole;
 
   @override
   void dispose() {
     _searchController.dispose();
+    _searchDebounce?.cancel();
     super.dispose();
   }
 
@@ -68,6 +80,7 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
           );
         }
         final state = ref.watch(clientesControllerProvider(session.role));
+        _activeRole = session.role;
         return state.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, stackTrace) => AppStatePanel(
@@ -102,23 +115,31 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
       LayoutBuilder(
         builder: (context, constraints) {
           final widthClass = Responsive.of(context);
-          final filtered = _filter(clients);
+          final filtered = _demoMode ? _filter(clients) : clients;
           final hasFilters = _query.trim().isNotEmpty ||
               _statusFilter != 'Todos los estados' ||
               _serviceFilter != 'Todos los servicios';
-          final visibleTotal = hasFilters ? filtered.length : 326;
-          final pageCount =
-              visibleTotal == 0 ? 1 : (visibleTotal / _pageSize).ceil();
+          final controller =
+              ref.read(clientesControllerProvider(role).notifier);
+          final visibleTotal = _demoMode
+              ? (hasFilters ? filtered.length : 326)
+              : controller.total;
+          final pageCount = _demoMode
+              ? (visibleTotal == 0 ? 1 : (visibleTotal / _pageSize).ceil())
+              : (controller.totalPages == 0 ? 1 : controller.totalPages);
           if (_page > pageCount) _page = pageCount;
           final start = (_page - 1) * _pageSize;
-          final pageItems = hasFilters
-              ? filtered.skip(start).take(_pageSize).toList()
-              : filtered.isEmpty
-                  ? <ClienteModel>[]
-                  : List.generate(
-                      _pageSize,
-                      (index) => filtered[(start + index) % filtered.length],
-                    );
+          final pageItems = !_demoMode
+              ? filtered
+              : hasFilters
+                  ? filtered.skip(start).take(_pageSize).toList()
+                  : filtered.isEmpty
+                      ? <ClienteModel>[]
+                      : List.generate(
+                          _pageSize,
+                          (index) =>
+                              filtered[(start + index) % filtered.length],
+                        );
           return SingleChildScrollView(
             padding: const EdgeInsets.all(AppTheme.space6),
             child: Column(
@@ -129,7 +150,7 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
                   title: 'Clientes',
                   description: 'Información compartida desde H3GA Ruta.',
                   actions: [
-                    if (AppEnv.demoMode)
+                    if (role == UserRole.asesor)
                       FilledButton.icon(
                         onPressed: () => _showClientDialog(
                           context,
@@ -141,14 +162,30 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
                       ),
                   ],
                 ),
-                _summary(context),
+                if (_demoMode)
+                  _summary(context)
+                else
+                  Wrap(
+                    spacing: AppTheme.space5,
+                    runSpacing: AppTheme.space2,
+                    children: [
+                      Text('${controller.total} clientes',
+                          style: const TextStyle(fontWeight: FontWeight.w700)),
+                      _summaryLabel(
+                          context, 'Activos: —', AppTheme.successBase),
+                      _summaryLabel(
+                          context, 'En seguimiento: —', AppTheme.warningBase),
+                    ],
+                  ),
                 const SizedBox(height: AppTheme.space4),
                 _listPanel(
                   context,
                   role: role,
                   clients: pageItems,
                   filteredCount: visibleTotal,
-                  totalCount: hasFilters ? clients.length : 326,
+                  totalCount: _demoMode
+                      ? (hasFilters ? clients.length : 326)
+                      : controller.total,
                   page: _page,
                   pageCount: pageCount,
                   widthClass: widthClass,
@@ -295,10 +332,20 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
     final search = TextField(
       key: const Key('clientes-search'),
       controller: _searchController,
-      onChanged: (value) => setState(() {
-        _query = value;
-        _page = 1;
-      }),
+      onChanged: (value) {
+        setState(() {
+          _query = value;
+          _page = 1;
+        });
+        if (!_demoMode && _activeRole != null) {
+          _searchDebounce?.cancel();
+          _searchDebounce = Timer(
+              const Duration(milliseconds: 400),
+              () => ref
+                  .read(clientesControllerProvider(_activeRole!).notifier)
+                  .search(value));
+        }
+      },
       decoration: const InputDecoration(
         hintText: 'Buscar por nombre, folio o CURP…',
         prefixIcon: Icon(Icons.search),
@@ -317,7 +364,7 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
           Row(children: [
             Expanded(child: search),
             const SizedBox(width: AppTheme.space2),
-            filterButton,
+            if (_demoMode) filterButton,
           ]),
           if (filtersVisible) ...[
             const SizedBox(height: AppTheme.space3),
@@ -333,7 +380,7 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         SizedBox(width: 330, child: search),
-        filterButton,
+        if (_demoMode) filterButton,
         if (filtersVisible) ...[
           SizedBox(width: 190, child: _statusDropdown()),
           SizedBox(width: 190, child: _serviceDropdown()),
@@ -489,7 +536,10 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
       );
 
   Widget _statusBadge(ClienteModel client) {
-    final status = client.demoMetadata?.status;
+    final status = client.demoMetadata?.status ??
+        (client.pausado == null
+            ? null
+            : (client.pausado! ? 'Pausado' : 'Activo'));
     if (status == null) return const SizedBox.shrink();
     final tone = switch (status) {
       'Activo' => AppBadgeTone.success,
@@ -525,16 +575,20 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
             value: _ClientAction.view,
             child: Text('Ver cliente'),
           ),
-          const PopupMenuItem(
-            value: _ClientAction.edit,
-            child: Text('Editar cliente'),
-          ),
-          PopupMenuItem(
-            value: _ClientAction.toggleStatus,
-            child: Text(client.demoMetadata?.status == 'Pausado'
-                ? 'Activar cliente'
-                : 'Pausar cliente'),
-          ),
+          if (role == UserRole.administrador || role == UserRole.asesor)
+            const PopupMenuItem(
+              value: _ClientAction.edit,
+              child: Text('Editar cliente'),
+            ),
+          if (role == UserRole.administrador ||
+              role == UserRole.administradorFinanciero)
+            PopupMenuItem(
+              value: _ClientAction.toggleStatus,
+              child: Text(
+                  (client.pausado ?? (client.demoMetadata?.status == 'Pausado'))
+                      ? 'Activar cliente'
+                      : 'Pausar cliente'),
+            ),
           if (_canDeleteClient(role, client))
             const PopupMenuItem(
               value: _ClientAction.delete,
@@ -546,8 +600,9 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
   bool _canDeleteClient(UserRole role, ClienteModel client) =>
       (role == UserRole.administrador ||
           role == UserRole.administradorFinanciero) &&
-      client.demoMetadata?.status == 'Pausado' &&
-      !_hasRelatedRecords(client.id);
+      (!_demoMode ||
+          (client.demoMetadata?.status == 'Pausado' &&
+              !_hasRelatedRecords(client.id)));
 
   bool _hasRelatedRecords(String clientId) {
     final hasContract = ContratosDemoFixtures.contracts
@@ -566,7 +621,7 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
     UserRole role,
     ClienteModel client,
   ) async {
-    final paused = client.demoMetadata?.status == 'Pausado';
+    final paused = client.pausado ?? (client.demoMetadata?.status == 'Pausado');
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AppDialog(
@@ -592,12 +647,22 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
     await waitForDialogDismissal();
     if (!mounted || !context.mounted) return;
     try {
+      if (!_demoMode) {
+        await ref
+            .read(clientesControllerProvider(role).notifier)
+            .setPaused(client);
+        ref.invalidate(clienteDetalleProvider(client.id));
+        return;
+      }
       ref.read(clientesControllerProvider(role).notifier).toggleStatusDemo(
             client.id,
           );
-    } on StateError catch (error) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error.message)));
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(error is StateError
+              ? error.message
+              : ApiErrorModel.fromObject(error).message)));
     }
   }
 
@@ -607,6 +672,10 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
     ClienteModel client,
   ) async {
     if (!_canDeleteClient(role, client)) return;
+    if (!_demoMode) {
+      await _previewDelete(context, role, client);
+      return;
+    }
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AppDialog(
@@ -641,16 +710,102 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
     }
   }
 
+  Future<void> _previewDelete(
+      BuildContext context, UserRole role, ClienteModel client) async {
+    final repository = ref.read(clientesRepositoryProvider);
+    try {
+      final preview = await repository.dependencies(client.id);
+      if (!context.mounted) return;
+      final blocking = (preview['bloqueantes'] as List<dynamic>?) ?? [];
+      final allowed = preview['apto_para_eliminacion'] == true;
+      final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+                title: const Text('Dependencias del cliente'),
+                content: SingleChildScrollView(
+                    child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                      Text(allowed
+                          ? 'No hay dependencias bloqueantes. ¿Deseas eliminar este cliente?'
+                          : 'El cliente conserva dependencias y no puede eliminarse.'),
+                      for (final item in blocking)
+                        Text('${item['tabla']}: ${item['cantidad']}'),
+                      const Text(
+                          'Las dependencias se comprueban de nuevo al confirmar.'),
+                    ])),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(dialogContext, false),
+                      child: const Text('Cancelar')),
+                  if (allowed)
+                    FilledButton(
+                        onPressed: () => Navigator.pop(dialogContext, true),
+                        child: const Text('Eliminar'))
+                ],
+              ));
+      if (confirmed != true || !context.mounted) return;
+      await repository.delete(client.id);
+      await ref.read(clientesControllerProvider(role).notifier).load();
+      if (context.mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Cliente eliminado.')));
+    } catch (error) {
+      if (!context.mounted) return;
+      if (error is DioException && error.response?.statusCode == 409) {
+        final body = error.response?.data;
+        final dependencies = body is Map && body['dependencias'] is List
+            ? body['dependencias'] as List
+            : <dynamic>[];
+        await showDialog<void>(
+            context: context,
+            builder: (dialogContext) => AlertDialog(
+                    title: const Text('La eliminación presenta un conflicto'),
+                    content: Text(dependencies.isEmpty
+                        ? 'Actualiza la vista de dependencias e inténtalo de nuevo.'
+                        : dependencies
+                            .map((e) => '${e['tabla']}: ${e['cantidad']}')
+                            .join('\n')),
+                    actions: [
+                      TextButton(
+                          onPressed: () => Navigator.pop(dialogContext),
+                          child: const Text('Cerrar'))
+                    ]));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(ApiErrorModel.fromObject(error).message)));
+      }
+    }
+  }
+
   Future<void> _showClientDialog(
     BuildContext context,
     UserRole role, {
     ClienteModel? client,
     required _ClientDialogMode mode,
   }) async {
+    if (!_demoMode &&
+        mode == _ClientDialogMode.create &&
+        role != UserRole.asesor) return;
+    if (!_demoMode && client != null) {
+      try {
+        client = await ref.read(clientesRepositoryProvider).detail(client.id);
+      } catch (error) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(ApiErrorModel.fromObject(error).message)),
+          );
+        }
+        return;
+      }
+      if (!context.mounted || !mounted) return;
+    }
     final canEdit = client == null ||
         role == UserRole.administrador ||
         (role == UserRole.asesor &&
-            (client.demoMetadata?.assignedToCurrentAdvisor ?? false));
+            (!_demoMode ||
+                (client.demoMetadata?.assignedToCurrentAdvisor ?? false)));
     if (mode == _ClientDialogMode.edit && !canEdit) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -666,28 +821,12 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
     var correo = client?.correoElectronico ?? '';
     var curp = client?.curp ?? '';
     var rfc = client?.rfc ?? '';
-    var ingreso = _dateInput(client?.fechaIngreso);
     var nacimiento = _dateInput(client?.fechaNacimiento);
     var direccion = client?.direccion ?? '';
     var referido = client?.referidoPor ?? '';
     var observaciones = client?.observaciones ?? '';
-    final ingresoController = TextEditingController(text: ingreso);
+    var saving = false;
     final nacimientoController = TextEditingController(text: nacimiento);
-    final advisors = UsuariosRepository()
-        .listDemo()
-        .where((user) => user.rolId == 'demo-role-asesor' && user.activo)
-        .toList();
-    var advisorId = client?.asesorId ??
-        advisors
-            .where((user) =>
-                user.nombreCompleto == client?.demoMetadata?.advisorName)
-            .map((user) => user.id)
-            .firstOrNull ??
-        advisors.firstOrNull?.id;
-    String? advisorName() => advisors
-        .where((user) => user.id == advisorId)
-        .map((user) => user.nombreCompleto)
-        .firstOrNull;
     final readOnly = mode == _ClientDialogMode.view;
     final title = switch (mode) {
       _ClientDialogMode.create => 'Registrar cliente',
@@ -709,11 +848,53 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
             if (!readOnly)
               FilledButton.icon(
                 onPressed: () async {
+                  if (saving) return;
                   if (!formKey.currentState!.validate()) return;
                   formKey.currentState!.save();
                   final controller = ref.read(
                     clientesControllerProvider(role).notifier,
                   );
+                  if (!_demoMode) {
+                    saving = true;
+                    try {
+                      final model = ClienteModel(
+                        id: client?.id ?? '',
+                        nombre: nombre,
+                        apellidoPaterno: apellidoPaterno,
+                        apellidoMaterno: _nullable(apellidoMaterno),
+                        telefono: _nullable(telefono),
+                        correoElectronico: _nullable(correo),
+                        curp: _nullable(curp),
+                        rfc: _nullable(rfc),
+                        fechaNacimiento: _parseDate(nacimiento),
+                        direccion: _nullable(direccion),
+                        referidoPor: _nullable(referido),
+                        observaciones: _nullable(observaciones),
+                      );
+                      final saved =
+                          await controller.save(model, editing: client != null);
+                      ref.invalidate(clienteDetalleProvider(saved.id));
+                      if (dialogContext.mounted) Navigator.pop(dialogContext);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text(
+                                  'Datos admitidos por la API guardados.')),
+                        );
+                      }
+                    } catch (error) {
+                      if (dialogContext.mounted) {
+                        ScaffoldMessenger.of(dialogContext).showSnackBar(
+                          SnackBar(
+                              content: Text(
+                                  ApiErrorModel.fromObject(error).message)),
+                        );
+                      }
+                    } finally {
+                      saving = false;
+                    }
+                    return;
+                  }
                   final updatedClient = client == null
                       ? null
                       : ClienteModel(
@@ -725,15 +906,14 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
                           correoElectronico: _nullable(correo),
                           curp: _nullable(curp),
                           rfc: _nullable(rfc),
-                          asesorId: advisorId,
-                          fechaIngreso: _parseDate(ingreso),
                           fechaNacimiento: _parseDate(nacimiento),
                           direccion: _nullable(direccion),
                           referidoPor: _nullable(referido),
                           observaciones: _nullable(observaciones),
                           demoMetadata: (
                             status: client.demoMetadata?.status ?? 'Activo',
-                            advisorName: advisorName(),
+                            advisorName:
+                                client.demoMetadata?.advisorName,
                             service: client.demoMetadata?.service,
                             assignedToCurrentAdvisor:
                                 client.demoMetadata?.assignedToCurrentAdvisor ??
@@ -752,9 +932,6 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
                       correoElectronico: _nullable(correo),
                       curp: _nullable(curp),
                       rfc: _nullable(rfc),
-                      asesorId: advisorId,
-                      asesorNombre: advisorName(),
-                      fechaIngreso: _parseDate(ingreso),
                       fechaNacimiento: _parseDate(nacimiento),
                     );
                   } else {
@@ -780,16 +957,23 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
                   int maxLines = 1,
                   String? Function(String?)? validator,
                   bool enabled = true,
+                  bool unavailable = false,
+                  List<TextInputFormatter>? inputFormatters,
                 }) =>
                     SizedBox(
                       width: width,
                       child: TextFormField(
                         initialValue: value,
-                        enabled: enabled && !readOnly,
+                        enabled: enabled && !readOnly && !unavailable,
                         keyboardType: keyboardType,
                         maxLines: maxLines,
-                        decoration: InputDecoration(labelText: label),
-                        validator: validator,
+                        inputFormatters: inputFormatters,
+                        decoration: InputDecoration(
+                            labelText: label,
+                            helperText: unavailable
+                                ? 'Aún no disponible para guardar'
+                                : null),
+                        validator: unavailable ? null : validator,
                         onSaved: (value) => onSaved(value?.trim() ?? ''),
                       ),
                     );
@@ -808,17 +992,20 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
                           labelText: label,
                           suffixIcon: const Icon(Icons.calendar_today_outlined),
                         ),
-                        validator: _required,
                         onTap: readOnly
                             ? null
                             : () async {
-                                final initial = _parseDate(controller.text) ??
-                                    DateTime.now();
+                                final now = DateTime.now();
+                                final stored = _parseDate(controller.text);
+                                final initial =
+                                    stored == null || stored.isAfter(now)
+                                        ? now
+                                        : stored;
                                 final picked = await showDatePicker(
                                   context: context,
                                   initialDate: initial,
                                   firstDate: DateTime(1900),
-                                  lastDate: DateTime.now(),
+                                  lastDate: now,
                                 );
                                 if (picked != null) {
                                   controller.text = _date(picked);
@@ -827,14 +1014,6 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
                         onSaved: (value) => onSaved(value?.trim() ?? ''),
                       ),
                     );
-                final advisorItems = advisors
-                    .map(
-                      (user) => DropdownMenuItem<String>(
-                        value: user.id,
-                        child: Text(user.nombreCompleto),
-                      ),
-                    )
-                    .toList();
                 return Wrap(
                   spacing: AppTheme.space3,
                   runSpacing: AppTheme.space3,
@@ -854,38 +1033,33 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
                         'Correo electrónico', correo, (value) => correo = value,
                         keyboardType: TextInputType.emailAddress,
                         validator: _emailValidator),
-                    field('CURP *', curp, (value) => curp = value,
-                        validator: _required),
-                    field('RFC *', rfc, (value) => rfc = value,
-                        validator: _required),
-                    dateField('Fecha de ingreso *', ingresoController,
-                        (value) => ingreso = value),
+                    field('CURP', curp, (value) => curp = value,
+                        inputFormatters:
+                            _identifierFormatters(18, allowAmpersand: false),
+                        validator: (value) {
+                      final text = value?.trim().toUpperCase() ?? '';
+                      if (text.isEmpty) return null;
+                      return RegExp(r'^[A-ZÑ]{4}\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])[HM][A-Z]{5}[A-Z0-9]\d$')
+                              .hasMatch(text)
+                          ? null
+                          : 'Ingresa una CURP válida de 18 caracteres.';
+                    }),
+                    field('RFC', rfc, (value) => rfc = value,
+                        inputFormatters:
+                            _identifierFormatters(13, allowAmpersand: true),
+                        validator: (value) {
+                      final text = value?.trim().toUpperCase() ?? '';
+                      if (text.isEmpty) return null;
+                      return RegExp(r'^[A-ZÑ&]{3,4}\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])[A-Z0-9]{3}$')
+                              .hasMatch(text)
+                          ? null
+                          : 'Ingresa un RFC válido de 12 o 13 caracteres.';
+                    }),
                     dateField('Fecha de nacimiento *', nacimientoController,
                         (value) => nacimiento = value),
-                    SizedBox(
-                      width: width,
-                      child: DropdownButtonFormField<String>(
-                        initialValue: advisorId,
-                        isExpanded: true,
-                        decoration:
-                            const InputDecoration(labelText: 'Asesor *'),
-                        items: advisorItems,
-                        onChanged:
-                            readOnly ? null : (value) => advisorId = value,
-                        validator: (value) =>
-                            value == null ? 'Selecciona un asesor' : null,
-                      ),
-                    ),
                     field('Dirección', direccion, (value) => direccion = value,
                         maxLines: 2),
-                    field(
-                        'Referido por', referido, (value) => referido = value),
-                    field(
-                      'Estatus',
-                      client?.demoMetadata?.status ?? 'Activo',
-                      (_) {},
-                      enabled: false,
-                    ),
+                    field('Referido por', referido, (value) => referido = value),
                     field('Observaciones', observaciones,
                         (value) => observaciones = value,
                         maxLines: 3),
@@ -898,7 +1072,6 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
       );
       await waitForDialogDismissal();
     } finally {
-      ingresoController.dispose();
       nacimientoController.dispose();
     }
   }
@@ -917,6 +1090,16 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
   String? _required(String? value) =>
       value == null || value.trim().isEmpty ? 'Campo obligatorio' : null;
 
+  List<TextInputFormatter> _identifierFormatters(int length,
+          {required bool allowAmpersand}) =>
+      [
+        FilteringTextInputFormatter.allow(
+            RegExp(allowAmpersand ? r'[a-zA-Z0-9Ññ&]' : r'[a-zA-Z0-9Ññ]')),
+        LengthLimitingTextInputFormatter(length),
+        TextInputFormatter.withFunction((oldValue, newValue) =>
+            newValue.copyWith(text: newValue.text.toUpperCase())),
+      ];
+
   String? _emailValidator(String? value) {
     if (value == null || value.trim().isEmpty) return null;
     return RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(value.trim())
@@ -933,8 +1116,9 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
     int page,
     int pageCount,
   ) {
-    final first = filteredCount == 0 ? 0 : (page - 1) * _pageSize + 1;
-    final last = (page * _pageSize).clamp(0, filteredCount);
+    final pageSize = _demoMode ? _pageSize : 20;
+    final first = filteredCount == 0 ? 0 : (page - 1) * pageSize + 1;
+    final last = (page * pageSize).clamp(0, filteredCount);
     return Wrap(
       alignment: WrapAlignment.spaceBetween,
       crossAxisAlignment: WrapCrossAlignment.center,
@@ -957,14 +1141,31 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
           children: [
             IconButton(
               tooltip: 'Página anterior',
-              onPressed: page > 1 ? () => setState(() => _page--) : null,
+              onPressed: page > 1
+                  ? () {
+                      setState(() => _page--);
+                      if (!_demoMode && _activeRole != null)
+                        ref
+                            .read(clientesControllerProvider(_activeRole!)
+                                .notifier)
+                            .goToPage(_page);
+                    }
+                  : null,
               icon: const Icon(Icons.chevron_left),
             ),
             Text('$page de $pageCount'),
             IconButton(
               tooltip: 'Página siguiente',
-              onPressed:
-                  page < pageCount ? () => setState(() => _page++) : null,
+              onPressed: page < pageCount
+                  ? () {
+                      setState(() => _page++);
+                      if (!_demoMode && _activeRole != null)
+                        ref
+                            .read(clientesControllerProvider(_activeRole!)
+                                .notifier)
+                            .goToPage(_page);
+                    }
+                  : null,
               icon: const Icon(Icons.chevron_right),
             ),
           ],

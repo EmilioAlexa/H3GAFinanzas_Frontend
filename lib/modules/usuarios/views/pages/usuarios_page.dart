@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../app/theme/app_theme.dart';
+import '../../../../core/network/api_error_model.dart';
 import '../../../../core/utils/dialog_lifecycle.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/widgets/app_badge.dart';
@@ -42,20 +43,13 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
   @override
   Widget build(BuildContext context) {
     final repository = ref.read(usuariosRepositoryProvider);
-    if (!ref.watch(usuariosDemoModeProvider)) {
-      return const AppStatePanel(
-        icon: Icons.link_off_outlined,
-        title: 'Usuarios no disponibles',
-        message: 'No fue posible consultar los usuarios y accesos.',
-      );
-    }
     final usersState = ref.watch(usuariosControllerProvider);
     return usersState.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, _) => AppStatePanel(
         icon: Icons.error_outline,
         title: 'No se pudieron cargar los usuarios',
-        message: error.toString(),
+        message: ApiErrorModel.fromObject(error).message,
         action: TextButton(
           onPressed: () =>
               ref.read(usuariosControllerProvider.notifier).loadDemo(),
@@ -71,7 +65,7 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
     final active = users.where((user) => user.activo).length;
     final suspended = users.length - active;
     final admins =
-        users.where((user) => user.rolId != 'demo-role-asesor').length;
+        users.where((user) => user.rolNombre.toLowerCase() != 'asesor').length;
     final query = _searchController.text.trim().toLowerCase();
     final filtered = users.where((user) {
       final matchesQuery = query.isEmpty ||
@@ -217,7 +211,10 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
                 label: 'Rol',
                 items: [
                   'Todos los roles',
-                  ...UsuariosRepository.roles.map((role) => role.nombre),
+                  ...ref
+                      .read(usuariosRepositoryProvider)
+                      .availableRoles
+                      .map((role) => role.nombre),
                 ]
                     .map((value) =>
                         DropdownMenuItem(value: value, child: Text(value)))
@@ -293,12 +290,14 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
                   flex: 2,
                   value: (user) => _statusBadge(user.activo),
                 ),
-                AppDataColumn(
-                  label: 'Último acceso',
-                  flex: 2,
-                  showOnMedium: false,
-                  value: (user) => Text(user.ultimoAccesoDemo ?? 'Sin accesos'),
-                ),
+                if (ref.watch(usuariosDemoModeProvider))
+                  AppDataColumn(
+                    label: 'Último acceso',
+                    flex: 2,
+                    showOnMedium: false,
+                    value: (user) =>
+                        Text(user.ultimoAccesoDemo ?? 'Sin accesos'),
+                  ),
                 AppDataColumn(
                   label: 'Acciones',
                   flex: 1,
@@ -390,7 +389,7 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
             value: 'status',
             child: Text(user.activo ? 'Suspender usuario' : 'Activar usuario'),
           ),
-          if (!user.activo)
+          if (ref.read(usuariosDemoModeProvider) && !user.activo)
             const PopupMenuItem(
               value: 'delete',
               child: Text('Eliminar usuario'),
@@ -408,6 +407,13 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
       );
 
   Widget _rolePermissions() {
+    if (!ref.read(usuariosDemoModeProvider)) {
+      return const AppStatePanel(
+        icon: Icons.info_outline,
+        title: 'Permisos por rol',
+        message: 'Los permisos se aplican en el servidor para cada operación.',
+      );
+    }
     const permissions = <String, List<bool>>{
       'Inicio y clientes': [true, true, true],
       'Servicios y contratos': [true, true, true],
@@ -445,6 +451,15 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
     UsuariosRepository repository,
     List<UsuarioModel> users,
   ) async {
+    if (!repository.demoMode) {
+      try {
+        user = await repository.detail(user.id);
+      } catch (error) {
+        if (mounted) _message(ApiErrorModel.fromObject(error).message);
+        return;
+      }
+      if (!mounted) return;
+    }
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
@@ -559,7 +574,12 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
     final maternal = TextEditingController(text: user?.apellidoMaterno);
     final email = TextEditingController(text: user?.correo);
     final password = TextEditingController();
-    var roleId = user?.rolId ?? UsuariosRepository.roles.last.id;
+    final roles = repository.availableRoles;
+    if (roles.isEmpty) {
+      _message('No hay roles disponibles.');
+      return;
+    }
+    var roleId = user?.rolId ?? roles.last.id;
     var saving = false;
     var showPassword = false;
     UsuarioModel? createdUser;
@@ -630,7 +650,8 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
                               } catch (error) {
                                 setDialogState(() => saving = false);
                                 if (dialogContext.mounted) {
-                                  _message(error.toString());
+                                  _message(
+                                      ApiErrorModel.fromObject(error).message);
                                 }
                               }
                             },
@@ -683,7 +704,7 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
                             isExpanded: true,
                             initialValue: roleId,
                             decoration: const InputDecoration(labelText: 'Rol'),
-                            items: UsuariosRepository.roles
+                            items: roles
                                 .map((role) => DropdownMenuItem(
                                     value: role.id, child: Text(role.nombre)))
                                 .toList(),
@@ -821,7 +842,7 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
                         initialValue: roleId,
                         decoration:
                             const InputDecoration(labelText: 'Nuevo rol'),
-                        items: UsuariosRepository.roles
+                        items: repository.availableRoles
                             .map((role) => DropdownMenuItem(
                                 value: role.id, child: Text(role.nombre)))
                             .toList(),
@@ -840,10 +861,14 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
               )),
     );
     if (next == null || next == user.rolId) return;
-    await ref
-        .read(usuariosControllerProvider.notifier)
-        .changeRoleDemo(user.id, next);
-    if (mounted) _message('Rol actualizado.');
+    try {
+      await ref
+          .read(usuariosControllerProvider.notifier)
+          .changeRoleDemo(user.id, next);
+      if (mounted) _message('Rol actualizado.');
+    } catch (error) {
+      if (mounted) _message(ApiErrorModel.fromObject(error).message);
+    }
   }
 
   Future<void> _showStatusDialog(UsuarioModel user) async {
@@ -879,11 +904,14 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
     if (confirmed != true) {
       return;
     }
-    await ref
-        .read(usuariosControllerProvider.notifier)
-        .changeStatusDemo(user.id, active);
-    if (mounted) {
-      _message(active ? 'Usuario activado.' : 'Usuario suspendido.');
+    try {
+      await ref
+          .read(usuariosControllerProvider.notifier)
+          .changeStatusDemo(user.id, active);
+      if (mounted)
+        _message(active ? 'Usuario activado.' : 'Usuario suspendido.');
+    } catch (error) {
+      if (mounted) _message(ApiErrorModel.fromObject(error).message);
     }
   }
 
@@ -914,7 +942,7 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
       await ref.read(usuariosControllerProvider.notifier).deleteDemo(user.id);
       if (mounted) _message('Usuario eliminado.');
     } catch (error) {
-      if (mounted) _message(error.toString());
+      if (mounted) _message(ApiErrorModel.fromObject(error).message);
     }
   }
 

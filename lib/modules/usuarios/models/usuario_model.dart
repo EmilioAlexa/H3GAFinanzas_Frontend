@@ -23,6 +23,18 @@ class UsuarioModel {
   final DateTime fechaCreacion;
   final String? ultimoAccesoDemo;
 
+  factory UsuarioModel.fromJson(Map<String, dynamic> json) => UsuarioModel(
+        id: json['id'] as String,
+        nombre: json['nombre'] as String,
+        apellidoPaterno: json['apellido_paterno'] as String,
+        apellidoMaterno: json['apellido_materno'] as String?,
+        correo: json['correo_electronico'] as String,
+        rolId: (json['rol_id'] as int).toString(),
+        rolNombre: (json['roles'] as Map<String, dynamic>)['nombre'] as String,
+        activo: json['activo'] as bool,
+        fechaCreacion: DateTime.parse(json['fecha_creacion'] as String),
+      );
+
   String get nombreCompleto => [nombre, apellidoPaterno, apellidoMaterno]
       .whereType<String>()
       .where((parte) => parte.trim().isNotEmpty)

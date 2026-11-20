@@ -1,11 +1,42 @@
 import '../models/usuario_model.dart';
+import 'package:dio/dio.dart';
 import 'usuarios_repository_exception.dart';
 
 class UsuariosRepository {
-  UsuariosRepository({List<UsuarioModel>? initialUsers})
+  UsuariosRepository(
+      {List<UsuarioModel>? initialUsers, this.demoMode = true, this.dio})
       : _users = List.of(initialUsers ?? demoUsers);
 
   final List<UsuarioModel> _users;
+  final bool demoMode;
+  final Dio? dio;
+  List<({String id, String nombre})> availableRoles = [];
+
+  Future<List<UsuarioModel>> load() async {
+    if (demoMode) {
+      availableRoles = roles;
+      return listDemo();
+    }
+    final results = await Future.wait([
+      dio!.get<List<dynamic>>('/usuarios'),
+      dio!.get<List<dynamic>>('/roles')
+    ]);
+    availableRoles = results[1]
+        .data!
+        .map((item) => (
+              id: (item['id'] as int).toString(),
+              nombre: item['nombre'] as String
+            ))
+        .toList();
+    return results[0]
+        .data!
+        .map((item) =>
+            UsuarioModel.fromJson(Map<String, dynamic>.from(item as Map)))
+        .toList();
+  }
+
+  Future<UsuarioModel> detail(String id) async => UsuarioModel.fromJson(
+      (await dio!.get<Map<String, dynamic>>('/usuarios/$id')).data!);
 
   static const roles = <({String id, String nombre})>[
     (id: 'demo-role-admin', nombre: 'Administrador'),
@@ -23,6 +54,17 @@ class UsuariosRepository {
     required String rolId,
     required String contrasena,
   }) async {
+    if (!demoMode)
+      return UsuarioModel.fromJson(
+          (await dio!.post<Map<String, dynamic>>('/usuarios', data: {
+        'nombre': nombre.trim(),
+        'apellido_paterno': apellidoPaterno.trim(),
+        'apellido_materno': _optional(apellidoMaterno),
+        'correo_electronico': correo.trim(),
+        'rol_id': int.parse(rolId),
+        'contrasena': contrasena
+      }))
+              .data!);
     if (_users
         .any((user) => user.correo.toLowerCase() == correo.toLowerCase())) {
       throw const UsuariosRepositoryException('Ese correo ya está registrado.');
@@ -59,6 +101,15 @@ class UsuariosRepository {
     required String? apellidoMaterno,
     required String correo,
   }) async {
+    if (!demoMode)
+      return UsuarioModel.fromJson(
+          (await dio!.patch<Map<String, dynamic>>('/usuarios/$id', data: {
+        'nombre': nombre.trim(),
+        'apellido_paterno': apellidoPaterno.trim(),
+        'apellido_materno': _optional(apellidoMaterno),
+        'correo_electronico': correo.trim()
+      }))
+              .data!);
     final index = _users.indexWhere((user) => user.id == id);
     if (index < 0) {
       throw const UsuariosRepositoryException('Usuario no encontrado.');
@@ -78,6 +129,11 @@ class UsuariosRepository {
   }
 
   Future<UsuarioModel> changeRoleDemo(String id, String rolId) async {
+    if (!demoMode)
+      return UsuarioModel.fromJson((await dio!.patch<Map<String, dynamic>>(
+              '/usuarios/$id/rol',
+              data: {'rol_id': int.parse(rolId)}))
+          .data!);
     final role = roles.where((item) => item.id == rolId).firstOrNull;
     final index = _users.indexWhere((user) => user.id == id);
     if (index < 0 || role == null) {
@@ -89,6 +145,11 @@ class UsuariosRepository {
   }
 
   Future<UsuarioModel> changeStatusDemo(String id, bool active) async {
+    if (!demoMode)
+      return UsuarioModel.fromJson((await dio!.patch<Map<String, dynamic>>(
+              '/usuarios/$id/estado',
+              data: {'activo': active}))
+          .data!);
     final index = _users.indexWhere((user) => user.id == id);
     if (index < 0) {
       throw const UsuariosRepositoryException('Usuario no encontrado.');
@@ -98,6 +159,9 @@ class UsuariosRepository {
   }
 
   Future<void> deleteDemo(String id) async {
+    if (!demoMode)
+      throw const UsuariosRepositoryException(
+          'La API no permite eliminar usuarios.');
     final index = _users.indexWhere((user) => user.id == id);
     if (index < 0) {
       throw const UsuariosRepositoryException('Usuario no encontrado.');

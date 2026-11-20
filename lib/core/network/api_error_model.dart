@@ -32,6 +32,25 @@ class ApiErrorModel {
           statusCode: 401,
         );
       }
+      if (error.response?.statusCode == 400) {
+        return const ApiErrorModel(
+            message: 'Revisa los datos enviados.', statusCode: 400);
+      }
+      if (error.response?.statusCode == 404) {
+        return const ApiErrorModel(
+            message: 'El recurso no existe o no está disponible.',
+            statusCode: 404);
+      }
+      if (error.response?.statusCode == 409) {
+        return const ApiErrorModel(
+            message:
+                'La operación presenta un conflicto. Actualiza los datos e inténtalo de nuevo.',
+            statusCode: 409);
+      }
+      if (error.response?.statusCode == 500) {
+        return const ApiErrorModel(
+            message: 'Ocurrió un error en el servidor.', statusCode: 500);
+      }
       if (error.response == null) {
         return const ApiErrorModel(
           message: 'No se pudo conectar con el servidor.',

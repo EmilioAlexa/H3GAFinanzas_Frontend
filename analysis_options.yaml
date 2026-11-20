@@ -10,6 +10,8 @@ analyzer:
     missing_return: error
     invalid_assignment: error
     dead_code: warning
+  exclude:
+    - docs/frontend_Diseño_Original/**
 
 linter:
   rules:

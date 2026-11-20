@@ -50,11 +50,11 @@ class GlobalSearchController
     state = const AsyncLoading();
     try {
       final results = await _repository.search(value, _role);
-      if (requestId != _requestId) return const [];
+      if (!mounted || requestId != _requestId) return const [];
       state = AsyncData(results);
       return results;
     } catch (error, stackTrace) {
-      if (requestId == _requestId) state = AsyncError(error, stackTrace);
+      if (mounted && requestId == _requestId) state = AsyncError(error, stackTrace);
       return const [];
     }
   }
@@ -62,6 +62,7 @@ class GlobalSearchController
   @override
   void dispose() {
     _debounce?.cancel();
+    _requestId++;
     super.dispose();
   }
 }

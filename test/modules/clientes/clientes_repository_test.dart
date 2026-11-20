@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:dio/dio.dart';
 import 'package:h3ga_finanzas/modules/auth/auth.dart';
 import 'package:h3ga_finanzas/modules/clientes/clientes.dart';
 
@@ -16,9 +17,16 @@ void main() {
   });
 
   test('non-demo repository never returns local demo clients', () async {
-    final repository = ClientesRepository(demoMode: false);
-
-    expect(await repository.load(UserRole.administrador), isNull);
+    final dio = Dio();
+    dio.interceptors.add(InterceptorsWrapper(onRequest: (options, handler) {
+      expect(options.path, '/clientes');
+      handler.resolve(Response(requestOptions: options, data: {
+        'data': <Object>[],
+        'pagination': {'page': 1, 'limit': 20, 'total': 0, 'totalPages': 0},
+      }));
+    }));
+    final repository = ClientesRepository(demoMode: false, dio: dio);
+    expect(await repository.load(UserRole.administrador), isEmpty);
   });
 
   test('client payload contains only fields described by OpenAPI', () {

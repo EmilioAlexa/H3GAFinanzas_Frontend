@@ -1,13 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/config/env.dart';
+import '../../../core/network/api_client.dart';
 import '../models/usuario_model.dart';
 import '../repositories/usuarios_repository.dart';
 
 final usuariosDemoModeProvider = Provider<bool>((ref) => AppEnv.demoMode);
 
 final usuariosRepositoryProvider = Provider<UsuariosRepository>(
-  (ref) => UsuariosRepository(),
+  (ref) => UsuariosRepository(
+      demoMode: ref.watch(usuariosDemoModeProvider),
+      dio: ref.watch(apiClientProvider)),
 );
 
 final usuariosControllerProvider =
@@ -23,7 +26,14 @@ class UsuariosController extends StateNotifier<AsyncValue<List<UsuarioModel>>> {
 
   final UsuariosRepository _repository;
 
-  void loadDemo() => state = AsyncData(_repository.listDemo());
+  Future<void> loadDemo() async {
+    state = const AsyncLoading();
+    try {
+      state = AsyncData(await _repository.load());
+    } catch (error, stack) {
+      state = AsyncError(error, stack);
+    }
+  }
 
   Future<UsuarioModel> createDemo({
     required String nombre,
@@ -41,7 +51,7 @@ class UsuariosController extends StateNotifier<AsyncValue<List<UsuarioModel>>> {
       rolId: rolId,
       contrasena: contrasena,
     );
-    loadDemo();
+    await loadDemo();
     return created;
   }
 
@@ -59,24 +69,24 @@ class UsuariosController extends StateNotifier<AsyncValue<List<UsuarioModel>>> {
       apellidoMaterno: apellidoMaterno,
       correo: correo,
     );
-    loadDemo();
+    await loadDemo();
     return updated;
   }
 
   Future<UsuarioModel> changeRoleDemo(String id, String roleId) async {
     final updated = await _repository.changeRoleDemo(id, roleId);
-    loadDemo();
+    await loadDemo();
     return updated;
   }
 
   Future<UsuarioModel> changeStatusDemo(String id, bool active) async {
     final updated = await _repository.changeStatusDemo(id, active);
-    loadDemo();
+    await loadDemo();
     return updated;
   }
 
   Future<void> deleteDemo(String id) async {
     await _repository.deleteDemo(id);
-    loadDemo();
+    await loadDemo();
   }
 }

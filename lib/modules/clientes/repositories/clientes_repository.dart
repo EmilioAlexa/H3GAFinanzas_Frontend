@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
 
 import '../../../app/config/env.dart';
+import '../../../core/network/api_client.dart';
 import '../../auth/auth.dart';
 import '../../contratos/fixtures/contratos_demo_fixtures.dart';
 import '../../pagos/fixtures/pagos_demo_fixtures.dart';
@@ -8,19 +10,79 @@ import '../fixtures/clientes_demo_fixtures.dart';
 import '../models/cliente_model.dart';
 
 final clientesRepositoryProvider = Provider<ClientesRepository>(
-  (ref) => ClientesRepository(demoMode: AppEnv.demoMode),
+  (ref) => ClientesRepository(
+      demoMode: AppEnv.demoMode, dio: ref.watch(apiClientProvider)),
 );
 
 class ClientesRepository {
-  ClientesRepository({required this.demoMode})
+  ClientesRepository({required this.demoMode, this.dio})
       : _clients = [...ClientesDemoFixtures.clients];
 
   final bool demoMode;
+  final Dio? dio;
   final List<ClienteModel> _clients;
   var _nextId = 6;
 
   Future<List<ClienteModel>?> load(UserRole role) async {
-    return loadSynchronously(role);
+    if (demoMode) return loadSynchronously(role);
+    return (await page()).data;
+  }
+
+  Future<({List<ClienteModel> data, int page, int total, int totalPages})> page(
+      {int page = 1, int limit = 20, String? query}) async {
+    final response =
+        await dio!.get<Map<String, dynamic>>('/clientes', queryParameters: {
+      'page': page,
+      'limit': limit,
+      if (query != null && query.trim().isNotEmpty) 'q': query.trim(),
+    });
+    final body = response.data!;
+    final pagination = body['pagination'] as Map<String, dynamic>;
+    return (
+      data: (body['data'] as List)
+          .map(
+              (e) => ClienteModel.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList(),
+      page: pagination['page'] as int,
+      total: pagination['total'] as int,
+      totalPages: pagination['totalPages'] as int
+    );
+  }
+
+  Future<ClienteModel> detail(String id) async => ClienteModel.fromJson(
+      (await dio!.get<Map<String, dynamic>>('/clientes/$id')).data!);
+  Future<ClienteModel> create(ClienteModel client,
+          {String? referidorId}) async =>
+      ClienteModel.fromJson(
+          (await dio!.post<Map<String, dynamic>>('/clientes', data: {
+        ...client.toApiPayload(),
+        if (referidorId != null) 'referido_por_cliente_id': referidorId
+      }))
+              .data!);
+  Future<ClienteModel> update(ClienteModel client) async =>
+      ClienteModel.fromJson((await dio!.patch<Map<String, dynamic>>(
+              '/clientes/${client.id}',
+              data: client.toApiPayload()))
+          .data!);
+  Future<ClienteModel> setPaused(String id, bool paused) async =>
+      ClienteModel.fromJson((await dio!.patch<Map<String, dynamic>>(
+              '/clientes/$id/estado-operativo',
+              data: {'pausado': paused}))
+          .data!);
+  Future<void> setReferidor(
+      String id, String? referidorId, String motivo) async {
+    await dio!.patch<void>('/clientes/$id/referidor',
+        data: {'referidor_cliente_id': referidorId, 'motivo': motivo});
+  }
+
+  Future<List<dynamic>> referidorHistory(String id) async =>
+      (await dio!.get<List<dynamic>>('/clientes/$id/referidor/historial'))
+          .data!;
+  Future<Map<String, dynamic>> dependencies(String id) async =>
+      (await dio!.get<Map<String, dynamic>>('/clientes/$id/dependencias'))
+          .data!;
+  Future<void> delete(String id) async {
+    await dio!.delete<void>('/clientes/$id');
   }
 
   List<ClienteModel>? loadSynchronously(UserRole role) {

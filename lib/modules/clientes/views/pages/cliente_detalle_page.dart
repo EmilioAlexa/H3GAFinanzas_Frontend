@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_theme.dart';
+import '../../../../app/config/env.dart';
+import '../../../../core/network/api_error_model.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/responsive/window_size_class.dart';
 import '../../../../core/utils/money_formatter.dart';
@@ -39,6 +41,17 @@ class ClienteDetallePage extends ConsumerWidget {
             title: 'Inicia sesión para continuar',
             message: 'El detalle requiere una sesión activa.',
           );
+        }
+        if (!AppEnv.demoMode) {
+          return ref.watch(clienteDetalleProvider(clienteId)).when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (error, _) => AppStatePanel(
+                    icon: Icons.error_outline,
+                    title: 'Cliente no disponible',
+                    message: ApiErrorModel.fromObject(error).message),
+                data: (client) =>
+                    _page(context, client, const [], const [], isReal: true),
+              );
         }
         return ref.watch(clientesControllerProvider(session.role)).when(
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -87,12 +100,9 @@ class ClienteDetallePage extends ConsumerWidget {
     );
   }
 
-  Widget _page(
-    BuildContext context,
-    ClienteModel client,
-    List<ContratoModel> contracts,
-    List<PagoModel> payments,
-  ) {
+  Widget _page(BuildContext context, ClienteModel client,
+      List<ContratoModel> contracts, List<PagoModel> payments,
+      {bool isReal = false}) {
     final clientContracts =
         contracts.where((contract) => contract.clienteId == client.id).toList();
     final contractIds = clientContracts.map((contract) => contract.id).toSet();
@@ -127,10 +137,17 @@ class ClienteDetallePage extends ConsumerWidget {
             child: TabBarView(
               children: [
                 _summary(
-                    context, client, metadata, clientContracts, clientPayments),
-                _contractsTab(context, clientContracts),
-                _paymentsTab(context, clientPayments),
-                _historyTab(context, clientContracts, clientPayments),
+                    context, client, metadata, clientContracts, clientPayments,
+                    isReal: isReal),
+                isReal
+                    ? _unavailableTab(Icons.description_outlined)
+                    : _contractsTab(context, clientContracts),
+                isReal
+                    ? _unavailableTab(Icons.payments_outlined)
+                    : _paymentsTab(context, clientPayments),
+                isReal
+                    ? _unavailableTab(Icons.history_outlined)
+                    : _historyTab(context, clientContracts, clientPayments),
               ],
             ),
           ),
@@ -204,6 +221,8 @@ class ClienteDetallePage extends ConsumerWidget {
                               _ => AppBadgeTone.warning,
                             },
                           ),
+                        if (metadata == null && client.pausado != null)
+                          _statusBadge(client.pausado! ? 'Pausado' : 'Activo'),
                         if (metadata?.advisorName != null)
                           Text(
                             'Asesor: ${metadata!.advisorName}',
@@ -222,18 +241,21 @@ class ClienteDetallePage extends ConsumerWidget {
   }
 
   Widget _summary(
-    BuildContext context,
-    ClienteModel client,
-    ClienteDemoMetadata? metadata,
-    List<ContratoModel> contracts,
-    List<PagoModel> payments,
-  ) =>
+          BuildContext context,
+          ClienteModel client,
+          ClienteDemoMetadata? metadata,
+          List<ContratoModel> contracts,
+          List<PagoModel> payments,
+          {bool isReal = false}) =>
       LayoutBuilder(
         builder: (context, constraints) {
           final expanded = Responsive.of(context) == WindowSizeClass.expandido;
           final info = _informationCard(context, client, metadata);
-          final references =
-              _referencesCard(context, metadata, contracts, payments);
+          final references = isReal
+              ? _panel(context,
+                  title: 'Referencias',
+                  child: const Text('Información financiera aún no conectada.'))
+              : _referencesCard(context, metadata, contracts, payments);
           return SingleChildScrollView(
             padding: const EdgeInsets.all(AppTheme.space6),
             child: Column(
@@ -254,7 +276,13 @@ class ClienteDetallePage extends ConsumerWidget {
                   references,
                 ],
                 const SizedBox(height: AppTheme.space4),
-                _trajectoryCard(context, contracts, payments),
+                if (isReal)
+                  _panel(context,
+                      title: 'Trayectoria del cliente',
+                      child: const Text(
+                          'Información financiera aún no conectada.'))
+                else
+                  _trajectoryCard(context, contracts, payments),
               ],
             ),
           );
@@ -291,7 +319,7 @@ class ClienteDetallePage extends ConsumerWidget {
                     ? null
                     : _date(client.fechaNacimiento!)),
             _field('Dirección', client.direccion),
-            _field('Asesor', metadata?.advisorName),
+            _field('Asesor', metadata?.advisorName ?? client.asesorId),
             _field('Referido por', client.referidoPor),
             _field('Observaciones', client.observaciones),
           ],
@@ -551,6 +579,12 @@ class ClienteDetallePage extends ConsumerWidget {
         ),
       );
 
+  Widget _unavailableTab(IconData icon) => _emptyTab(
+        icon: icon,
+        title: 'Información no disponible',
+        message: 'Esta sección aún no está conectada.',
+      );
+
   Widget _trajectoryCard(
     BuildContext context,
     List<ContratoModel> contracts,
@@ -695,7 +729,9 @@ class ClienteDetallePage extends ConsumerWidget {
             Text(label, style: const TextStyle(color: AppTheme.muted)),
             const SizedBox(height: AppTheme.space1),
             Text(
-              value == null || value.isEmpty ? 'No registrado' : value,
+              value == null || value.isEmpty
+                  ? (AppEnv.demoMode ? 'No registrado' : 'No disponible')
+                  : value,
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ],

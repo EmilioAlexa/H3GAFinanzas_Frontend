@@ -9,9 +9,11 @@ import '../../../../core/responsive/window_size_class.dart';
 import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_state_panel.dart';
+import '../../../../core/network/api_error_model.dart';
 import '../../../auth/auth.dart';
 import '../../controllers/clientes_controller.dart';
 import '../../models/cliente_model.dart';
+import '../../repositories/clientes_repository.dart';
 
 class ClienteFormPage extends ConsumerWidget {
   const ClienteFormPage({this.clienteId, super.key});
@@ -35,6 +37,26 @@ class ClienteFormPage extends ConsumerWidget {
             title: 'Inicia sesión para continuar',
             message: 'El formulario requiere una sesión activa.',
           );
+        }
+        if (!AppEnv.demoMode) {
+          final allowed = clienteId == null
+              ? session.role == UserRole.asesor
+              : session.role == UserRole.asesor ||
+                  session.role == UserRole.administrador;
+          if (!allowed)
+            return const AppStatePanel(
+                icon: Icons.lock_outline,
+                title: 'No tienes permiso para esta acción',
+                message: '');
+          if (clienteId == null) return _form(context, ref, session.role, null);
+          return ref.watch(clienteDetalleProvider(clienteId!)).when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (error, _) => AppStatePanel(
+                    icon: Icons.error_outline,
+                    title: 'Cliente no disponible',
+                    message: ApiErrorModel.fromObject(error).message),
+                data: (client) => _form(context, ref, session.role, client),
+              );
         }
         final state = ref.watch(clientesControllerProvider(session.role));
         return state.when(
@@ -110,6 +132,8 @@ class ClienteFormPage extends ConsumerWidget {
     var correoElectronico = client?.correoElectronico ?? '';
     var curp = client?.curp ?? '';
     var rfc = client?.rfc ?? '';
+    String? referidorId;
+    String? referidorNombre;
     final editing = client != null;
 
     return LayoutBuilder(
@@ -251,6 +275,24 @@ class ClienteFormPage extends ConsumerWidget {
                                   rfc = value?.trim().toUpperCase() ?? '',
                             ),
                           ),
+                          if (!AppEnv.demoMode && !editing)
+                            SizedBox(
+                              width: fieldWidth,
+                              child: Autocomplete<ClienteModel>(
+                                displayStringForOption: (item) => item.nombreCompleto,
+                                optionsBuilder: (value) async {
+                                  if (value.text != referidorNombre) referidorId = null;
+                                  if (value.text.trim().length < 2) return const Iterable<ClienteModel>.empty();
+                                  try { return (await ref.read(clientesRepositoryProvider).page(query: value.text, limit: 20)).data; }
+                                  catch (error) {
+                                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ApiErrorModel.fromObject(error).message)));
+                                    return const Iterable<ClienteModel>.empty();
+                                  }
+                                },
+                                onSelected: (item) { referidorNombre = item.nombreCompleto; referidorId = item.id; },
+                                fieldViewBuilder: (context, controller, focusNode, onSubmitted) => TextField(controller: controller, focusNode: focusNode, decoration: const InputDecoration(labelText: 'Referidor opcional', helperText: 'Busca un cliente asignado a tu asesoría')),
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -267,12 +309,40 @@ class ClienteFormPage extends ConsumerWidget {
                           child: const Text('Cancelar'),
                         ),
                         FilledButton.icon(
-                          onPressed: () {
+                          onPressed: () async {
                             if (!formKey.currentState!.validate()) return;
                             formKey.currentState!.save();
                             final controller = ref.read(
                               clientesControllerProvider(role).notifier,
                             );
+                            if (!AppEnv.demoMode) {
+                              final data = ClienteModel(
+                                  id: client?.id ?? '',
+                                  nombre: nombre,
+                                  apellidoPaterno: apellidoPaterno,
+                                  apellidoMaterno: _nullable(apellidoMaterno),
+                                  telefono: _nullable(telefono),
+                                  correoElectronico:
+                                      _nullable(correoElectronico),
+                                  curp: _nullable(curp),
+                                  rfc: _nullable(rfc));
+                              try {
+                                final saved = await controller.save(data,
+                                    editing: editing, referidorId: referidorId);
+                                ref.invalidate(
+                                    clienteDetalleProvider(saved.id));
+                                if (context.mounted)
+                                  context.go('/clientes/${saved.id}');
+                              } catch (error) {
+                                if (context.mounted)
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                          content: Text(
+                                              ApiErrorModel.fromObject(error)
+                                                  .message)));
+                              }
+                              return;
+                            }
                             if (editing) {
                               controller.updateDemo(
                                 ClienteModel(
