@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../app/config/env.dart';
 import '../../../../app/theme/app_theme.dart';
+import '../../../../core/network/api_error_model.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/responsive/window_size_class.dart';
 import '../../../../core/utils/money_formatter.dart';
@@ -13,6 +15,8 @@ import '../../../../core/widgets/app_state_panel.dart';
 import '../../../auth/auth.dart';
 import '../../controllers/pagos_controller.dart';
 import '../../models/pago_model.dart';
+import '../../models/pago_review_policy.dart';
+import '../widgets/payment_evidence_widgets.dart';
 
 class PagoDetallePage extends ConsumerWidget {
   const PagoDetallePage({required this.paymentId, super.key});
@@ -29,12 +33,19 @@ class PagoDetallePage extends ConsumerWidget {
         message: 'El detalle requiere una sesión activa.',
       );
     }
-    final state = ref.watch(pagosControllerProvider(session.role));
-    final payment = ref
-        .read(pagosControllerProvider(session.role).notifier)
-        .findPayment(paymentId);
+    final state = ref.watch(pagoDetailProvider(paymentId));
+    final payment = state.valueOrNull;
     if (state.isLoading) {
       return const Center(child: CircularProgressIndicator());
+    }
+    if (state.hasError) {
+      return AppStatePanel(
+          icon: Icons.cloud_off_outlined,
+          title: 'No se pudo consultar el pago',
+          message: ApiErrorModel.fromObject(state.error!).message,
+          action: TextButton(
+              onPressed: () => ref.invalidate(pagoDetailProvider(paymentId)),
+              child: const Text('Reintentar')));
     }
     if (payment == null) {
       return const AppStatePanel(
@@ -51,7 +62,7 @@ class PagoDetallePage extends ConsumerWidget {
     final compact = Responsive.of(context) == WindowSizeClass.compacto;
     final evidenceAnchor = GlobalKey();
     final canOpenReview =
-        session.role != UserRole.asesor && _isReviewable(payment.estado);
+        paymentReviewActions(payment, session.role).isNotEmpty;
 
     final information = _section(context, 'Información del pago', [
       LayoutBuilder(
@@ -71,7 +82,9 @@ class PagoDetallePage extends ConsumerWidget {
                     ? '—'
                     : '${payment.numeroPago} de ${payment.cantidadPagos ?? '—'}',
                 'Importe del pago': MoneyFormatter.format(payment.monto),
-                'Fecha de pago': MoneyFormatter.formatDate(payment.fechaPago),
+                'Fecha de pago': payment.fechaPago == null
+                    ? 'Sin fecha histórica'
+                    : MoneyFormatter.formatDate(payment.fechaPago!),
                 'Método': payment.formaPago,
                 'Referencia': payment.referencia.isEmpty
                     ? 'Sin referencia'
@@ -94,6 +107,10 @@ class PagoDetallePage extends ConsumerWidget {
       context,
       'Comprobante',
       [
+        if (!AppEnv.demoMode &&
+            payment.estado != 'Validado' &&
+            payment.estado != 'Cancelado')
+          PaymentEvidenceUploadButton(paymentId: payment.id),
         if (payment.evidencias.isEmpty) const Text('Sin evidencias adjuntas.'),
         for (final file in payment.evidencias)
           ListTile(
@@ -102,7 +119,9 @@ class PagoDetallePage extends ConsumerWidget {
                 color: AppTheme.secondaryDark),
             title:
                 Text(file.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-            subtitle: Text('${file.mimeType} · ${_size(file.sizeBytes)}'),
+            subtitle: Text(
+                '${file.mimeType} · ${_size(file.sizeBytes)}${file.vigente ? '' : ' · Sustituida (histórica)'}'),
+            onTap: () => showPaymentEvidence(context, file),
           ),
       ],
       key: evidenceAnchor,
@@ -123,7 +142,7 @@ class PagoDetallePage extends ConsumerWidget {
                 ? payment.folio
                 : 'Mensualidad ${payment.numeroPago} de ${payment.cantidadPagos ?? '—'}',
             description:
-                'Registrado el ${MoneyFormatter.formatDate(payment.fechaPago)}',
+                'Registrado el ${payment.fechaRegistro == null ? 'Sin fecha de registro' : MoneyFormatter.formatDate(payment.fechaRegistro!)}',
             actions: [
               if (session.role != UserRole.asesor &&
                   payment.evidencias.isNotEmpty)
@@ -143,7 +162,8 @@ class PagoDetallePage extends ConsumerWidget {
                   label: const Text('Revisar evidencia'),
                 ),
               if (session.role == UserRole.asesor &&
-                  payment.estado == 'Rechazado')
+                  payment.estado == 'Rechazado' &&
+                  (AppEnv.demoMode || payment.registradoPor == session.id))
                 FilledButton.icon(
                   onPressed: () => context.go('/pagos/${payment.id}/editar'),
                   icon: const Icon(Icons.edit_outlined),
@@ -222,8 +242,15 @@ class PagoDetallePage extends ConsumerWidget {
             index,
             activeIndex,
             isLast: index == states.length - 1,
+            history: payment.historial,
           ),
       const Divider(height: AppTheme.space5),
+      for (final correction in payment.correcciones)
+        ListTile(
+            leading: const Icon(Icons.edit_note),
+            title: Text('Corrección · ${correction['fecha_correccion']}'),
+            subtitle: Text(
+                'Actor: ${correction['actor_id']}\n${correction['motivo']}\nImporte: ${correction['monto_anterior']} → ${correction['monto_nuevo']}\nMétodo: ${correction['forma_pago_id_anterior']} → ${correction['forma_pago_id_nueva']}')),
       if (payment.historial.isEmpty)
         const Text('Sin movimientos de historial.'),
       for (final entry in payment.historial)
@@ -236,8 +263,9 @@ class PagoDetallePage extends ConsumerWidget {
   }
 
   Widget _progressRow(String label, int index, int activeIndex,
-      {required bool isLast}) {
-    final completed = activeIndex >= 0 && index < activeIndex;
+      {required bool isLast, required List<String> history}) {
+    final completed =
+        index != activeIndex && history.any((entry) => entry.contains(label));
     final current = index == activeIndex;
     final color =
         completed || current ? AppTheme.secondaryDark : AppTheme.lineStrong;
@@ -345,9 +373,6 @@ class PagoDetallePage extends ConsumerWidget {
         ),
       );
 
-  bool _isReviewable(String status) =>
-      _stateIndex(status) >= 0 && status != 'Validado' && status != 'Rechazado';
-
   int _stateIndex(String status) => switch (status) {
         'Por revisar' || 'Pendiente de revisión financiera' => 0,
         'Pendiente de autorización' => 1,
@@ -364,7 +389,9 @@ class PagoDetallePage extends ConsumerWidget {
         _ => AppBadgeTone.warning,
       };
 
-  String _size(int bytes) => bytes < 1024 * 1024
-      ? '${(bytes / 1024).ceil()} KB'
-      : '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  String _size(int? bytes) => bytes == null
+      ? 'Tamaño no disponible'
+      : bytes < 1024 * 1024
+          ? '${(bytes / 1024).ceil()} KB'
+          : '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
 }

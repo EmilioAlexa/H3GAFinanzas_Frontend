@@ -42,6 +42,23 @@ class ClienteModel {
   /// Campos de la muestra Figma que no son parte de los DTO actuales.
   final ClienteDemoMetadata? demoMetadata;
 
+  factory ClienteModel.fromApi(Map<String, dynamic> json) => ClienteModel(
+        id: _apiString(json['id']),
+        nombre: _apiString(json['nombre']),
+        apellidoPaterno: _apiString(json['apellido_paterno']),
+        apellidoMaterno: _apiNullableString(json['apellido_materno']),
+        telefono: _apiNullableString(json['telefono']),
+        correoElectronico: _apiNullableString(json['correo_electronico']),
+        curp: _apiNullableString(json['curp']),
+        rfc: _apiNullableString(json['rfc']),
+        asesorId: _apiNullableString(json['asesor_id']),
+        fechaIngreso: _apiDate(json['fecha_ingreso']),
+        fechaNacimiento: _apiDate(json['fecha_nacimiento']),
+        direccion: _apiNullableString(json['domicilio']),
+        referidoPor: _apiNullableString(json['referido_por']),
+        observaciones: _apiNullableString(json['observaciones_generales']),
+      );
+
   String get nombreCompleto => [
         nombre,
         apellidoPaterno,
@@ -65,3 +82,10 @@ class ClienteModel {
         'observaciones': observaciones,
       };
 }
+
+String _apiString(Object? value) => value is String ? value : '';
+
+String? _apiNullableString(Object? value) => value is String ? value : null;
+
+DateTime? _apiDate(Object? value) =>
+    value is String ? DateTime.tryParse(value) : null;

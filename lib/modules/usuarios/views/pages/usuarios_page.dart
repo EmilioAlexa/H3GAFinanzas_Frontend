@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../app/theme/app_theme.dart';
-import '../../../../core/utils/dialog_lifecycle.dart';
 import '../../../../core/responsive/responsive.dart';
+import '../../../../core/utils/dialog_lifecycle.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_data_column.dart';
 import '../../../../core/widgets/app_dialog.dart';
@@ -42,13 +42,6 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
   @override
   Widget build(BuildContext context) {
     final repository = ref.read(usuariosRepositoryProvider);
-    if (!ref.watch(usuariosDemoModeProvider)) {
-      return const AppStatePanel(
-        icon: Icons.link_off_outlined,
-        title: 'Usuarios no disponibles',
-        message: 'No fue posible consultar los usuarios y accesos.',
-      );
-    }
     final usersState = ref.watch(usuariosControllerProvider);
     return usersState.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -58,7 +51,9 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
         message: error.toString(),
         action: TextButton(
           onPressed: () =>
-              ref.read(usuariosControllerProvider.notifier).loadDemo(),
+              ref.read(usuariosControllerProvider.notifier).demoMode
+                  ? ref.read(usuariosControllerProvider.notifier).loadDemo()
+                  : ref.read(usuariosControllerProvider.notifier).load(),
           child: const Text('Reintentar'),
         ),
       ),
@@ -71,7 +66,7 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
     final active = users.where((user) => user.activo).length;
     final suspended = users.length - active;
     final admins =
-        users.where((user) => user.rolId != 'demo-role-asesor').length;
+        users.where((user) => user.rolNombre.toLowerCase() != 'asesor').length;
     final query = _searchController.text.trim().toLowerCase();
     final filtered = users.where((user) {
       final matchesQuery = query.isEmpty ||
@@ -892,7 +887,7 @@ class _UsuariosPageState extends ConsumerState<UsuariosPage> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('¿Eliminar usuario?'),
-        content: Text(
+        content: const Text(
           '¿Está seguro de eliminar a este usuario? La cuenta dejará de existir y no podrá acceder al sistema. Sus clientes, archivos y contratos finalizados seguirán existiendo para visualizarlos, pero si tiene algún contrato activo o cliente con pagos activos podrían verse afectados.',
         ),
         actions: [

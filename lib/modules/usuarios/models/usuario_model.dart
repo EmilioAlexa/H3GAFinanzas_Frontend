@@ -23,6 +23,31 @@ class UsuarioModel {
   final DateTime fechaCreacion;
   final String? ultimoAccesoDemo;
 
+  factory UsuarioModel.fromApi(Map<String, dynamic> json) {
+    final role = json['roles'] is Map
+        ? (json['roles'] as Map).cast<String, dynamic>()
+        : const <String, dynamic>{};
+    final roleId = role['id'] ?? json['rol_id'];
+    final date = json['fecha_creacion'];
+    final createdAt = date is String ? DateTime.tryParse(date) : null;
+    if (createdAt == null) {
+      throw const FormatException(
+        'La respuesta de usuario no contiene una fecha_creacion válida.',
+      );
+    }
+    return UsuarioModel(
+      id: json['id'] as String? ?? '',
+      nombre: json['nombre'] as String? ?? '',
+      apellidoPaterno: json['apellido_paterno'] as String? ?? '',
+      apellidoMaterno: json['apellido_materno'] as String?,
+      correo: json['correo_electronico'] as String? ?? '',
+      rolId: roleId?.toString() ?? '',
+      rolNombre: role['nombre'] as String? ?? '',
+      activo: json['activo'] as bool? ?? false,
+      fechaCreacion: createdAt,
+    );
+  }
+
   String get nombreCompleto => [nombre, apellidoPaterno, apellidoMaterno]
       .whereType<String>()
       .where((parte) => parte.trim().isNotEmpty)

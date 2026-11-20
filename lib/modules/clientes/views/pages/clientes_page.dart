@@ -106,12 +106,14 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
           final hasFilters = _query.trim().isNotEmpty ||
               _statusFilter != 'Todos los estados' ||
               _serviceFilter != 'Todos los servicios';
-          final visibleTotal = hasFilters ? filtered.length : 326;
+          final usingRealData = !AppEnv.demoMode;
+          final visibleTotal =
+              hasFilters || usingRealData ? filtered.length : 326;
           final pageCount =
               visibleTotal == 0 ? 1 : (visibleTotal / _pageSize).ceil();
           if (_page > pageCount) _page = pageCount;
           final start = (_page - 1) * _pageSize;
-          final pageItems = hasFilters
+          final pageItems = hasFilters || usingRealData
               ? filtered.skip(start).take(_pageSize).toList()
               : filtered.isEmpty
                   ? <ClienteModel>[]
@@ -141,14 +143,15 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
                       ),
                   ],
                 ),
-                _summary(context),
+                _summary(context, clients.length, usingRealData),
                 const SizedBox(height: AppTheme.space4),
                 _listPanel(
                   context,
                   role: role,
                   clients: pageItems,
                   filteredCount: visibleTotal,
-                  totalCount: hasFilters ? clients.length : 326,
+                  totalCount:
+                      hasFilters || usingRealData ? clients.length : 326,
                   page: _page,
                   pageCount: pageCount,
                   widthClass: widthClass,
@@ -177,20 +180,22 @@ class _ClientesPageState extends ConsumerState<ClientesPage> {
     }).toList();
   }
 
-  Widget _summary(BuildContext context) {
+  Widget _summary(BuildContext context, int clientCount, bool usingRealData) {
     return Wrap(
       spacing: AppTheme.space5,
       runSpacing: AppTheme.space2,
       children: [
-        const Text.rich(
+        Text.rich(
           TextSpan(
-            text: '326 ',
-            style: TextStyle(fontWeight: FontWeight.w700),
-            children: [TextSpan(text: 'clientes')],
+            text: '${usingRealData ? clientCount : 326} ',
+            style: const TextStyle(fontWeight: FontWeight.w700),
+            children: const [TextSpan(text: 'clientes')],
           ),
         ),
-        _summaryLabel(context, '284 activos', AppTheme.successBase),
-        _summaryLabel(context, '18 en seguimiento', AppTheme.warningBase),
+        if (!usingRealData)
+          _summaryLabel(context, '284 activos', AppTheme.successBase),
+        if (!usingRealData)
+          _summaryLabel(context, '18 en seguimiento', AppTheme.warningBase),
       ],
     );
   }

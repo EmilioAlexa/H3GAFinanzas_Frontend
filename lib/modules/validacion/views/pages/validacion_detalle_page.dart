@@ -1,9 +1,13 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pdfrx/pdfrx.dart';
 
+import '../../../../app/config/env.dart';
 import '../../../../app/theme/app_theme.dart';
+import '../../../../core/network/api_error_model.dart';
 import '../../../../core/platform/file_platform_factory.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/responsive/window_size_class.dart';
@@ -14,6 +18,7 @@ import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_state_panel.dart';
 import '../../../auth/auth.dart';
+import '../../../pagos/models/pago_review_policy.dart';
 import '../../../pagos/pagos.dart';
 
 class ValidacionDetallePage extends ConsumerStatefulWidget {
@@ -28,6 +33,7 @@ class ValidacionDetallePage extends ConsumerStatefulWidget {
 
 class _ValidacionDetallePageState extends ConsumerState<ValidacionDetallePage> {
   String? _selectedEvidenceId;
+  bool _reviewing = false;
 
   @override
   Widget build(BuildContext context) {
@@ -39,12 +45,20 @@ class _ValidacionDetallePageState extends ConsumerState<ValidacionDetallePage> {
         message: 'Solo administración puede revisar pagos.',
       );
     }
-    final asyncState = ref.watch(pagosControllerProvider(session.role));
-    final payment = ref
-        .read(pagosControllerProvider(session.role).notifier)
-        .findPayment(widget.paymentId);
+    final asyncState = ref.watch(pagoDetailProvider(widget.paymentId));
+    final payment = asyncState.valueOrNull;
     if (asyncState.isLoading) {
       return const Center(child: CircularProgressIndicator());
+    }
+    if (asyncState.hasError) {
+      return AppStatePanel(
+          icon: Icons.cloud_off_outlined,
+          title: 'No se pudo consultar el pago',
+          message: ApiErrorModel.fromObject(asyncState.error!).message,
+          action: TextButton(
+              onPressed: () =>
+                  ref.invalidate(pagoDetailProvider(widget.paymentId)),
+              child: const Text('Reintentar')));
     }
     if (payment == null) {
       return const AppStatePanel(
@@ -107,7 +121,7 @@ class _ValidacionDetallePageState extends ConsumerState<ValidacionDetallePage> {
                     ? 'Pago único · ${payment.numeroPago} de ${payment.cantidadPagos}'
                     : 'Mensualidad ${payment.numeroPago} de ${payment.cantidadPagos}',
             description:
-                '${payment.clienteNombre} · ${payment.contratoFolio} · ${MoneyFormatter.formatDate(payment.fechaPago)}',
+                '${payment.clienteNombre} · ${payment.contratoFolio} · ${payment.fechaPago == null ? 'Sin fecha histórica' : MoneyFormatter.formatDate(payment.fechaPago!)}',
             actions: const [],
           ),
           _paymentBanner(context, payment),
@@ -166,7 +180,10 @@ class _ValidacionDetallePageState extends ConsumerState<ValidacionDetallePage> {
     List<EvidenciaPagoModel> evidences,
     EvidenciaPagoModel? evidence,
   ) {
-    final bytes = evidence?.previewBytes;
+    final download = evidence != null && !evidence.demoOnly
+        ? ref.watch(evidenceBytesProvider(evidence.id))
+        : null;
+    final bytes = download?.valueOrNull ?? evidence?.previewBytes;
     final isImage = evidence?.mimeType.startsWith('image/') ?? false;
     return Container(
       constraints: const BoxConstraints(minHeight: 420),
@@ -234,27 +251,39 @@ class _ValidacionDetallePageState extends ConsumerState<ValidacionDetallePage> {
             height: 460,
             child: ColoredBox(
               color: AppTheme.canvas,
-              child: bytes != null && isImage
-                  ? Center(
-                      child: InteractiveViewer(
-                        minScale: .8,
-                        maxScale: 4,
-                        child: Image.memory(
-                          bytes,
-                          fit: BoxFit.contain,
-                          errorBuilder: (_, __, ___) =>
-                              _previewUnavailable(evidence?.name),
-                        ),
-                      ),
-                    )
-                  : _documentPreview(evidence),
+              child: download?.isLoading == true
+                  ? const Center(child: CircularProgressIndicator())
+                  : download?.hasError == true
+                      ? AppStatePanel(
+                          icon: Icons.cloud_off_outlined,
+                          title: 'No se pudo cargar la evidencia',
+                          message: ApiErrorModel.fromObject(download!.error!)
+                              .message,
+                          action: TextButton(
+                              onPressed: () => ref.invalidate(
+                                  evidenceBytesProvider(evidence!.id)),
+                              child: const Text('Reintentar')))
+                      : bytes != null && isImage
+                          ? Center(
+                              child: InteractiveViewer(
+                                minScale: .8,
+                                maxScale: 4,
+                                child: Image.memory(
+                                  bytes,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (_, __, ___) =>
+                                      _previewUnavailable(evidence?.name),
+                                ),
+                              ),
+                            )
+                          : _documentPreview(evidence, bytes),
             ),
           ),
           if (evidence != null)
             Padding(
               padding: const EdgeInsets.all(AppTheme.space3),
               child: Text(
-                '${evidence.mimeType} · ${_size(evidence.sizeBytes)}',
+                '${evidence.mimeType} · ${_size(evidence.sizeBytes)} · ${evidence.vigente ? 'Vigente' : 'Sustituida (histórica)'}',
                 style: const TextStyle(color: AppTheme.muted, fontSize: 12),
               ),
             ),
@@ -263,8 +292,7 @@ class _ValidacionDetallePageState extends ConsumerState<ValidacionDetallePage> {
     );
   }
 
-  Widget _documentPreview(EvidenciaPagoModel? evidence) {
-    final bytes = evidence?.previewBytes;
+  Widget _documentPreview(EvidenciaPagoModel? evidence, Uint8List? bytes) {
     if (evidence?.mimeType == 'application/pdf' && bytes != null) {
       return PdfViewer.data(
         bytes,
@@ -362,6 +390,7 @@ class _ValidacionDetallePageState extends ConsumerState<ValidacionDetallePage> {
             index,
             activeIndex,
             isLast: index == states.length - 1,
+            history: payment.historial,
           ),
       const Divider(height: AppTheme.space4),
       if (payment.historial.isEmpty) const Text('Sin movimientos registrados.'),
@@ -375,8 +404,9 @@ class _ValidacionDetallePageState extends ConsumerState<ValidacionDetallePage> {
   }
 
   Widget _progressRow(String label, int index, int activeIndex,
-      {required bool isLast}) {
-    final completed = activeIndex >= 0 && index < activeIndex;
+      {required bool isLast, required List<String> history}) {
+    final completed =
+        index != activeIndex && history.any((entry) => entry.contains(label));
     final current = activeIndex == index;
     final color =
         completed || current ? AppTheme.secondaryDark : AppTheme.lineStrong;
@@ -436,14 +466,15 @@ class _ValidacionDetallePageState extends ConsumerState<ValidacionDetallePage> {
         canFinancialReview ? 'enviar_a_autorizacion' : 'validar';
     final positiveLabel =
         canFinancialReview ? 'Enviar a autorización' : 'Aprobar pago';
-    final canApprove = canFinancialReview || payment.hasEvidenceForApproval;
+    final canApprove =
+        paymentReviewActions(payment, session.role).contains(positiveAction);
     return _section(context, 'Decisión de revisión', [
       const Text(
         'Confirma que los datos y el comprobante correspondan al pago.',
         style: TextStyle(color: AppTheme.muted),
       ),
       const SizedBox(height: AppTheme.space3),
-      if (canAdminReview && !payment.hasEvidenceForApproval) ...[
+      if (!payment.hasEvidenceForApproval) ...[
         const AppNotice(
           type: AppNoticeType.warning,
           text:
@@ -454,7 +485,7 @@ class _ValidacionDetallePageState extends ConsumerState<ValidacionDetallePage> {
       SizedBox(
         width: double.infinity,
         child: FilledButton.icon(
-          onPressed: canApprove
+          onPressed: canApprove && !_reviewing
               ? () => _confirmAction(
                     context,
                     ref,
@@ -476,8 +507,10 @@ class _ValidacionDetallePageState extends ConsumerState<ValidacionDetallePage> {
       SizedBox(
         width: double.infinity,
         child: FilledButton.icon(
-          onPressed: () =>
-              _confirmAction(context, ref, session, payment, 'rechazar'),
+          onPressed: _reviewing
+              ? null
+              : () =>
+                  _confirmAction(context, ref, session, payment, 'rechazar'),
           style: FilledButton.styleFrom(
             backgroundColor: AppTheme.danger,
             foregroundColor: AppTheme.white,
@@ -492,6 +525,7 @@ class _ValidacionDetallePageState extends ConsumerState<ValidacionDetallePage> {
 
   Future<void> _confirmAction(BuildContext context, WidgetRef ref,
       AuthSessionModel session, PagoModel payment, String action) async {
+    if (_reviewing) return;
     final commentController = TextEditingController();
     final rejecting = action == 'rechazar';
     final sending = action == 'enviar_a_autorizacion';
@@ -521,7 +555,7 @@ class _ValidacionDetallePageState extends ConsumerState<ValidacionDetallePage> {
               maxLength: 1000,
               maxLines: 3,
               decoration: const InputDecoration(
-                labelText: 'Comentario (opcional)',
+                labelText: 'Comentario / motivo de rechazo',
                 hintText: 'Agrega contexto a la decisión',
               ),
             ),
@@ -547,27 +581,42 @@ class _ValidacionDetallePageState extends ConsumerState<ValidacionDetallePage> {
       commentController.dispose();
       return;
     }
+    if (rejecting && commentController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Indica el motivo de rechazo.')));
+      commentController.dispose();
+      return;
+    }
+    setState(() => _reviewing = true);
     try {
-      ref
-          .read(pagosControllerProvider(session.role).notifier)
-          .changeReviewStateDemo(
+      final controller =
+          ref.read(pagosControllerProvider(session.role).notifier);
+      if (AppEnv.demoMode) {
+        controller.changeReviewStateDemo(
             paymentId: payment.id,
             action: action,
             comment: commentController.text,
-            actor: session.name,
-          );
+            actor: session.name);
+      } else {
+        await controller.reviewApi(payment, action, commentController.text);
+      }
+      if (mounted) ref.invalidate(pagoDetailProvider(payment.id));
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Estado actualizado.')),
         );
       }
-    } on StateError catch (error) {
+    } catch (error) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.message)),
+          SnackBar(
+              content: Text(error is StateError
+                  ? error.message.toString()
+                  : ApiErrorModel.fromObject(error).message)),
         );
       }
     } finally {
+      if (mounted) setState(() => _reviewing = false);
       commentController.dispose();
     }
   }
@@ -577,7 +626,7 @@ class _ValidacionDetallePageState extends ConsumerState<ValidacionDetallePage> {
     for (final evidence in evidences) {
       if (evidence.id == _selectedEvidenceId) return evidence;
     }
-    return evidences.first;
+    return evidences.where((e) => e.vigente).firstOrNull ?? evidences.first;
   }
 
   int _stateIndex(String status) => switch (status) {
@@ -639,7 +688,9 @@ class _ValidacionDetallePageState extends ConsumerState<ValidacionDetallePage> {
         _ => AppBadgeTone.warning,
       };
 
-  String _size(int bytes) => bytes < 1024 * 1024
-      ? '${(bytes / 1024).ceil()} KB'
-      : '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  String _size(int? bytes) => bytes == null
+      ? 'Tamaño no disponible'
+      : bytes < 1024 * 1024
+          ? '${(bytes / 1024).ceil()} KB'
+          : '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
 }

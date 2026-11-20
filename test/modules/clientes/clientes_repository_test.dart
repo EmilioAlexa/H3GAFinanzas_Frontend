@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:h3ga_finanzas/modules/auth/auth.dart';
 import 'package:h3ga_finanzas/modules/clientes/clientes.dart';
@@ -15,10 +18,35 @@ void main() {
     );
   });
 
-  test('non-demo repository never returns local demo clients', () async {
-    final repository = ClientesRepository(demoMode: false);
+  test('real client list calls the API and maps the paginated response',
+      () async {
+    final dio = Dio(BaseOptions(baseUrl: 'https://api.example.test'))
+      ..httpClientAdapter = _JsonAdapter(
+        '{"data":[{"id":"client-1","nombre":"Ana",'
+        '"apellido_paterno":"López","apellido_materno":null}],'
+        '"pagination":{"page":1,"limit":100,"total":1,"totalPages":1}}',
+      );
+    final repository = ClientesRepository(demoMode: false, dio: dio);
 
-    expect(await repository.load(UserRole.administrador), isNull);
+    final clients = await repository.load(UserRole.administrador);
+    expect(clients, hasLength(1));
+    expect(clients!.single.id, 'client-1');
+    expect(clients.single.nombreCompleto, 'Ana López');
+    expect(dio.options.baseUrl, 'https://api.example.test');
+  });
+
+  test('real client detail calls its endpoint and maps authorized fields',
+      () async {
+    final dio = Dio(BaseOptions(baseUrl: 'https://api.example.test'))
+      ..httpClientAdapter = _JsonAdapter(
+        '{"id":"client-1","nombre":"Ana","apellido_paterno":"López",'
+        '"domicilio":"Centro","observaciones_generales":"Seguimiento"}',
+      );
+    final repository = ClientesRepository(demoMode: false, dio: dio);
+
+    final client = await repository.findOne('client-1');
+    expect(client.direccion, 'Centro');
+    expect(client.observaciones, 'Seguimiento');
   });
 
   test('client payload contains only fields described by OpenAPI', () {
@@ -71,4 +99,20 @@ void main() {
     );
     expect(updated.nombreCompleto, 'Lucía Fernanda Ortega');
   });
+}
+
+class _JsonAdapter implements HttpClientAdapter {
+  _JsonAdapter(this.body);
+  final String body;
+
+  @override
+  Future<ResponseBody> fetch(RequestOptions options,
+      Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
+    return ResponseBody.fromString(body, 200, headers: {
+      Headers.contentTypeHeader: [Headers.jsonContentType]
+    });
+  }
+
+  @override
+  void close({bool force = false}) {}
 }

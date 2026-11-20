@@ -1,11 +1,29 @@
+import 'package:dio/dio.dart';
+
 import '../models/usuario_model.dart';
 import 'usuarios_repository_exception.dart';
 
 class UsuariosRepository {
-  UsuariosRepository({List<UsuarioModel>? initialUsers})
-      : _users = List.of(initialUsers ?? demoUsers);
+  UsuariosRepository({List<UsuarioModel>? initialUsers, Dio? dio})
+      : _users = List.of(initialUsers ?? demoUsers),
+        _dio = dio;
 
   final List<UsuarioModel> _users;
+  final Dio? _dio;
+
+  Future<List<UsuarioModel>> load() async {
+    final response = await _dio!.get<List<dynamic>>('/usuarios');
+    final records = response.data;
+    if (records == null) {
+      throw const FormatException('La respuesta de usuarios está vacía.');
+    }
+    return List.unmodifiable(records
+        .whereType<Map<Object?, Object?>>()
+        .map((record) => UsuarioModel.fromApi(
+              record.map((key, value) => MapEntry(key.toString(), value)),
+            ))
+        .toList());
+  }
 
   static const roles = <({String id, String nombre})>[
     (id: 'demo-role-admin', nombre: 'Administrador'),

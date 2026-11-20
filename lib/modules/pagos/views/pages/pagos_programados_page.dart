@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/config/env.dart';
 import '../../../../app/theme/app_theme.dart';
+import '../../../../core/network/api_error_model.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_data_column.dart';
@@ -14,6 +15,7 @@ import '../../../../core/widgets/app_state_panel.dart';
 import '../../../auth/auth.dart';
 import '../../controllers/pagos_controller.dart';
 import '../../models/pago_programado_model.dart';
+import '../widgets/scheduled_payment_dialog.dart';
 
 class PagosProgramadosPage extends ConsumerWidget {
   const PagosProgramadosPage({super.key});
@@ -46,11 +48,23 @@ class PagosProgramadosPage extends ConsumerWidget {
               title: 'Pagos programados no disponibles',
               message:
                   'La integración se realizará en B5; no se muestran fixtures en sesión real.')
-          : _content(context, value.scheduled),
+          : value.scheduledError != null
+              ? AppStatePanel(
+                  icon: Icons.cloud_off_outlined,
+                  title: 'No se pudo consultar cobranza',
+                  message:
+                      ApiErrorModel.fromObject(value.scheduledError!).message,
+                  action: TextButton(
+                      onPressed: () => ref
+                          .read(pagosControllerProvider(session.role).notifier)
+                          .load(),
+                      child: const Text('Reintentar')))
+              : _content(context, ref, session.role, value.scheduled),
     );
   }
 
-  Widget _content(BuildContext context, List<PagoProgramadoModel> rows) =>
+  Widget _content(BuildContext context, WidgetRef ref, UserRole role,
+          List<PagoProgramadoModel> rows) =>
       SingleChildScrollView(
         padding: const EdgeInsets.all(AppTheme.space6),
         child:
@@ -64,11 +78,10 @@ class PagosProgramadosPage extends ConsumerWidget {
                     onPressed: () => context.go('/pagos'),
                     icon: const Icon(Icons.payments_outlined),
                     label: const Text('Pagos recibidos')),
-                if (AppEnv.demoMode)
-                  FilledButton.icon(
-                      onPressed: () => context.go('/pagos-programados/nuevo'),
-                      icon: const Icon(Icons.add),
-                      label: const Text('Programar pago')),
+                FilledButton.icon(
+                    onPressed: () => context.go('/pagos-programados/nuevo'),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Programar pago')),
               ]),
           if (AppEnv.demoMode) ...[
             const AppNotice(
@@ -84,6 +97,7 @@ class PagosProgramadosPage extends ConsumerWidget {
           else
             AppResponsiveCollection<PagoProgramadoModel>(
               rows: rows,
+              onRowTap: (p) => showScheduledPayment(context, ref, p, role),
               columns: [
                 AppDataColumn(
                     label: 'Cliente / Contrato',
@@ -126,7 +140,9 @@ class PagosProgramadosPage extends ConsumerWidget {
                             ? AppBadgeTone.success
                             : AppBadgeTone.warning)),
               ],
-              compactCardBuilder: (context, p) => _card(context, p),
+              compactCardBuilder: (context, p) => InkWell(
+                  onTap: () => showScheduledPayment(context, ref, p, role),
+                  child: _card(context, p)),
             ),
         ]),
       );
