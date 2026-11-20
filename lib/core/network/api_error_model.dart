@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'api_client.dart';
 
 class ApiErrorModel {
   const ApiErrorModel({
@@ -20,6 +21,12 @@ class ApiErrorModel {
         );
       }
       if (error.response?.statusCode == 401) {
+        if (error.requestOptions.extra[publicLoginRequestKey] == true) {
+          return const ApiErrorModel(
+            message: 'Correo o contraseña incorrectos.',
+            statusCode: 401,
+          );
+        }
         return const ApiErrorModel(
           message: 'Tu sesión expiró. Inicia sesión nuevamente.',
           statusCode: 401,
