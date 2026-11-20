@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../app/config/env.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/responsive/window_size_class.dart';
@@ -9,6 +10,8 @@ import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_state_panel.dart';
+import '../../../auth/auth.dart';
+import '../../controllers/contratos_controller.dart';
 import '../../controllers/servicios_controller.dart';
 import '../../models/servicio_model.dart';
 
@@ -39,15 +42,21 @@ class ServiciosPage extends ConsumerWidget {
             message: 'No fue posible consultar el catálogo de servicios.',
           );
         }
+        final session = ref.watch(authControllerProvider).valueOrNull;
+        final contracts = session == null
+            ? null
+            : ref.watch(contratosControllerProvider(session.role)).valueOrNull;
         return _content(context, services, {
           for (final service in services)
-            service.id: switch (service.id) {
-              10 => 184,
-              40 => 248,
-              41 => 37,
-              50 => 96,
-              _ => 0,
-            },
+            service.id: !AppEnv.demoMode
+                ? contracts?.where((e) => e.servicioId == service.id).length
+                : switch (service.id) {
+                    10 => 184,
+                    40 => 248,
+                    41 => 37,
+                    50 => 96,
+                    _ => 0,
+                  },
         });
       },
     );
@@ -65,6 +74,12 @@ class ServiciosPage extends ConsumerWidget {
               title: 'Servicios',
               description: 'Servicios disponibles y seguimiento especializado.',
             ),
+            if (services.isEmpty)
+              const AppStatePanel(
+                  icon: Icons.business_center_outlined,
+                  title: 'Sin servicios disponibles',
+                  message:
+                      'El catálogo está vacío. Actualiza cuando se registren servicios.'),
             LayoutBuilder(
               builder: (context, constraints) {
                 final size = Responsive.of(context);

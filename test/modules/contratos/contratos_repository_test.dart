@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:h3ga_finanzas/modules/auth/auth.dart';
 import 'package:h3ga_finanzas/modules/contratos/contratos.dart';
@@ -12,10 +13,19 @@ void main() {
   });
 
   test('real repository mode does not expose fixture records', () async {
-    final repository = ContratosRepository(demoMode: false);
+    final dio = Dio();
+    dio.interceptors.add(InterceptorsWrapper(onRequest: (request, handler) {
+      handler.resolve(Response(requestOptions: request, data: {
+        'data': <dynamic>[],
+        'pagination': {'totalPages': 0}
+      }));
+    }));
+    final repository = ContratosRepository(demoMode: false, dio: dio);
 
-    expect(await repository.load(UserRole.administrador), isNull);
-    expect(await repository.loadServices(), isNull);
+    expect(await repository.load(UserRole.administrador), isEmpty);
+    expect(await repository.loadServices(), isEmpty);
+    expect(await repository.loadStates(), isEmpty);
+    expect(repository.penaltiesFor('demo-contract-1'), isEmpty);
   });
 
   test('contract payload matches fields accepted by OpenAPI', () {
@@ -29,7 +39,6 @@ void main() {
         'cliente_id',
         'servicio_id',
         'asesor_id',
-        'folio',
         'fecha_contrato',
         'estado_contrato_id',
         'cantidad_pagos',

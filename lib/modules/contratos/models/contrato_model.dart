@@ -23,6 +23,33 @@ class ContratoModel {
     this.assignedToCurrentAdvisor = false,
   });
 
+  factory ContratoModel.fromJson(Map<String, dynamic> json) {
+    String name(dynamic value) {
+      final row = value as Map? ?? {};
+      return [row['nombre'], row['apellido_paterno'], row['apellido_materno']]
+          .whereType<String>()
+          .where((s) => s.isNotEmpty)
+          .join(' ');
+    }
+
+    return ContratoModel(
+      id: json['id'] as String,
+      clienteId: json['cliente_id'] as String,
+      servicioId: json['servicio_id'] as int,
+      asesorId: json['asesor_id'] as String,
+      folio: json['folio'] as String,
+      fechaContrato: DateTime.parse(json['fecha_contrato'] as String),
+      estadoContratoId: json['estado_contrato_id'] as int,
+      creadoEn: DateTime.parse(json['creado_en'] as String),
+      cantidadPagos: json['cantidad_pagos'] as int?,
+      observaciones: json['observaciones'] as String?,
+      clienteNombre: name(json['clientes']),
+      servicioNombre: name(json['servicios']),
+      asesorNombre: name(json['usuarios']),
+      estadoNombre: name(json['estados_contratos']),
+    );
+  }
+
   final String id;
   final String clienteId;
   final int servicioId;
@@ -49,7 +76,6 @@ class ContratoModel {
         'cliente_id': clienteId,
         'servicio_id': servicioId,
         if (!isAdvisor) 'asesor_id': asesorId,
-        'folio': folio,
         'fecha_contrato': _dateOnly(fechaContrato),
         'estado_contrato_id': estadoContratoId,
         if (cantidadPagos != null) 'cantidad_pagos': cantidadPagos,
