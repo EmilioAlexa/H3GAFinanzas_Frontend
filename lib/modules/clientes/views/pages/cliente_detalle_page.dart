@@ -40,37 +40,23 @@ class ClienteDetallePage extends ConsumerWidget {
             message: 'El detalle requiere una sesión activa.',
           );
         }
-        return ref.watch(clientesControllerProvider(session.role)).when(
+        return ref
+            .watch(clienteDetalleProvider((id: clienteId, role: session.role)))
+            .when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, stackTrace) => AppStatePanel(
                 icon: Icons.cloud_off_outlined,
                 title: 'No se pudo cargar el cliente',
                 message: 'Inténtalo de nuevo.',
                 action: TextButton.icon(
-                  onPressed: () => ref
-                      .read(clientesControllerProvider(session.role).notifier)
-                      .load(),
+                  onPressed: () => ref.invalidate(
+                    clienteDetalleProvider((id: clienteId, role: session.role)),
+                  ),
                   icon: const Icon(Icons.refresh),
                   label: const Text('Reintentar'),
                 ),
               ),
-              data: (clients) {
-                if (clients == null) {
-                  return const AppStatePanel(
-                    icon: Icons.people_outline,
-                    title: 'Sin información disponible',
-                    message: 'No fue posible consultar el detalle del cliente.',
-                  );
-                }
-                final client =
-                    clients.where((item) => item.id == clienteId).firstOrNull;
-                if (client == null) {
-                  return const AppStatePanel(
-                    icon: Icons.person_search_outlined,
-                    title: 'Cliente no disponible',
-                    message: '',
-                  );
-                }
+              data: (client) {
                 final contracts = ref
                         .watch(contratosControllerProvider(session.role))
                         .valueOrNull ??
@@ -468,7 +454,11 @@ class ClienteDetallePage extends ConsumerWidget {
                     children: [
                       _field('Servicio', payment.servicioNombre),
                       _field('Monto', MoneyFormatter.format(payment.monto)),
-                      _field('Fecha de pago', _date(payment.fechaPago)),
+                      _field(
+                          'Fecha de pago',
+                          payment.fechaPago == null
+                              ? 'Sin fecha histórica'
+                              : _date(payment.fechaPago!)),
                       _field('Método', payment.formaPago),
                       _field('Referencia', payment.referencia),
                     ],
@@ -505,11 +495,13 @@ class ClienteDetallePage extends ConsumerWidget {
           detail: '${contract.servicioNombre} · ${contract.folio}',
         ),
       for (final payment in payments)
-        _TimelineEntry(
-          date: payment.fechaPago,
-          title: 'Pago ${payment.estado.toLowerCase()}',
-          detail: '${MoneyFormatter.format(payment.monto)} · ${payment.folio}',
-        ),
+        if (payment.fechaPago != null)
+          _TimelineEntry(
+            date: payment.fechaPago!,
+            title: 'Pago ${payment.estado.toLowerCase()}',
+            detail:
+                '${MoneyFormatter.format(payment.monto)} · ${payment.folio}',
+          ),
     ]..sort((a, b) => b.date.compareTo(a.date));
     if (events.isEmpty) {
       return _emptyTab(
@@ -564,7 +556,9 @@ class ClienteDetallePage extends ConsumerWidget {
             for (final payment in payments)
               _timelineItem(
                 context,
-                _date(payment.fechaPago),
+                payment.fechaPago == null
+                    ? 'Sin fecha histórica'
+                    : _date(payment.fechaPago!),
                 'Pago ${payment.estado.toLowerCase()}',
                 '${MoneyFormatter.format(payment.monto)} · ${payment.folio}',
               ),

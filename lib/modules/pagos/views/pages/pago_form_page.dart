@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../app/config/env.dart';
 import '../../../../app/theme/app_theme.dart';
+import '../../../../core/network/api_error_model.dart';
 import '../../../../core/platform/file_platform_factory.dart';
 import '../../../../core/platform/selected_file.dart';
 import '../../../../core/utils/money_formatter.dart';
@@ -14,23 +16,16 @@ import '../../../auth/auth.dart';
 import '../../../contratos/fixtures/contratos_demo_fixtures.dart';
 import '../../../contratos/models/contrato_model.dart';
 import '../../../usuarios/usuarios.dart';
+import '../../controllers/pago_options_controller.dart';
 import '../../controllers/pagos_controller.dart';
 import '../../models/evidencia_pago_model.dart';
 import '../../models/pago_model.dart';
 import '../../models/pago_programado_model.dart';
+import '../../models/payment_evidence_validation.dart';
 
 const maxEvidenceBytes = 10 * 1024 * 1024;
 
-String? validateEvidence(SelectedFile file) {
-  final extension = file.name.split('.').last.toLowerCase();
-  if (!const {'pdf', 'jpg', 'jpeg', 'png'}.contains(extension)) {
-    return 'Solo se permiten archivos PDF, JPG, JPEG o PNG.';
-  }
-  if (file.bytes.lengthInBytes > maxEvidenceBytes) {
-    return 'El archivo supera el límite de 10 MB.';
-  }
-  return null;
-}
+String? validateEvidence(SelectedFile file) => validatePaymentEvidence(file);
 
 class PagoFormPage extends ConsumerStatefulWidget {
   const PagoFormPage({this.paymentId, super.key});
@@ -47,6 +42,12 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
   final _reference = TextEditingController();
   final _observations = TextEditingController();
   final _receipt = TextEditingController();
+  final _reason = TextEditingController();
+  List<PagoOption> _methods = [];
+  List<PaymentReceiver> _receivers = [];
+  String? _optionsMessage;
+  String? _receiverMessage;
+  String? _savedId;
   final List<SelectedFile> _files = [];
   final List<EvidenciaPagoModel> _existingEvidence = [];
 
@@ -55,8 +56,8 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
   String? _scheduleId;
   String? _receivedById;
   String? _fileError;
-  int _methodId = 1;
-  DateTime _date = DateTime.now();
+  int? _methodId = AppEnv.demoMode ? 1 : null;
+  DateTime? _date = DateTime.now();
   bool _saving = false;
   bool _editInitialized = false;
 
@@ -73,6 +74,7 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
     _reference.dispose();
     _observations.dispose();
     _receipt.dispose();
+    _reason.dispose();
     super.dispose();
   }
 
@@ -82,10 +84,12 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
 
   void _initializeRejectedPayment(PagoModel payment) {
     _editInitialized = true;
-    _clientId = ContratosDemoFixtures.contracts
-        .where((contract) => contract.id == payment.contratoId)
-        .map((contract) => contract.clienteId)
-        .firstOrNull;
+    _clientId = payment.clienteId ??
+        ContratosDemoFixtures.contracts
+            .where((contract) =>
+                AppEnv.demoMode && contract.id == payment.contratoId)
+            .map((contract) => contract.clienteId)
+            .firstOrNull;
     _contractId = payment.contratoId;
     _scheduleId = payment.pagoProgramadoId;
     _methodId = payment.formaPagoId;
@@ -113,28 +117,55 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
       );
     }
     final paymentState = ref.watch(pagosControllerProvider(session.role));
-    if (!ref.watch(pagosControllerProvider(session.role).notifier).demoMode) {
-      return const AppStatePanel(
-        icon: Icons.link_off,
-        title: 'Registro no disponible',
-        message: 'No fue posible cargar el formulario de pago.',
-      );
+    final optionsState =
+        AppEnv.demoMode ? null : ref.watch(pagoOptionsProvider(session.role));
+    final options = optionsState?.valueOrNull;
+    if (options != null) {
+      _methods = options.methods;
+      _receivers = options.receivers;
+      _receiverMessage = options.receiverMessage;
     }
-
-    final contracts = ContratosDemoFixtures.contracts
-        .where((item) =>
-            session.role != UserRole.asesor || item.assignedToCurrentAdvisor)
-        .toList();
-    final editingPayment = paymentState.valueOrNull?.payments
-        .where((payment) => payment.id == widget.paymentId)
-        .firstOrNull;
+    _optionsMessage = optionsState?.isLoading == true
+        ? 'Cargando contratos y métodos…'
+        : optionsState?.hasError == true
+            ? ApiErrorModel.fromObject(optionsState!.error!).message
+            : !AppEnv.demoMode && _methods.isEmpty
+                ? (options?.methodError != null
+                    ? ApiErrorModel.fromObject(options!.methodError!).message
+                    : 'No hay métodos de pago activos.')
+                : null;
+    final contracts = AppEnv.demoMode
+        ? ContratosDemoFixtures.contracts
+            .where((item) =>
+                session.role != UserRole.asesor ||
+                item.assignedToCurrentAdvisor)
+            .toList()
+        : options?.contracts ?? <ContratoModel>[];
+    final detailState = widget.paymentId == null || AppEnv.demoMode
+        ? null
+        : ref.watch(pagoDetailProvider(widget.paymentId!));
+    final editingPayment = detailState?.valueOrNull ??
+        paymentState.valueOrNull?.payments
+            .where((payment) => payment.id == widget.paymentId)
+            .firstOrNull;
+    if (detailState?.hasError == true) {
+      return AppStatePanel(
+          icon: Icons.cloud_off_outlined,
+          title: 'No se pudo cargar el pago',
+          message: ApiErrorModel.fromObject(detailState!.error!).message,
+          action: TextButton(
+              onPressed: () =>
+                  ref.invalidate(pagoDetailProvider(widget.paymentId!)),
+              child: const Text('Reintentar')));
+    }
     if (widget.paymentId != null) {
-      if (paymentState.isLoading) {
+      if (paymentState.isLoading || detailState?.isLoading == true) {
         return const Center(child: CircularProgressIndicator());
       }
       if (session.role != UserRole.asesor ||
           editingPayment == null ||
-          editingPayment.estado != 'Rechazado') {
+          editingPayment.estado != 'Rechazado' ||
+          (!AppEnv.demoMode && editingPayment.registradoPor != session.id)) {
         return const AppStatePanel(
           icon: Icons.lock_outline,
           title: 'Pago no editable',
@@ -183,8 +214,10 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
                 final sections = Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _relationSection(
-                        clients, matchingContracts, matchingSchedules),
+                    AbsorbPointer(
+                        absorbing: widget.paymentId != null && !AppEnv.demoMode,
+                        child: _relationSection(
+                            clients, matchingContracts, matchingSchedules)),
                     const SizedBox(height: AppTheme.space4),
                     _paymentSection(matchingSchedules),
                     const SizedBox(height: AppTheme.space4),
@@ -315,7 +348,7 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
       );
 
   Widget _paymentSection(List<PagoProgramadoModel> schedules) {
-    final isCash = _methodId == 3;
+    final isCash = _isCash;
     return _sectionCard(
       number: '2',
       title: 'Información del pago',
@@ -340,17 +373,27 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
               _dropdown<int>(
                 label: 'Método de pago',
                 value: _methodId,
-                items: const [
-                  DropdownMenuItem(
-                      value: 1, child: Text('Transferencia electrónica')),
-                  DropdownMenuItem(value: 2, child: Text('Depósito')),
-                  DropdownMenuItem(value: 3, child: Text('Efectivo')),
-                  DropdownMenuItem(value: 4, child: Text('Cheque')),
-                ],
-                onChanged: (value) => setState(() => _methodId = value ?? 1),
+                validator: (value) =>
+                    value == null ? 'Selecciona un método activo.' : null,
+                items: !AppEnv.demoMode
+                    ? [
+                        for (final method in _methods)
+                          DropdownMenuItem(
+                              value: method.id, child: Text(method.name))
+                      ]
+                    : const [
+                        DropdownMenuItem(
+                            value: 1, child: Text('Transferencia electrónica')),
+                        DropdownMenuItem(value: 2, child: Text('Depósito')),
+                        DropdownMenuItem(value: 3, child: Text('Efectivo')),
+                        DropdownMenuItem(value: 4, child: Text('Cheque')),
+                      ],
+                onChanged: (value) => setState(() => _methodId = value),
               ),
               TextFormField(
                 controller: _reference,
+                readOnly: widget.paymentId != null && !AppEnv.demoMode,
+                maxLength: 100,
                 decoration:
                     const InputDecoration(labelText: 'Referencia de pago'),
               ),
@@ -363,6 +406,15 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
               ),
             ],
           ),
+          if (widget.paymentId != null && !AppEnv.demoMode)
+            TextFormField(
+                controller: _reason,
+                maxLength: 1000,
+                decoration:
+                    const InputDecoration(labelText: 'Motivo de corrección *'),
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? 'Indica el motivo de corrección.'
+                    : null),
           if (isCash) ...[
             const SizedBox(height: AppTheme.space3),
             _cashFields(),
@@ -373,16 +425,15 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
   }
 
   Widget _cashFields() {
-    final users = ref.watch(usuariosControllerProvider).valueOrNull ??
-        const <UsuarioModel>[];
-    final receiverNames = users
-        .where((user) => user.activo)
-        .map((user) => user.nombreCompleto)
-        .toList();
-    if (_receivedById != null && !receiverNames.contains(_receivedById)) {
-      receiverNames.insert(0, _receivedById!);
-    }
-
+    final demoUsers = AppEnv.demoMode
+        ? ref.watch(usuariosControllerProvider).valueOrNull
+        : null;
+    final receivers = AppEnv.demoMode
+        ? (demoUsers ?? const <UsuarioModel>[])
+            .where((e) => e.activo)
+            .map((e) => (id: e.id, name: e.nombreCompleto))
+            .toList()
+        : _receivers;
     return Container(
       padding: const EdgeInsets.all(AppTheme.space3),
       decoration: BoxDecoration(
@@ -395,23 +446,25 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
         children: [
           TextFormField(
             controller: _receipt,
+            maxLength: 100,
             decoration: const InputDecoration(labelText: 'Folio de recibo *'),
-            validator: (value) =>
-                _methodId == 3 && (value?.trim().isEmpty ?? true)
-                    ? 'Ingresa el folio del recibo.'
-                    : null,
+            validator: (value) => _isCash && (value?.trim().isEmpty ?? true)
+                ? 'Ingresa el folio del recibo.'
+                : null,
           ),
           _dropdown<String>(
             label: 'Recibido por *',
-            value: _receivedById,
-            items: receiverNames
-                .map((name) => DropdownMenuItem<String>(
-                      value: name,
-                      child: Text(name),
+            value: receivers.any((e) => e.id == _receivedById)
+                ? _receivedById
+                : null,
+            items: receivers
+                .map((receiver) => DropdownMenuItem<String>(
+                      value: receiver.id,
+                      child: Text(receiver.name),
                     ))
                 .toList(),
             onChanged: (value) => setState(() => _receivedById = value),
-            validator: (value) => _methodId == 3 && value == null
+            validator: (value) => _isCash && value == null
                 ? 'Selecciona quién recibió el pago.'
                 : null,
           ),
@@ -441,16 +494,16 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    CircleAvatar(
+                    const CircleAvatar(
                       backgroundColor: AppTheme.secondaryTint,
                       foregroundColor: AppTheme.secondaryDark,
-                      child: const Icon(Icons.arrow_upward_rounded),
+                      child: Icon(Icons.arrow_upward_rounded),
                     ),
                     const SizedBox(height: AppTheme.space2),
                     const Text('Arrastra los archivos aquí o selecciónalos',
                         style: TextStyle(fontWeight: FontWeight.w700)),
                     const SizedBox(height: AppTheme.space1),
-                    const Text('PDF, JPG o PNG · Máximo 10 MB por archivo',
+                    const Text('PDF o JPG/JPEG · Máximo 10 MB por archivo',
                         style: TextStyle(color: AppTheme.muted, fontSize: 11)),
                     const SizedBox(height: AppTheme.space3),
                     OutlinedButton(
@@ -544,8 +597,31 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
             ),
           ),
           const SizedBox(height: AppTheme.space4),
+          if (!AppEnv.demoMode) ...[
+            if (_optionsMessage != null) Text(_optionsMessage!),
+            if (contracts.isEmpty)
+              const Text('Sin contratos disponibles para registrar pagos.'),
+            if (_receiverMessage != null && _isCash) Text(_receiverMessage!),
+            if (ref
+                    .watch(pagosControllerProvider(role))
+                    .valueOrNull
+                    ?.scheduledError !=
+                null)
+              const Text(
+                  'No se pudieron consultar las obligaciones. Reintenta antes de asociar el pago a un cobro.'),
+            TextButton(
+                onPressed: () {
+                  ref.invalidate(pagoOptionsProvider(role));
+                  ref.read(pagosControllerProvider(role).notifier).load();
+                },
+                child: const Text('Actualizar opciones')),
+          ],
           FilledButton(
-            onPressed: _saving ? null : () => _save(role, contracts),
+            onPressed: _saving ||
+                    (!AppEnv.demoMode &&
+                        (_optionsMessage != null || contracts.isEmpty))
+                ? null
+                : () => _save(role, contracts),
             child: _saving
                 ? const SizedBox(
                     height: 18,
@@ -653,11 +729,15 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
     FormFieldValidator<T>? validator,
   }) =>
       DropdownButtonFormField<T>(
-        initialValue: value,
+        initialValue: items.any((item) => item.value == value) ? value : null,
         isExpanded: true,
         decoration: InputDecoration(labelText: label),
         items: items,
-        onChanged: onChanged,
+        onChanged: widget.paymentId != null &&
+                !AppEnv.demoMode &&
+                ['Cliente', 'Contrato', 'Pago programado'].contains(label)
+            ? null
+            : onChanged,
         validator: validator,
       );
 
@@ -667,7 +747,10 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
           decoration: const InputDecoration(labelText: 'Fecha de pago'),
           child: Row(
             children: [
-              Expanded(child: Text(MoneyFormatter.formatDate(_date))),
+              Expanded(
+                  child: Text(_date == null
+                      ? 'Selecciona una fecha'
+                      : MoneyFormatter.formatDate(_date!))),
               const Icon(Icons.calendar_month_outlined),
             ],
           ),
@@ -767,12 +850,21 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
     }
   }
 
-  String get _methodLabel => switch (_methodId) {
-        1 => 'Transferencia electrónica',
-        2 => 'Depósito',
-        3 => 'Efectivo',
-        _ => 'Cheque',
-      };
+  bool get _isCash => AppEnv.demoMode
+      ? _methodId == 3
+      : _methodLabel.toLowerCase().contains('efectivo');
+  String get _methodLabel => !AppEnv.demoMode
+      ? _methods
+              .where((e) => e.id == _methodId)
+              .map((e) => e.name)
+              .firstOrNull ??
+          'Selecciona un método'
+      : switch (_methodId) {
+          1 => 'Transferencia electrónica',
+          2 => 'Depósito',
+          3 => 'Efectivo',
+          _ => 'Cheque',
+        };
 
   String? _validateAmount(String? value) {
     final normalized =
@@ -810,20 +902,75 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
     });
   }
 
-  void _save(UserRole role, List<ContratoModel> contracts) {
-    if (!_formKey.currentState!.validate()) return;
+  Future<void> _save(UserRole role, List<ContratoModel> contracts) async {
+    if (!_formKey.currentState!.validate() || _saving) return;
+    if (_date == null || _methodId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Selecciona fecha y método de pago.')));
+      return;
+    }
     final contract = _findContract(contracts);
     final amount = _parsedAmount();
     if (contract == null || amount == null) return;
     setState(() => _saving = true);
     final controller = ref.read(pagosControllerProvider(role).notifier);
+    if (!AppEnv.demoMode) {
+      try {
+        final payload = <String, dynamic>{
+          'forma_pago_id': _methodId,
+          'monto': amount.toString(),
+          'fecha_pago': _date!.toUtc().toIso8601String(),
+          'observaciones': _observations.text.trim().isEmpty
+              ? null
+              : _observations.text.trim(),
+          if (_isCash) 'folio_recibo': _receipt.text.trim(),
+          if (_isCash) 'recibido_por': _receivedById,
+        };
+        if (_savedId == null) {
+          final saved = widget.paymentId == null
+              ? await controller.createApi({
+                  ...payload,
+                  'contrato_id': contract.id,
+                  if (_scheduleId != null) 'pago_programado_id': _scheduleId,
+                  if (_reference.text.trim().isNotEmpty)
+                    'referencia_pago': _reference.text.trim()
+                })
+              : await controller.correctApi(widget.paymentId!,
+                  {...payload, 'motivo': _reason.text.trim()});
+          _savedId = saved.id;
+        }
+        final repository = ref.read(pagosRepositoryProvider);
+        for (final file in List<SelectedFile>.of(_files)) {
+          await repository.upload(_savedId!, file);
+          _files.remove(file);
+        }
+        ref.invalidate(pagoDetailProvider(_savedId!));
+        if (mounted) context.go('/pagos/$_savedId');
+      } catch (error) {
+        if (mounted) {
+          final savedMessage = _savedId == null
+              ? ''
+              : 'El pago ya fue guardado. Falta completar la evidencia. ';
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(
+                  '$savedMessage${ApiErrorModel.fromObject(error).message}')));
+          if (_savedId != null) {
+            ref.invalidate(pagoDetailProvider(_savedId!));
+            context.go('/pagos/$_savedId');
+          }
+        }
+      } finally {
+        if (mounted) setState(() => _saving = false);
+      }
+      return;
+    }
     final payment = widget.paymentId == null
         ? controller.createPayment(
             contract: contract,
-            methodId: _methodId,
+            methodId: _methodId!,
             method: _methodLabel,
             amount: amount,
-            date: _date,
+            date: _date!,
             reference: _reference.text.trim(),
             observations: _observations.text.trim(),
             scheduleId: _scheduleId,
@@ -834,10 +981,10 @@ class _PagoFormPageState extends ConsumerState<PagoFormPage> {
         : controller.resubmitRejectedDemo(
             paymentId: widget.paymentId!,
             contract: contract,
-            methodId: _methodId,
+            methodId: _methodId!,
             method: _methodLabel,
             amount: amount,
-            date: _date,
+            date: _date!,
             reference: _reference.text.trim(),
             observations: _observations.text.trim(),
             scheduleId: _scheduleId,

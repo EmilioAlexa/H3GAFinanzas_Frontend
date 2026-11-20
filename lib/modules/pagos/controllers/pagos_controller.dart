@@ -1,26 +1,33 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:decimal/decimal.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/config/env.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/platform/selected_file.dart';
-import '../../auth/models/user_role_model.dart';
+import '../../auth/auth.dart';
 import '../../contratos/contratos.dart';
+import '../models/evidencia_pago_model.dart';
 import '../models/pago_model.dart';
 import '../models/pago_programado_model.dart';
-import '../models/evidencia_pago_model.dart';
+import '../models/pago_review_policy.dart';
 import '../repositories/pagos_repository.dart';
 
-final pagosRepositoryProvider =
-    Provider<PagosRepository>((ref) => PagosRepository());
+final pagosRepositoryProvider = Provider<PagosRepository>((ref) {
+  ref.watch(authControllerProvider);
+  return PagosRepository(dio: ref.watch(apiClientProvider));
+});
 final pagosControllerProvider = StateNotifierProvider.family<PagosController,
         AsyncValue<PagosState?>, UserRole>(
     (ref, role) => PagosController(ref.watch(pagosRepositoryProvider), role,
         demoMode: AppEnv.demoMode));
 
 class PagosState {
-  const PagosState({required this.payments, required this.scheduled});
+  const PagosState(
+      {required this.payments, required this.scheduled, this.scheduledError});
+  final Object? scheduledError;
   final List<PagoModel> payments;
   final List<PagoProgramadoModel> scheduled;
 }
@@ -35,11 +42,28 @@ class PagosController extends StateNotifier<AsyncValue<PagosState?>> {
   final UserRole _role;
   final bool demoMode;
 
+  int _loadVersion = 0;
+
   Future<void> load() async {
+    final version = ++_loadVersion;
     state = const AsyncLoading();
     try {
       if (!demoMode) {
-        state = const AsyncData(null);
+        final paymentFuture = _repository.payments();
+        Object? scheduleError;
+        final scheduleFuture =
+            _repository.scheduled().catchError((Object error) {
+          scheduleError = error;
+          return <PagoProgramadoModel>[];
+        });
+        final results =
+            await Future.wait<Object>([paymentFuture, scheduleFuture]);
+        if (mounted && version == _loadVersion) {
+          state = AsyncData(PagosState(
+              payments: results[0] as List<PagoModel>,
+              scheduled: results[1] as List<PagoProgramadoModel>,
+              scheduledError: scheduleError));
+        }
         return;
       }
       state = AsyncData(PagosState(
@@ -49,8 +73,36 @@ class PagosController extends StateNotifier<AsyncValue<PagosState?>> {
             _repository.loadScheduled(_role, demoMode: demoMode) ?? const [],
       ));
     } catch (error, stackTrace) {
-      state = AsyncError(error, stackTrace);
+      if (mounted && version == _loadVersion) {
+        state = AsyncError(error, stackTrace);
+      }
     }
+  }
+
+  Future<PagoModel> createApi(Map<String, dynamic> payload) async {
+    final payment = await _repository.create(payload);
+    if (mounted) await load();
+    return payment;
+  }
+
+  Future<PagoModel> correctApi(String id, Map<String, dynamic> payload) async {
+    final payment = await _repository.correct(id, payload);
+    if (mounted) await load();
+    return payment;
+  }
+
+  Future<PagoModel> reviewApi(
+      PagoModel payment, String action, String comment) async {
+    if (!paymentReviewActions(payment, _role).contains(action)) {
+      throw StateError(
+          'Acción no permitida para el rol, estado o evidencia actual.');
+    }
+    if (action == 'rechazar' && comment.trim().isEmpty) {
+      throw StateError('Indica el motivo de rechazo.');
+    }
+    final updated = await _repository.review(payment.id, action, comment);
+    if (mounted) await load();
+    return updated;
   }
 
   PagoModel? findPayment(String id) =>
@@ -164,3 +216,16 @@ class PagosController extends StateNotifier<AsyncValue<PagosState?>> {
             _repository.loadScheduled(_role, demoMode: demoMode) ?? const [],
       ));
 }
+
+final pagoDetailProvider =
+    FutureProvider.autoDispose.family<PagoModel, String>((ref, id) {
+  final session = ref.watch(authControllerProvider).valueOrNull;
+  if (AppEnv.demoMode) {
+    return ref.watch(pagosRepositoryProvider).findPayment(id, session!.role)!;
+  }
+  return ref.watch(pagosRepositoryProvider).detail(id);
+});
+
+final evidenceBytesProvider = FutureProvider.autoDispose
+    .family<Uint8List, String>(
+        (ref, id) => ref.watch(pagosRepositoryProvider).download(id));

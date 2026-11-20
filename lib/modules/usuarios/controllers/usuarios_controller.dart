@@ -1,27 +1,48 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/config/env.dart';
+import '../../../core/network/api_client.dart';
 import '../models/usuario_model.dart';
 import '../repositories/usuarios_repository.dart';
 
 final usuariosDemoModeProvider = Provider<bool>((ref) => AppEnv.demoMode);
 
 final usuariosRepositoryProvider = Provider<UsuariosRepository>(
-  (ref) => UsuariosRepository(),
+  (ref) => UsuariosRepository(dio: ref.watch(apiClientProvider)),
 );
 
 final usuariosControllerProvider =
     StateNotifierProvider<UsuariosController, AsyncValue<List<UsuarioModel>>>(
         (ref) {
-  return UsuariosController(ref.watch(usuariosRepositoryProvider));
+  return UsuariosController(
+    ref.watch(usuariosRepositoryProvider),
+    demoMode: ref.watch(usuariosDemoModeProvider),
+  );
 });
 
 class UsuariosController extends StateNotifier<AsyncValue<List<UsuarioModel>>> {
-  UsuariosController(this._repository) : super(const AsyncLoading()) {
-    loadDemo();
+  UsuariosController(this._repository, {required this.demoMode})
+      : super(const AsyncLoading()) {
+    if (demoMode) {
+      loadDemo();
+    } else {
+      unawaited(load());
+    }
   }
 
   final UsuariosRepository _repository;
+  final bool demoMode;
+
+  Future<void> load() async {
+    state = const AsyncLoading();
+    try {
+      state = AsyncData(await _repository.load());
+    } catch (error, stackTrace) {
+      state = AsyncError(error, stackTrace);
+    }
+  }
 
   void loadDemo() => state = AsyncData(_repository.listDemo());
 

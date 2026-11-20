@@ -14,6 +14,12 @@ final clientesControllerProvider = StateNotifierProvider.family<
   ),
 );
 
+final clienteDetalleProvider =
+    FutureProvider.family<ClienteModel, ({String id, UserRole role})>(
+        (ref, parameters) {
+  return ref.watch(clientesRepositoryProvider).findOne(parameters.id);
+});
+
 class ClientesController
     extends StateNotifier<AsyncValue<List<ClienteModel>?>> {
   ClientesController(this._repository, this._role)

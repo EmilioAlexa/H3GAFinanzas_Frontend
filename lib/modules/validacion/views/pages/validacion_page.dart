@@ -83,8 +83,8 @@ class _ValidacionPageState extends ConsumerState<ValidacionPage> {
         .where((payment) => _matches(payment, _query))
         .toList();
     final pending = payments
-        .where(
-            (payment) => payment.estado == 'Por revisar')
+        .where((payment) => (payment.estado == 'Por revisar' ||
+            payment.estado == 'Pendiente de revisión financiera'))
         .length;
     final waiting = payments
         .where((payment) => payment.estado == 'Pendiente de autorización')
@@ -126,8 +126,8 @@ class _ValidacionPageState extends ConsumerState<ValidacionPage> {
     final currentStage = stage ?? _stage;
     return payments
         .where((payment) => switch (currentStage) {
-              'Pendientes' =>
-                payment.estado == 'Por revisar',
+              'Pendientes' => (payment.estado == 'Por revisar' ||
+                  payment.estado == 'Pendiente de revisión financiera'),
               'Por autorizar' => payment.estado == 'Pendiente de autorización',
               'Concluidos' =>
                 payment.estado == 'Validado' || payment.estado == 'Rechazado',
@@ -201,8 +201,9 @@ class _ValidacionPageState extends ConsumerState<ValidacionPage> {
                     value: (payment) => Text(payment.asesorNombre)),
                 AppDataColumn(
                     label: 'Fecha',
-                    value: (payment) =>
-                        Text(MoneyFormatter.formatDate(payment.fechaPago))),
+                    value: (payment) => Text(payment.fechaPago == null
+                        ? 'Sin fecha histórica'
+                        : MoneyFormatter.formatDate(payment.fechaPago!))),
                 AppDataColumn(
                     label: 'Monto',
                     numeric: true,
@@ -249,7 +250,9 @@ class _ValidacionPageState extends ConsumerState<ValidacionPage> {
           const SizedBox(height: AppTheme.space2),
           Text('${payment.servicioNombre} · ${payment.contratoFolio}'),
           Text(payment.asesorNombre),
-          Text(MoneyFormatter.formatDate(payment.fechaPago)),
+          Text(payment.fechaPago == null
+              ? 'Sin fecha histórica'
+              : MoneyFormatter.formatDate(payment.fechaPago!)),
           const SizedBox(height: AppTheme.space2),
           Text(MoneyFormatter.format(payment.monto),
               style: Theme.of(context).textTheme.titleMedium),

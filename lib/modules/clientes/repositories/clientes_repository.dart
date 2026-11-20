@@ -1,6 +1,8 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/config/env.dart';
+import '../../../core/network/api_client.dart';
 import '../../auth/auth.dart';
 import '../../contratos/fixtures/contratos_demo_fixtures.dart';
 import '../../pagos/fixtures/pagos_demo_fixtures.dart';
@@ -8,20 +10,64 @@ import '../fixtures/clientes_demo_fixtures.dart';
 import '../models/cliente_model.dart';
 
 final clientesRepositoryProvider = Provider<ClientesRepository>(
-  (ref) => ClientesRepository(demoMode: AppEnv.demoMode),
+  (ref) => ClientesRepository(
+    demoMode: AppEnv.demoMode,
+    dio: ref.watch(apiClientProvider),
+  ),
 );
 
 class ClientesRepository {
-  ClientesRepository({required this.demoMode})
-      : _clients = [...ClientesDemoFixtures.clients];
+  ClientesRepository({required this.demoMode, Dio? dio})
+      : _dio = dio,
+        _clients = [...ClientesDemoFixtures.clients];
 
   final bool demoMode;
+  final Dio? _dio;
   final List<ClienteModel> _clients;
   var _nextId = 6;
 
   Future<List<ClienteModel>?> load(UserRole role) async {
-    return loadSynchronously(role);
+    if (demoMode) return loadSynchronously(role);
+    final clients = <ClienteModel>[];
+    var page = 1;
+    var totalPages = 1;
+    do {
+      final response = await _dio!.get<Map<String, dynamic>>(
+        '/clientes',
+        queryParameters: {'page': page, 'limit': 100},
+      );
+      final records = response.data?['data'];
+      final pagination = response.data?['pagination'];
+      if (records is! List || pagination is! Map) {
+        throw const FormatException(
+          'La respuesta de clientes no contiene data y pagination.',
+        );
+      }
+      clients.addAll(records
+          .whereType<Map<Object?, Object?>>()
+          .map((record) => ClienteModel.fromApi(_map(record))));
+      totalPages = int.tryParse('${pagination['totalPages']}') ?? page;
+      page++;
+    } while (page <= totalPages);
+    return List.unmodifiable(clients);
   }
+
+  Future<ClienteModel> findOne(String id) async {
+    if (demoMode) {
+      final client = _clients.where((item) => item.id == id).firstOrNull;
+      if (client == null) throw StateError('Cliente no disponible.');
+      return client;
+    }
+    final response = await _dio!.get<Map<String, dynamic>>('/clientes/$id');
+    final record = response.data;
+    if (record == null) {
+      throw const FormatException('La respuesta de detalle está vacía.');
+    }
+    return ClienteModel.fromApi(record);
+  }
+
+  Map<String, dynamic> _map(Map<Object?, Object?> value) =>
+      value.map((key, item) => MapEntry(key.toString(), item));
 
   List<ClienteModel>? loadSynchronously(UserRole role) {
     if (!demoMode) return null;

@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../app/config/env.dart';
 import '../../../../app/theme/app_theme.dart';
+import '../../../../core/network/api_error_model.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_page_header.dart';
@@ -11,6 +13,7 @@ import '../../../../core/widgets/app_state_panel.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../auth/auth.dart';
 import '../../../contratos/contratos.dart';
+import '../../controllers/pago_options_controller.dart';
 import '../../controllers/pagos_controller.dart';
 
 class PagoProgramadoFormPage extends ConsumerStatefulWidget {
@@ -26,6 +29,12 @@ class _PagoProgramadoFormPageState
   final _number = TextEditingController(text: '1');
   final _amount = TextEditingController();
   String? _contractId;
+  int? _chargeTypeId;
+  String? _classification;
+  final _penaltyReason = TextEditingController();
+  final _duplicateReason = TextEditingController();
+  final _beneficiaryAmount = TextEditingController();
+  bool _saving = false;
   DateTime? _expected;
   DateTime? _due;
   DateTime? _period;
@@ -34,6 +43,9 @@ class _PagoProgramadoFormPageState
   void dispose() {
     _number.dispose();
     _amount.dispose();
+    _penaltyReason.dispose();
+    _duplicateReason.dispose();
+    _beneficiaryAmount.dispose();
     super.dispose();
   }
 
@@ -46,18 +58,24 @@ class _PagoProgramadoFormPageState
           title: 'Inicia sesión para continuar',
           message: 'La programación requiere sesión activa.');
     }
-    final controller =
-        ref.watch(pagosControllerProvider(session.role).notifier);
-    if (!controller.demoMode) {
-      return const AppStatePanel(
-          icon: Icons.link_off,
-          title: 'Programación no disponible',
-          message: 'No fue posible cargar el formulario.');
-    }
-    final contracts = ContratosDemoFixtures.contracts
-        .where((item) =>
-            session.role != UserRole.asesor || item.assignedToCurrentAdvisor)
-        .toList();
+    final optionsState =
+        AppEnv.demoMode ? null : ref.watch(pagoOptionsProvider(session.role));
+    final options = optionsState?.valueOrNull;
+    final contracts = AppEnv.demoMode
+        ? ContratosDemoFixtures.contracts
+            .where((item) =>
+                session.role != UserRole.asesor ||
+                item.assignedToCurrentAdvisor)
+            .toList()
+        : options?.contracts ?? <ContratoModel>[];
+    final selectedContract =
+        contracts.where((e) => e.id == _contractId).firstOrNull;
+    final isApd = selectedContract?.servicioNombre.toLowerCase() == 'apd';
+    final isPenalty = options?.chargeTypes
+            .where((e) => e.id == _chargeTypeId)
+            .any((e) =>
+                e.name.toLowerCase().replaceAll('ó', 'o') == 'penalizacion') ??
+        false;
     return SingleChildScrollView(
         padding: const EdgeInsets.all(AppTheme.space6),
         child: Form(
@@ -89,10 +107,76 @@ class _PagoProgramadoFormPageState
                           child: Text('${c.folio} · ${c.clienteNombre}',
                               overflow: TextOverflow.ellipsis)))
                       .toList(),
-                  onChanged: (value) => setState(() => _contractId = value),
+                  onChanged: (value) => setState(() {
+                        _contractId = value;
+                        _classification = null;
+                        _beneficiaryAmount.clear();
+                      }),
                   validator: (value) =>
                       value == null ? 'Selecciona un contrato.' : null),
               const SizedBox(height: AppTheme.space3),
+              if (!AppEnv.demoMode) ...[
+                DropdownButtonFormField<int>(
+                    initialValue: _chargeTypeId,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                        labelText: 'Tipo de cobro (opcional)'),
+                    items: [
+                      const DropdownMenuItem<int>(
+                          value: null, child: Text('Sin tipo específico')),
+                      for (final type in options?.chargeTypes ?? <PagoOption>[])
+                        DropdownMenuItem(value: type.id, child: Text(type.name))
+                    ],
+                    onChanged: (value) => setState(() {
+                          _chargeTypeId = value;
+                          _penaltyReason.clear();
+                        })),
+                if (isPenalty)
+                  TextFormField(
+                      controller: _penaltyReason,
+                      maxLength: 1000,
+                      decoration: const InputDecoration(
+                          labelText: 'Motivo de penalización *'),
+                      validator: (value) =>
+                          value == null || value.trim().isEmpty
+                              ? 'Indica el motivo.'
+                              : null),
+                TextFormField(
+                    controller: _duplicateReason,
+                    maxLength: 1000,
+                    decoration: const InputDecoration(
+                        labelText:
+                            'Justificación de duplicado (si corresponde)')),
+                if (isApd) ...[
+                  DropdownButtonFormField<String>(
+                      initialValue: _classification,
+                      decoration: const InputDecoration(
+                          labelText: 'Clasificación APD (opcional)'),
+                      items: const [
+                        DropdownMenuItem<String>(
+                            value: null, child: Text('Sin clasificación')),
+                        DropdownMenuItem(
+                            value: 'TOPADO', child: Text('Topado')),
+                        DropdownMenuItem(
+                            value: 'NO_TOPADO', child: Text('No topado'))
+                      ],
+                      onChanged: (value) =>
+                          setState(() => _classification = value)),
+                  TextFormField(
+                      controller: _beneficiaryAmount,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(
+                          labelText:
+                              'Importe recibido por beneficiario APD (opcional)'),
+                      validator: (value) => value == null ||
+                              value.trim().isEmpty ||
+                              RegExp(r'^\d{1,10}(\.\d{1,2})?$')
+                                  .hasMatch(value.trim())
+                          ? null
+                          : 'Importe inválido.'),
+                ],
+              ],
               AppTextField(
                   controller: _number,
                   label: 'Número de pago *',
@@ -132,8 +216,26 @@ class _PagoProgramadoFormPageState
                   (date) => setState(() => _period = date)),
             ]),
             const SizedBox(height: AppTheme.space4),
+            if (!AppEnv.demoMode) ...[
+              if (optionsState?.isLoading == true)
+                const Text('Cargando opciones…'),
+              if (optionsState?.hasError == true)
+                Text(ApiErrorModel.fromObject(optionsState!.error!).message),
+              if (options?.chargeError != null)
+                const Text(
+                    'No se pudieron consultar los tipos de cobro. Puedes reintentar la carga.'),
+              if (contracts.isEmpty) const Text('Sin contratos disponibles.'),
+              TextButton(
+                  onPressed: () =>
+                      ref.invalidate(pagoOptionsProvider(session.role)),
+                  child: const Text('Actualizar opciones')),
+            ],
             FilledButton.icon(
-                onPressed: () => _save(session.role, contracts),
+                onPressed: _saving ||
+                        (!AppEnv.demoMode &&
+                            (options == null || contracts.isEmpty))
+                    ? null
+                    : () => _save(session.role, contracts),
                 icon: const Icon(Icons.event_available),
                 label: const Text('Guardar programación')),
           ]),
@@ -171,11 +273,51 @@ class _PagoProgramadoFormPageState
             ...children
           ]));
 
-  void _save(UserRole role, List<ContratoModel> contracts) {
-    if (!_formKey.currentState!.validate()) return;
+  Future<void> _save(UserRole role, List<ContratoModel> contracts) async {
+    if (!_formKey.currentState!.validate() || _saving) return;
+    if (!AppEnv.demoMode && _due == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('La fecha de vencimiento es obligatoria.')));
+      return;
+    }
     final contract = contracts.firstWhere((item) => item.id == _contractId);
     final raw = _amount.text.trim();
     final amount = raw.isEmpty ? null : Decimal.parse(raw);
+    if (!AppEnv.demoMode) {
+      setState(() => _saving = true);
+      try {
+        String date(DateTime value) =>
+            '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+        await ref.read(pagosRepositoryProvider).createSchedule({
+          'contrato_id': contract.id,
+          'numero_pago': int.parse(_number.text),
+          'fecha_vencimiento': date(_due!),
+          if (_chargeTypeId != null) 'tipo_cobro_id': _chargeTypeId,
+          if (_expected != null) 'fecha_esperada': date(_expected!),
+          if (amount != null) 'monto_esperado': amount.toString(),
+          if (_period != null) 'periodo': date(_period!),
+          if (_penaltyReason.text.trim().isNotEmpty)
+            'motivo_penalizacion': _penaltyReason.text.trim(),
+          if (_duplicateReason.text.trim().isNotEmpty)
+            'justificacion_duplicado': _duplicateReason.text.trim(),
+          if (_classification != null)
+            'clasificacion_tope_apd': _classification,
+          if (_beneficiaryAmount.text.trim().isNotEmpty)
+            'monto_recibido_beneficiario_apd': _beneficiaryAmount.text.trim(),
+        });
+        if (!mounted) return;
+        await ref.read(pagosControllerProvider(role).notifier).load();
+        if (mounted) context.go('/pagos-programados');
+      } catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(ApiErrorModel.fromObject(error).message)));
+        }
+      } finally {
+        if (mounted) setState(() => _saving = false);
+      }
+      return;
+    }
     ref.read(pagosControllerProvider(role).notifier).createScheduled(
         contract: contract,
         number: int.parse(_number.text),

@@ -1,8 +1,24 @@
+import 'dart:typed_data';
+
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:h3ga_finanzas/modules/usuarios/repositories/usuarios_repository.dart';
 import 'package:h3ga_finanzas/modules/usuarios/repositories/usuarios_repository_exception.dart';
 
 void main() {
+  test('real list maps public API user and nested role fields', () async {
+    final dio = Dio(BaseOptions(baseUrl: 'https://api.example.test'))
+      ..httpClientAdapter = _UsersAdapter();
+    final repository = UsuariosRepository(dio: dio);
+
+    final users = await repository.load();
+    expect(users, hasLength(1));
+    expect(users.single.id, 'user-1');
+    expect(users.single.rolId, '7');
+    expect(users.single.rolNombre, 'Administrador');
+    expect(users.single.activo, isTrue);
+  });
+
   test('demo list has users in all three backend roles and both states', () {
     final users = UsuariosRepository().listDemo();
 
@@ -48,4 +64,25 @@ void main() {
     expect(
         (await repository.changeStatusDemo(created.id, false)).activo, isFalse);
   });
+}
+
+class _UsersAdapter implements HttpClientAdapter {
+  @override
+  Future<ResponseBody> fetch(RequestOptions options,
+      Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
+    return ResponseBody.fromString(
+      '[{"id":"user-1","rol_id":7,"nombre":"Ana",'
+      '"apellido_paterno":"López","apellido_materno":null,'
+      '"correo_electronico":"ana@example.test","activo":true,'
+      '"fecha_creacion":"2026-01-01T00:00:00.000Z",'
+      '"roles":{"id":7,"nombre":"Administrador"}}]',
+      200,
+      headers: {
+        Headers.contentTypeHeader: [Headers.jsonContentType]
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
 }

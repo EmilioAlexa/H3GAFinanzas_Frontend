@@ -45,14 +45,21 @@ void main() {
   });
 
   test('evidence validation allows API file types up to 10 MB only', () {
-    SelectedFile file(String name, int size) => SelectedFile(
-          name: name,
-          bytes: Uint8List(size),
-        );
+    SelectedFile file(String name, int size) {
+      final bytes = Uint8List(size);
+      if (size >= 5) {
+        bytes.setAll(
+            0, name.endsWith('.pdf') ? '%PDF-'.codeUnits : [0xff, 0xd8, 0xff]);
+      }
+      return SelectedFile(name: name, bytes: bytes);
+    }
 
     expect(validateEvidence(file('recibo.pdf', maxEvidenceBytes)), isNull);
     expect(validateEvidence(file('foto.jpeg', 12)), isNull);
     expect(validateEvidence(file('foto.png', 12)), isNotNull);
+    expect(
+        validateEvidence(SelectedFile(name: 'falso.pdf', bytes: Uint8List(20))),
+        isNotNull);
     expect(
         validateEvidence(file('grande.jpg', maxEvidenceBytes + 1)), isNotNull);
   });
