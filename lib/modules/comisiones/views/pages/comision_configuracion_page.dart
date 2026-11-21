@@ -12,9 +12,8 @@ import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_state_panel.dart';
 import '../../../auth/auth.dart';
 import '../../controllers/comisiones_controller.dart';
-import '../../fixtures/comisiones_demo_fixtures.dart';
-import '../../models/commission_line_model.dart';
 import '../../models/commission_concept_model.dart';
+import '../../models/commission_line_model.dart';
 import '../../models/commission_payment_model.dart';
 import '../../models/dispersion_receiver_model.dart';
 import '../../utils/commission_math.dart';
@@ -31,6 +30,11 @@ class ComisionConfiguracionPage extends ConsumerStatefulWidget {
 
 class _ComisionConfiguracionPageState
     extends ConsumerState<ComisionConfiguracionPage> {
+  List<CommissionConceptModel> get _concepts => ref
+      .read(comisionesControllerProvider(
+              ref.read(authControllerProvider).valueOrNull!.role)
+          .notifier)
+      .concepts;
   String? _initializedContract;
   List<CommissionLineModel> _draft = [];
   bool _saving = false;
@@ -46,11 +50,24 @@ class _ComisionConfiguracionPageState
       );
     }
     if (!AppEnv.demoMode) {
-      return const AppStatePanel(
-        icon: Icons.link_off,
-        title: 'Configuración no disponible',
-        message: 'No fue posible cargar las comisiones del contrato.',
-      );
+      ref.watch(comisionesControllerProvider(session.role));
+      return ref.watch(contractualCommissionProvider(widget.contractId)).when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => AppStatePanel(
+              icon: Icons.cloud_off,
+              title: 'No se pudo cargar',
+              message: e.toString(),
+              action: TextButton(
+                  onPressed: () => ref.invalidate(
+                      contractualCommissionProvider(widget.contractId)),
+                  child: const Text('Reintentar'))),
+          data: (payment) {
+            if (_initializedContract != payment.contractId) {
+              _initializedContract = payment.contractId;
+              _draft = List.of(payment.configuration);
+            }
+            return _body(context, session, payment);
+          });
     }
     final asyncState = ref.watch(comisionesControllerProvider(session.role));
     return asyncState.when(
@@ -114,13 +131,13 @@ class _ComisionConfiguracionPageState
         children: [
           AppBackButton(
             label: 'Detalle de comisiones',
-            onPressed: () => context.go('/comisiones/${payment.id}'),
+            onPressed: () => context.go('/contratos/${payment.contractId}'),
           ),
           AppPageHeader(
             eyebrow: 'Configuración del contrato',
             title: 'Comisiones · ${payment.contractFolio}',
             description:
-                'Los cambios aplican a pagos futuros. Empresa recibe automáticamente el remanente.',
+                'Los cambios aplican a pagos futuros si el estado es "Pendiente". Empresa recibe automáticamente el remanente.',
           ),
           _contractSummary(
               context, payment, assigned, companyPercentage, companyAmount),
@@ -158,8 +175,17 @@ class _ComisionConfiguracionPageState
           children: [
             _summaryMetric('Cliente', payment.clientName),
             _summaryMetric('Servicio', payment.serviceName),
-            _summaryMetric('Pago de referencia', payment.paymentFolio),
-            _summaryMetric('Monto origen', _money(payment.paymentAmount)),
+            _summaryMetric('Asesor', payment.advisorName),
+            _summaryMetric(
+                'Pago de referencia',
+                payment.paymentFolio.isEmpty
+                    ? 'Pendiente de cálculo'
+                    : payment.paymentFolio),
+            _summaryMetric(
+                'Monto origen',
+                payment.paymentAmount == Decimal.zero
+                    ? 'Pendiente de cálculo'
+                    : _money(payment.paymentAmount)),
             _summaryMetric('Asignado', '$assigned%'),
             _summaryMetric('Empresa · remanente',
                 '$companyPercentage% · ${_money(companyAmount)}'),
@@ -446,7 +472,7 @@ class _ComisionConfiguracionPageState
     int? index,
   }) async {
     final byConcept = <int, List<DispersionReceiverModel>>{
-      for (final concept in ComisionesDemoFixtures.concepts)
+      for (final concept in _concepts)
         concept.id: ref
             .read(comisionesControllerProvider(
                     ref.read(authControllerProvider).valueOrNull!.role)
@@ -466,6 +492,7 @@ class _ComisionConfiguracionPageState
             width: (MediaQuery.sizeOf(context).width * .9).clamp(360.0, 460.0),
             height: double.infinity,
             child: _CommissionEditorPanel(
+              concepts: _concepts,
               payment: payment,
               currentLines: _draft,
               initialIndex: index,
@@ -475,12 +502,12 @@ class _ComisionConfiguracionPageState
         ),
       ),
     );
-    if (result == null || !mounted) return;
+    if (result == null) return;
+    if (!mounted) return;
     final next = List<CommissionLineModel>.of(_draft);
     final replacing = result.index != null && result.index! < next.length;
     if (replacing) {
       final confirmed = await _confirmMutation(
-        context,
         title: 'Confirmar cambio de comisión',
         before: next,
         after: [...next]..[result.index!] = result.line,
@@ -501,7 +528,6 @@ class _ComisionConfiguracionPageState
   ) async {
     final next = List<CommissionLineModel>.of(_draft)..removeAt(index);
     final confirmed = await _confirmMutation(
-      context,
       title: 'Confirmar retiro de comisión',
       before: _draft,
       after: next,
@@ -511,8 +537,7 @@ class _ComisionConfiguracionPageState
     if (confirmed && mounted) setState(() => _draft = next);
   }
 
-  Future<bool> _confirmMutation(
-    BuildContext context, {
+  Future<bool> _confirmMutation({
     required String title,
     required List<CommissionLineModel> before,
     required List<CommissionLineModel> after,
@@ -522,7 +547,7 @@ class _ComisionConfiguracionPageState
     final dispersed = payment.snapshot.isNotEmpty &&
         payment.snapshot.every((item) => item.status == 'Dispersada');
     return await showDialog<bool>(
-          context: context,
+          context: this.context,
           builder: (context) => AppDialog(
             title: title,
             description: 'Revisa el impacto antes de confirmar.',
@@ -619,7 +644,7 @@ class _ComisionConfiguracionPageState
     if (!_canSave(payment)) return;
     setState(() => _saving = true);
     try {
-      ref
+      await ref
           .read(comisionesControllerProvider(session.role).notifier)
           .saveConfigurationDemo(
             contractId: payment.contractId,
@@ -627,17 +652,18 @@ class _ComisionConfiguracionPageState
             actor: session.name,
           );
       if (mounted) {
+        ref.invalidate(contractualCommissionProvider(widget.contractId));
         setState(() => _saving = false);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(
               'Configuración actualizada para el contrato ${payment.contractFolio} · aplica a pagos futuros'),
         ));
       }
-    } on StateError catch (error) {
+    } catch (error) {
       if (mounted) {
         setState(() => _saving = false);
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(error.message.toString())));
+            .showSnackBar(SnackBar(content: Text(error.toString())));
       }
     }
   }
@@ -676,17 +702,20 @@ class _ComisionConfiguracionPageState
         _ => AppTheme.muted,
       };
 
-  String _money(Decimal value) => MoneyFormatter.format(value);
+  String _money(Decimal value) =>
+      AppEnv.demoMode ? MoneyFormatter.format(value) : 'Pendiente de cálculo';
 }
 
 class _CommissionEditorPanel extends StatefulWidget {
   const _CommissionEditorPanel({
     required this.payment,
+    required this.concepts,
     required this.currentLines,
     required this.initialIndex,
     required this.receiversByConcept,
   });
 
+  final List<CommissionConceptModel> concepts;
   final CommissionPaymentModel payment;
   final List<CommissionLineModel> currentLines;
   final int? initialIndex;
@@ -713,7 +742,7 @@ class _CommissionEditorPanelState extends State<_CommissionEditorPanel> {
     _conceptId = initial?.conceptId;
     _receiverId = initial?.receiverId;
     _percentage =
-        TextEditingController(text: initial?.percentage.toString() ?? '5');
+        TextEditingController(text: initial?.percentage.toString() ?? '');
   }
 
   @override
@@ -879,15 +908,16 @@ class _CommissionEditorPanelState extends State<_CommissionEditorPanel> {
         spacing: AppTheme.space2,
         runSpacing: AppTheme.space2,
         children: [
-          for (final concept in ComisionesDemoFixtures.concepts)
-            _destinationTile(concept),
+          for (final concept in widget.concepts) _destinationTile(concept),
         ],
       );
 
   Widget _destinationTile(CommissionConceptModel concept) {
     final existingIndex =
         widget.currentLines.indexWhere((line) => line.conceptId == concept.id);
-    final disabled = concept.id == 4 && widget.payment.serviceName == 'APD';
+    final disabled = concept.name == 'Referidor' ||
+        concept.name == 'Empresa' ||
+        concept.name == 'IMSS' && widget.payment.serviceName == 'APD';
     final selected = _conceptId == concept.id;
     final child = InkWell(
       onTap: disabled || _locked ? null : () => _selectConcept(concept.id),
@@ -946,16 +976,14 @@ class _CommissionEditorPanelState extends State<_CommissionEditorPanel> {
       _conceptId = conceptId;
       _editingIndex = existingIndex < 0 ? widget.initialIndex : existingIndex;
       _receiverId = existing?.receiverId ?? _receivers.firstOrNull?.id;
-      _percentage.text = existing?.percentage.toString() ?? '5';
+      _percentage.text = existing?.percentage.toString() ?? '';
       _error = null;
     });
   }
 
   CommissionConceptModel? get _concept => _conceptId == null
       ? null
-      : ComisionesDemoFixtures.concepts
-          .where((item) => item.id == _conceptId)
-          .firstOrNull;
+      : widget.concepts.where((item) => item.id == _conceptId).firstOrNull;
 
   List<DispersionReceiverModel> get _receivers => _conceptId == null
       ? const []
@@ -974,12 +1002,16 @@ class _CommissionEditorPanelState extends State<_CommissionEditorPanel> {
     final receiver =
         _receivers.where((item) => item.id == _receiverId).firstOrNull;
     final percentage = Decimal.tryParse(_percentage.text.trim());
-    if (concept == null || receiver == null || percentage == null) return null;
+    if (concept == null ||
+        receiver == null && concept.name != 'IMSS' ||
+        percentage == null) {
+      return null;
+    }
     return CommissionLineModel(
       conceptId: concept.id,
       concept: concept.name,
-      receiverId: receiver.id,
-      receiverName: receiver.name,
+      receiverId: receiver?.id ?? '',
+      receiverName: receiver?.name ?? '',
       percentage: percentage,
       payrollIncluded:
           _editingIndex != null && _editingIndex! < widget.currentLines.length
@@ -1020,7 +1052,8 @@ class _CommissionEditorPanelState extends State<_CommissionEditorPanel> {
         ),
       );
 
-  String _money(Decimal value) => MoneyFormatter.format(value);
+  String _money(Decimal value) =>
+      AppEnv.demoMode ? MoneyFormatter.format(value) : 'Pendiente de cálculo';
 
   Color _color(int id) => switch (id) {
         1 => AppTheme.primary,

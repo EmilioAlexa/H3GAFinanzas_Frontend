@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../app/config/env.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/utils/money_formatter.dart';
@@ -15,8 +16,10 @@ import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_responsive_collection.dart';
 import '../../../../core/widgets/app_state_panel.dart';
 import '../../../../core/widgets/app_tab_strip.dart';
+import '../../../cortes/controllers/cortes_controller.dart';
 import '../../controllers/prenomina_controller.dart';
 import '../../fixtures/prenomina_demo_fixtures.dart';
+import '../../models/prenomina_cut_model.dart';
 import '../../models/prenomina_model.dart';
 
 class PrenominaPage extends ConsumerStatefulWidget {
@@ -138,7 +141,23 @@ class _PrenominaPageState extends ConsumerState<PrenominaPage> {
   }
 
   Widget _periodCard(List<PrenominaModel> allItems) {
-    final cut = PrenominaDemoFixtures.cuts.first;
+    if (!AppEnv.demoMode && allItems.isEmpty) {
+      return const AppStatePanel(
+          icon: Icons.people_outline,
+          title: 'Sin prenominas',
+          message: 'No hay registros autorizados.');
+    }
+    final cut = AppEnv.demoMode
+        ? PrenominaDemoFixtures.cuts.first
+        : PrenominaCutModel(
+            id: allItems.first.cutId,
+            name: allItems.first.cutName,
+            period: allItems.first.period,
+            status: allItems.first.status,
+            people: allItems.length,
+            operations: 0,
+            total: Decimal.zero,
+            generated: true);
     final controller = ref.read(prenominaControllerProvider.notifier);
     final generated =
         controller.forCut(cut.id).every((item) => item.status == 'Preparada');
@@ -274,7 +293,8 @@ class _PrenominaPageState extends ConsumerState<PrenominaPage> {
             compactCardBuilder: (context, item) => _recipientCard(item),
             emptyTitle: 'Sin movimientos',
             emptyMessage: 'No hay receptores para este filtro.',
-            onRowTap: (item) => context.go('/prenomina/detalle/${item.id}'),
+            onRowTap: (item) => context
+                .go('/prenomina/detalle/${Uri.encodeComponent(item.id)}'),
           ),
         ],
       );
@@ -309,7 +329,19 @@ class _PrenominaPageState extends ConsumerState<PrenominaPage> {
       );
 
   Widget _cuts(List<PrenominaModel> items) {
-    final cuts = PrenominaDemoFixtures.cuts;
+    final cuts = AppEnv.demoMode
+        ? PrenominaDemoFixtures.cuts
+        : (ref.watch(cortesControllerProvider).valueOrNull ?? [])
+            .map((c) => PrenominaCutModel(
+                id: c.id,
+                name: c.folio,
+                period: '${c.periodStart} / ${c.periodEndInclusive}',
+                status: c.status,
+                people: 0,
+                operations: c.includedCount,
+                total: c.commissionAmount,
+                generated: items.any((i) => i.cutId == c.id)))
+            .toList();
     return _panel(
       title: 'Pagos semanales por corte',
       subtitle: 'Importes a personas concentrados por corte semanal.',
@@ -347,8 +379,9 @@ class _PrenominaPageState extends ConsumerState<PrenominaPage> {
                 ],
               ),
               onTap: recipients.isEmpty
-                  ? null
-                  : () => context.go('/prenomina/${recipients.first.id}'),
+                  ? () => context.go('/prenomina/preparacion/${cut.id}')
+                  : () => context.go(
+                      '/prenomina/detalle/${Uri.encodeComponent(recipients.first.id)}'),
             );
           }),
       ],

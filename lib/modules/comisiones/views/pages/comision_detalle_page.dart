@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../app/config/env.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/export/document_export_service.dart';
+import '../../../../core/network/finanzas_api.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_back_button.dart';
 import '../../../../core/widgets/app_badge.dart';
@@ -36,8 +38,9 @@ class ComisionDetallePage extends ConsumerWidget {
     final payment = ref
         .read(comisionesControllerProvider(session.role).notifier)
         .findPayment(paymentId);
-    if (state.isLoading)
+    if (state.isLoading) {
       return const Center(child: CircularProgressIndicator());
+    }
     if (payment == null) {
       return const AppStatePanel(
         icon: Icons.search_off_outlined,
@@ -59,10 +62,14 @@ class ComisionDetallePage extends ConsumerWidget {
     final dispersed = _isDispersed(payment);
     final totalAssigned =
         payment.snapshot.fold(Decimal.zero, (sum, item) => sum + item.amount);
-    final companyAmount = CommissionMath.remainderAmount(
-      payment.paymentAmount,
-      payment.snapshot.map((item) => item.amount),
-    );
+    final companyAmount = !AppEnv.demoMode
+        ? payment.snapshot
+            .where((s) => s.concept == 'Empresa')
+            .fold(Decimal.zero, (sum, s) => sum + s.amount)
+        : CommissionMath.remainderAmount(
+            payment.paymentAmount,
+            payment.snapshot.map((item) => item.amount),
+          );
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.space6),
@@ -286,17 +293,24 @@ class ComisionDetallePage extends ConsumerWidget {
               _commissionRow(
                 context,
                 item,
-                showActions: item.status == 'Pendiente de dispersión',
+                showActions:
+                    item.status == 'Pendiente de dispersión',
                 onDisperse: () =>
                     _confirmDispersion(context, ref, session, payment, item),
               ),
-            _commissionRow(
-              context,
-              _companySnapshot(payment),
-              showActions: false,
-            ),
+            if (AppEnv.demoMode)
+              _commissionRow(
+                context,
+                _companySnapshot(payment),
+                showActions: false,
+              ),
             const Divider(height: AppTheme.space5),
             _amountRow('Total distribuido', payment.paymentAmount),
+            if (!AppEnv.demoMode)
+              FilledButton(
+                onPressed: () => _administrativeConfirmation(context, ref, session, payment),
+                child: const Text('Confirmar toda la dispersión'),
+              ),
           ],
         ),
       );
@@ -319,7 +333,7 @@ class ComisionDetallePage extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text(
-              'Los cambios aplican a pagos futuros. Empresa recibe automáticamente el remanente.',
+              'Los cambios aplican a pagos futuros si el estado es "Pendiente". Empresa recibe automáticamente el remanente.',
               style: TextStyle(color: AppTheme.muted),
             ),
             const SizedBox(height: AppTheme.space3),
@@ -391,10 +405,9 @@ class ComisionDetallePage extends ConsumerWidget {
                     style: const TextStyle(fontWeight: FontWeight.w700)),
               ),
               if (showActions && onDisperse != null)
-                IconButton(
-                  tooltip: 'Confirmar dispersión',
+                TextButton(
                   onPressed: onDisperse,
-                  icon: const Icon(Icons.account_balance_outlined),
+                  child: const Text('Confirmar dispersión'),
                 )
               else if (isCompany)
                 const SizedBox(width: 48),
@@ -442,6 +455,10 @@ class ComisionDetallePage extends ConsumerWidget {
     CommissionPaymentModel payment,
     CommissionSnapshotModel item,
   ) async {
+    if (!AppEnv.demoMode) {
+      await _administrativeConfirmation(context, ref, session, payment, item.id);
+      return;
+    }
     final comment = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
@@ -496,6 +513,22 @@ class ComisionDetallePage extends ConsumerWidget {
       }
     } finally {
       comment.dispose();
+    }
+  }
+
+  Future<void> _administrativeConfirmation(BuildContext context, WidgetRef ref,
+      AuthSessionModel session, CommissionPaymentModel payment, [String? id]) async {
+    try {
+      final api = ref.read(finanzasApiProvider);
+      final preview = await api.detail('/finanzas/pagos/${payment.id}/distribucion/confirmacion');
+      final rows = (preview['conceptos'] as List).map(apiMap).where((r) =>
+        id != null ? r['id'] == id : r['estado'] != 'Dispersada').toList();
+      if (!context.mounted) return;
+      await showDialog<void>(context: context, barrierDismissible: false,
+        builder: (_) => _AdministrativeDialog(paymentId: payment.id, rows: rows, general: id == null));
+      await ref.read(comisionesControllerProvider(session.role).notifier).load();
+    } catch (e) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
     }
   }
 
@@ -633,3 +666,43 @@ class ComisionDetallePage extends ConsumerWidget {
     }
   }
 }
+
+class _AdministrativeDialog extends ConsumerStatefulWidget {
+  const _AdministrativeDialog({required this.paymentId, required this.rows, required this.general});
+  final String paymentId;
+  final List<Map<String, dynamic>> rows;
+  final bool general;
+  @override
+  ConsumerState<_AdministrativeDialog> createState() => _AdministrativeDialogState();
+}
+
+class _AdministrativeDialogState extends ConsumerState<_AdministrativeDialog> {
+  bool busy = false;
+  bool done = false;
+  String? error;
+  @override
+  Widget build(BuildContext context) => AppDialog(
+    title: widget.general ? 'Confirmar toda la dispersión' : 'Confirmar dispersión',
+    actions: [
+      TextButton(onPressed: busy ? null : () => Navigator.pop(context), child: const Text('Cerrar')),
+      FilledButton(onPressed: busy || done || widget.rows.isEmpty || widget.rows.any((r) => r['bloqueo'] != null) ? null : () async {
+        setState(() { busy = true; error = null; });
+        try {
+          await ref.read(finanzasApiProvider).dio.post<dynamic>('/finanzas/pagos/${widget.paymentId}/distribucion/confirmar',
+            data: {'comision_ids': widget.rows.map((r) => r['id']).toList(), 'general': widget.general});
+          if (mounted) setState(() => done = true);
+        } catch (e) { if (mounted) setState(() => error = e.toString()); }
+        finally { if (mounted) setState(() => busy = false); }
+      }, child: const Text('Confirmar')),
+    ],
+    child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+      const Text('Confirmación administrativa interna. No ejecuta una transferencia bancaria.'),
+      if (widget.rows.isEmpty) const Text('No hay conceptos pendientes.'),
+      for (final r in widget.rows) ListTile(title: Text('${r['concepto']} · ${r['receptor'] ?? 'Destino contable'}'),
+        subtitle: Text('${r['porcentaje']}% · ${r['importe']}\n${r['bloqueo'] ?? 'Pendiente de confirmación'}')),
+      if (done) const Text('Confirmación registrada.'),
+      if (error != null) Text(error!),
+    ])),
+  );
+}
+

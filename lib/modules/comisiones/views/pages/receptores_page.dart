@@ -7,7 +7,7 @@ import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_state_panel.dart';
 import '../../../auth/auth.dart';
 import '../../controllers/comisiones_controller.dart';
-import '../../fixtures/comisiones_demo_fixtures.dart';
+import '../../models/commission_concept_model.dart';
 import '../../models/dispersion_receiver_model.dart';
 
 class ReceptoresPage extends ConsumerWidget {
@@ -110,7 +110,8 @@ class ReceptoresPage extends ConsumerWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Desactivar receptor'),
-        content: Text('¿Desactivar a ${receiver.name}?'),
+        content: Text('¿Esta seguro de desactivar a ${receiver.name}?\n'
+            'No se podrá desactivar si tiene dispersiones enlazadas.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -125,13 +126,13 @@ class ReceptoresPage extends ConsumerWidget {
     );
     if (confirm != true) return;
     try {
-      ref
+      await ref
           .read(comisionesControllerProvider(role).notifier)
           .deactivateReceiverDemo(receiver.id);
-    } on StateError catch (error) {
+    } catch (error) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.message.toString())),
+          SnackBar(content: Text(error.toString())),
         );
       }
     }
@@ -168,6 +169,7 @@ class _CreateReceiverDialogState extends ConsumerState<_CreateReceiverDialog> {
   String? _userId;
   final _name = TextEditingController();
   String? _error;
+  bool _saving = false;
 
   @override
   void dispose() {
@@ -177,14 +179,22 @@ class _CreateReceiverDialogState extends ConsumerState<_CreateReceiverDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final concept =
-        ComisionesDemoFixtures.concepts.where((item) => item.id == _conceptId);
+    final concept = ref
+        .read(comisionesControllerProvider(widget.role).notifier)
+        .concepts
+        .where((item) => item.id == _conceptId);
     final selectedConcept = concept.isEmpty ? null : concept.first;
     final controller =
         ref.read(comisionesControllerProvider(widget.role).notifier);
-    final users = selectedConcept == null || selectedConcept.external
-        ? <DispersionReceiverModel>[]
-        : controller.activeReceiversFor(selectedConcept.id);
+    final users = selectedConcept?.name == 'Asesor'
+        ? controller.eligibleAdvisorUsers
+        : <DispersionReceiverModel>[];
+    final creatableConcepts = controller.concepts
+        .where((item) =>
+            item.name == 'Asesor' ||
+            const {'Director', 'Gerente', 'Bróker', 'Broker', 'Otro'}
+                .contains(item.name))
+        .toList(growable: false);
     return AlertDialog(
       title: const Text('Agregar receptor'),
       content: SizedBox(
@@ -193,7 +203,7 @@ class _CreateReceiverDialogState extends ConsumerState<_CreateReceiverDialog> {
           DropdownButtonFormField<int>(
             isExpanded: true,
             decoration: const InputDecoration(labelText: 'Concepto'),
-            items: ComisionesDemoFixtures.concepts
+            items: creatableConcepts
                 .map((item) =>
                     DropdownMenuItem(value: item.id, child: Text(item.name)))
                 .toList(),
@@ -204,9 +214,10 @@ class _CreateReceiverDialogState extends ConsumerState<_CreateReceiverDialog> {
             }),
           ),
           const SizedBox(height: AppTheme.space3),
-          if (selectedConcept?.external == true)
+          if (selectedConcept != null && selectedConcept.name != 'Asesor')
             TextField(
               controller: _name,
+              onChanged: (_) => setState(() {}),
               maxLength: 150,
               decoration: const InputDecoration(labelText: 'Nombre externo'),
             )
@@ -232,32 +243,53 @@ class _CreateReceiverDialogState extends ConsumerState<_CreateReceiverDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context, false),
+          onPressed: _saving ? null : () => Navigator.pop(context, false),
           child: const Text('Cancelar'),
         ),
-        FilledButton(onPressed: _save, child: const Text('Agregar')),
+        FilledButton(
+          onPressed: !_saving && _canSave(selectedConcept) ? _save : null,
+          child: const Text('Agregar'),
+        ),
       ],
     );
   }
 
-  void _save() {
+  Future<void> _save() async {
+    if (_saving) return;
     if (_conceptId == null) {
       setState(() => _error = 'Selecciona un concepto.');
       return;
     }
-    final concept = ComisionesDemoFixtures.concepts
+    final concept = ref
+        .read(comisionesControllerProvider(widget.role).notifier)
+        .concepts
         .firstWhere((item) => item.id == _conceptId);
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
     try {
-      ref
+      await ref
           .read(comisionesControllerProvider(widget.role).notifier)
           .createReceiverDemo(
             conceptId: _conceptId!,
-            userId: concept.external ? null : _userId,
-            externalName: concept.external ? _name.text : null,
+            userId: concept.name == 'Asesor' ? _userId : null,
+            externalName: concept.name == 'Asesor' ? null : _name.text.trim(),
           );
-      Navigator.pop(context, true);
-    } on StateError catch (error) {
-      setState(() => _error = error.message.toString());
+      if (mounted) Navigator.pop(context, true);
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _error = error.toString();
+        });
+      }
     }
   }
+
+  bool _canSave(CommissionConceptModel? concept) =>
+      concept != null &&
+      (concept.name == 'Asesor'
+          ? _userId != null
+          : _name.text.trim().isNotEmpty);
 }

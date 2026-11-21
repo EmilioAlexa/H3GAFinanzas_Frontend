@@ -48,7 +48,7 @@ class _CortesPageState extends ConsumerState<CortesPage> {
           error: (error, stack) => AppStatePanel(
             icon: Icons.cloud_off_outlined,
             title: 'No se pudieron cargar los cortes',
-            message: 'Inténtalo de nuevo.',
+            message: error.toString(),
             action: TextButton.icon(
               onPressed: () =>
                   ref.read(cortesControllerProvider.notifier).load(),
@@ -447,15 +447,15 @@ class _CortesPageState extends ConsumerState<CortesPage> {
     await waitForDialogDismissal();
     if (confirmed != true || !context.mounted) return;
     try {
-      final cut = ref.read(cortesControllerProvider.notifier).createDemo(
+      final cut = await ref.read(cortesControllerProvider.notifier).createDemo(
             periodStart: DateTime(start.year, start.month, start.day),
             actor: actor,
           );
       if (context.mounted) context.go('/cortes/${cut.id}/preparacion');
-    } on StateError catch (error) {
+    } catch (error) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.message.toString())),
+          SnackBar(content: Text(error.toString())),
         );
       }
     }

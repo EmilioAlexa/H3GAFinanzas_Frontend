@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../app/config/env.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/utils/dialog_lifecycle.dart';
 import '../../../../core/utils/money_formatter.dart';
@@ -32,29 +33,18 @@ class CorteDetallePage extends ConsumerWidget {
         message: 'Solo administración puede consultar los detalles de corte.',
       );
     }
-    return ref.watch(cortesControllerProvider).when(
+    return ref.watch(corteDetailProvider(cutId)).when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, stack) => const AppStatePanel(
+          error: (error, stack) => AppStatePanel(
             icon: Icons.cloud_off_outlined,
             title: 'No se pudo cargar el corte',
-            message: 'Vuelve al listado e inténtalo de nuevo.',
+            message:
+                'Si acabas de guardar, la operación se conserva. ${error.toString()}',
+            action: TextButton(
+                onPressed: () => ref.invalidate(corteDetailProvider(cutId)),
+                child: const Text('Reintentar')),
           ),
-          data: (cuts) {
-            final cut = ref.read(cortesControllerProvider.notifier).find(cutId);
-            if (cuts == null) {
-              return const AppStatePanel(
-                icon: Icons.link_off,
-                title: 'Detalle no disponible',
-                message: 'No fue posible consultar el corte.',
-              );
-            }
-            if (cut == null) {
-              return const AppStatePanel(
-                icon: Icons.search_off_outlined,
-                title: 'Corte no disponible',
-                message: 'No existe en el conjunto.',
-              );
-            }
+          data: (cut) {
             return _content(context, ref, session, cut);
           },
         );
@@ -66,7 +56,9 @@ class CorteDetallePage extends ConsumerWidget {
     AuthSessionModel session,
     CutModel cut,
   ) {
-    final samples = CortesDemoFixtures.distributions;
+    final samples = AppEnv.demoMode
+        ? CortesDemoFixtures.distributions
+        : <CutDistributionModel>[];
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.space6),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -497,22 +489,23 @@ class CorteDetallePage extends ConsumerWidget {
     }
     if (confirmed == true) {
       try {
-        ref.read(cortesControllerProvider.notifier).transitionDemo(
+        await ref.read(cortesControllerProvider.notifier).transitionDemo(
               id: cut.id,
               action: action,
               actor: session.name,
               comment: comment.text,
             );
+        ref.invalidate(corteDetailProvider(cut.id));
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(title)),
           );
           context.go('/cortes');
         }
-      } on StateError catch (error) {
+      } catch (error) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(error.message.toString())),
+            SnackBar(content: Text(error.toString())),
           );
         }
       }

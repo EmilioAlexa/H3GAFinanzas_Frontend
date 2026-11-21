@@ -5,6 +5,8 @@ import 'prenomina_movement_model.dart';
 class PrenominaModel {
   const PrenominaModel({
     required this.id,
+    this.payrollId,
+    this.backendTotal,
     required this.cutId,
     required this.cutName,
     required this.period,
@@ -16,6 +18,8 @@ class PrenominaModel {
   });
 
   final String id;
+  final String? payrollId;
+  final Decimal? backendTotal;
   final String cutId;
   final String cutName;
   final String period;
@@ -25,7 +29,9 @@ class PrenominaModel {
   final String status;
   final List<PrenominaMovementModel> movements;
 
-  Decimal get total => movements.fold(
+  Decimal get total =>
+      backendTotal ??
+      movements.fold(
         Decimal.zero,
         (sum, movement) => sum + movement.commissionAmount,
       );
