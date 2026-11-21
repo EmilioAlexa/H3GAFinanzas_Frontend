@@ -1,67 +1,98 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../../app/config/env.dart';
 import '../../../../app/theme/app_theme.dart';
+import '../../../../core/network/api_error_model.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/responsive/window_size_class.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_notice.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../models/recovery_step_model.dart';
+import '../../repositories/password_recovery_repository.dart';
 import '../widgets/otp_input.dart';
 import '../widgets/password_input.dart';
 
-class PasswordRecoveryDialog extends StatefulWidget {
+class PasswordRecoveryDialog extends ConsumerStatefulWidget {
   const PasswordRecoveryDialog({super.key});
 
   @override
-  State<PasswordRecoveryDialog> createState() => _PasswordRecoveryDialogState();
+  ConsumerState<PasswordRecoveryDialog> createState() =>
+      _PasswordRecoveryDialogState();
 }
 
-class _PasswordRecoveryDialogState extends State<PasswordRecoveryDialog> {
+class _PasswordRecoveryDialogState
+    extends ConsumerState<PasswordRecoveryDialog> {
   static const _demoCode = '482916';
+
   static const _expiredDemoCode = '000000';
+
   static const _resetCodeSeconds = 600;
+
   static const _passwordMinLength = 8;
 
   final _emailController = TextEditingController();
+
   final _passwordController = TextEditingController();
+
   final _confirmationController = TextEditingController();
+
   RecoveryStep _step = RecoveryStep.email;
+
   String _code = '';
+
   String? _emailError;
+
   String? _codeError;
+
   String? _passwordError;
+
   String? _confirmationError;
+
   String? _requestError;
+
   int _secondsLeft = _resetCodeSeconds;
+
   bool _expired = false;
+
   bool _loading = false;
+
   bool _resending = false;
+
   bool _resendNotice = false;
+
   Timer? _countdown;
 
   @override
   void dispose() {
     _countdown?.cancel();
+
     _emailController.dispose();
+
     _passwordController.dispose();
+
     _confirmationController.dispose();
+
     super.dispose();
   }
 
-  Future<void> _runDemo(Future<void> Function() action) async {
+  Future<void> _runRequest(Future<void> Function() action) async {
     setState(() {
       _loading = true;
+
       _requestError = null;
     });
+
     try {
       await action();
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
         setState(() {
-          _requestError =
-              'No pudimos completar la solicitud. Inténtalo de nuevo en unos momentos.';
+          _requestError = _recoveryError(error);
         });
       }
     } finally {
@@ -69,118 +100,209 @@ class _PasswordRecoveryDialogState extends State<PasswordRecoveryDialog> {
     }
   }
 
+  String _recoveryError(Object error) {
+    if (error is DioException) {
+      if (error.response?.statusCode == 429) {
+        return 'Demasiados intentos. Espera antes de volver a solicitarlo.';
+      }
+      if (error.response?.statusCode == 400 &&
+          error.requestOptions.path.endsWith('reset-password')) {
+        return 'El codigo es invalido o expiro. Cancela y solicita uno nuevo.';
+      }
+    }
+    return ApiErrorModel.fromObject(error).message;
+  }
+
   bool _validEmail(String value) => RegExp(
         r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
       ).hasMatch(value.trim());
 
   Future<void> _requestCode() async {
+    if (_loading || _resending) return;
+
     final email = _emailController.text.trim();
+
     if (email.isEmpty) {
       setState(() => _emailError = 'Ingresa tu correo electrónico.');
+
       return;
     }
+
     if (!_validEmail(email)) {
       setState(() => _emailError = 'Ingresa un correo electrónico válido.');
+
       return;
     }
 
     setState(() => _emailError = null);
-    await _runDemo(() async {
-      await Future<void>.delayed(const Duration(milliseconds: 450));
+
+    await _runRequest(() async {
+      if (AppEnv.demoMode) {
+        await Future<void>.delayed(const Duration(milliseconds: 450));
+      } else {
+        await ref
+            .read(passwordRecoveryRepositoryProvider)
+            .request(_emailController.text.trim());
+      }
+
       if (!mounted) return;
+
       setState(() {
         _code = '';
+
         _codeError = null;
+
         _expired = false;
+
         _secondsLeft = _resetCodeSeconds;
+
         _resendNotice = false;
+
         _step = RecoveryStep.code;
       });
+
       _startCountdown();
     });
   }
 
   void _startCountdown() {
     _countdown?.cancel();
+
     _countdown = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) {
         timer.cancel();
+
         return;
       }
+
       if (_secondsLeft <= 1) {
         timer.cancel();
+
         setState(() {
           _secondsLeft = 0;
+
           _expired = true;
+
           _codeError = 'El código ha expirado. Solicita uno nuevo.';
         });
+
         return;
       }
+
       setState(() => _secondsLeft--);
     });
   }
 
   Future<void> _resendCode() async {
+    if (_loading || _resending) return;
+
     setState(() {
       _resending = true;
+
       _requestError = null;
     });
+
     try {
-      await Future<void>.delayed(const Duration(milliseconds: 450));
+      if (AppEnv.demoMode) {
+        await Future<void>.delayed(const Duration(milliseconds: 450));
+      } else {
+        await ref
+            .read(passwordRecoveryRepositoryProvider)
+            .request(_emailController.text.trim());
+      }
+
       if (!mounted) return;
+
       setState(() {
         _code = '';
+
         _codeError = null;
+
         _expired = false;
+
         _secondsLeft = _resetCodeSeconds;
+
         _resendNotice = true;
       });
+
       _startCountdown();
+    } catch (error) {
+      if (mounted) setState(() => _requestError = _recoveryError(error));
     } finally {
       if (mounted) setState(() => _resending = false);
     }
   }
 
   Future<void> _verifyCode() async {
-    if (_expired) return;
+    if (_expired || _loading || _resending) return;
+
     if (_code.length != 6) {
       setState(() => _codeError = 'Ingresa los 6 dígitos del código.');
+
       return;
     }
-    await _runDemo(() async {
+
+    if (!AppEnv.demoMode) {
+      // The API validates the code atomically when changing the password.
+
+      setState(() {
+        _codeError = null;
+        _step = RecoveryStep.password;
+      });
+
+      return;
+    }
+
+    await _runRequest(() async {
       await Future<void>.delayed(const Duration(milliseconds: 450));
+
       if (!mounted) return;
+
       if (_code == _expiredDemoCode) {
         setState(() {
           _expired = true;
+
           _codeError = 'El código ha expirado. Solicita uno nuevo.';
         });
+
         _countdown?.cancel();
+
         return;
       }
+
       if (_code != _demoCode) {
         setState(() => _codeError = 'El código ingresado no es correcto.');
+
         return;
       }
+
       _countdown?.cancel();
+
       setState(() {
         _codeError = null;
+
         _step = RecoveryStep.password;
       });
     });
   }
 
   Future<void> _changePassword() async {
+    if (_loading || _resending) return;
+
     final password = _passwordController.text;
+
     final confirmation = _confirmationController.text;
+
     var valid = true;
 
     if (password.isEmpty) {
       _passwordError = 'Ingresa una nueva contraseña.';
+
       valid = false;
     } else if (password.length < _passwordMinLength) {
       _passwordError =
           'La contraseña debe tener al menos $_passwordMinLength caracteres.';
+
       valid = false;
     } else {
       _passwordError = null;
@@ -188,20 +310,37 @@ class _PasswordRecoveryDialogState extends State<PasswordRecoveryDialog> {
 
     if (confirmation.isEmpty) {
       _confirmationError = 'Confirma tu nueva contraseña.';
+
       valid = false;
     } else if (confirmation != password) {
       _confirmationError = 'Las contraseñas no coinciden.';
+
       valid = false;
     } else {
       _confirmationError = null;
     }
 
     setState(() {});
+
     if (!valid) return;
 
-    await _runDemo(() async {
-      await Future<void>.delayed(const Duration(milliseconds: 500));
+    await _runRequest(() async {
+      if (AppEnv.demoMode) {
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+      } else {
+        await ref
+            .read(passwordRecoveryRepositoryProvider)
+            .reset(_emailController.text.trim(), _code, password);
+      }
+
       if (!mounted) return;
+
+      _countdown?.cancel();
+
+      _passwordController.clear();
+
+      _confirmationController.clear();
+
       setState(() => _step = RecoveryStep.success);
     });
   }
@@ -210,15 +349,19 @@ class _PasswordRecoveryDialogState extends State<PasswordRecoveryDialog> {
 
   String _maskedEmail(String email) {
     final parts = email.split('@');
+
     if (parts.length != 2 || parts.first.isEmpty) return email;
+
     final visible =
         parts.first.length == 1 ? parts.first : parts.first.substring(0, 2);
+
     return '$visible•••@${parts.last}';
   }
 
   String get _title => switch (_step) {
         RecoveryStep.email => 'Recuperar contraseña',
-        RecoveryStep.code => 'Verificar identidad',
+        RecoveryStep.code =>
+          AppEnv.demoMode ? 'Verificar identidad' : 'Capturar código',
         RecoveryStep.password => 'Crear nueva contraseña',
         RecoveryStep.success => 'Contraseña restablecida',
       };
@@ -226,6 +369,7 @@ class _PasswordRecoveryDialogState extends State<PasswordRecoveryDialog> {
   @override
   Widget build(BuildContext context) {
     final compact = Responsive.of(context) == WindowSizeClass.compacto;
+
     return PopScope(
       canPop: !_loading,
       child: Dialog(
@@ -342,14 +486,18 @@ class _PasswordRecoveryDialogState extends State<PasswordRecoveryDialog> {
 
   Widget _buildCodeStep(BuildContext context) {
     final remaining = Duration(seconds: _secondsLeft);
+
     final timerLabel =
         '${remaining.inMinutes.toString().padLeft(2, '0')}:${(remaining.inSeconds % 60).toString().padLeft(2, '0')}';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text.rich(
           TextSpan(
-            text: 'Enviamos un código de seis dígitos a ',
+            text: AppEnv.demoMode
+                ? 'Enviamos un código de seis dígitos a '
+                : 'Si la cuenta está activa, recibirás un código en ',
             children: [
               TextSpan(
                 text: _maskedEmail(_emailController.text.trim()),
@@ -377,7 +525,9 @@ class _PasswordRecoveryDialogState extends State<PasswordRecoveryDialog> {
           enabled: !_loading && !_resending && !_expired,
           onChanged: (value) => setState(() {
             _code = value;
+
             _codeError = null;
+
             _resendNotice = false;
           }),
         ),
@@ -411,7 +561,12 @@ class _PasswordRecoveryDialogState extends State<PasswordRecoveryDialog> {
               ],
             ),
             TextButton(
-              onPressed: _loading || _resending ? null : _resendCode,
+              onPressed: _loading ||
+                      _resending ||
+                      (!AppEnv.demoMode &&
+                          _secondsLeft > _resetCodeSeconds - 60)
+                  ? null
+                  : _resendCode,
               child: Text(_resending ? 'Reenviando…' : 'Reenviar código'),
             ),
           ],
@@ -430,13 +585,15 @@ class _PasswordRecoveryDialogState extends State<PasswordRecoveryDialog> {
 
   Widget _buildPasswordStep(BuildContext context) {
     final lengthMet = _passwordController.text.length >= _passwordMinLength;
+
     final matches = _confirmationController.text.isNotEmpty &&
         _confirmationController.text == _passwordController.text;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Text(
-          'Crea una nueva contraseña para proteger tu cuenta.',
+          'El codigo se verifica al guardar la nueva contraseña.',
           textAlign: TextAlign.start,
         ),
         const SizedBox(height: 18),
@@ -532,7 +689,7 @@ class _PasswordRecoveryDialogState extends State<PasswordRecoveryDialog> {
     final submit = AppButton(
       label: switch (_step) {
         RecoveryStep.email => 'Restablecer contraseña',
-        RecoveryStep.code => 'Verificar código',
+        RecoveryStep.code => AppEnv.demoMode ? 'Verificar código' : 'Continuar',
         RecoveryStep.password => 'Cambiar contraseña',
         RecoveryStep.success => 'Iniciar sesión',
       },
@@ -547,6 +704,7 @@ class _PasswordRecoveryDialogState extends State<PasswordRecoveryDialog> {
             },
       variant: AppButtonVariant.primary,
     );
+
     final cancel = AppButton(
       label: 'Cancelar',
       onPressed: _loading ? null : () => Navigator.of(context).pop(),
@@ -559,6 +717,7 @@ class _PasswordRecoveryDialogState extends State<PasswordRecoveryDialog> {
         children: [submit, const SizedBox(height: 8), cancel],
       );
     }
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
@@ -572,6 +731,7 @@ class _PasswordRecoveryDialogState extends State<PasswordRecoveryDialog> {
 
 class _FieldError extends StatelessWidget {
   const _FieldError({required this.text});
+
   final String text;
 
   @override

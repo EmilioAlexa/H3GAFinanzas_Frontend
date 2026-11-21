@@ -43,6 +43,9 @@ class ContratoModel {
       creadoEn: DateTime.parse(json['creado_en'] as String),
       cantidadPagos: json['cantidad_pagos'] as int?,
       observaciones: json['observaciones'] as String?,
+      montoMensual: ((json['seguimiento_m10'] as Map?)?['monto_mensual'] ??
+              (json['seguimiento_m40'] as Map?)?['monto_mensual'])
+          ?.toString(),
       clienteNombre: name(json['clientes']),
       servicioNombre: name(json['servicios']),
       asesorNombre: name(json['usuarios']),

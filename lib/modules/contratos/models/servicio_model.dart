@@ -8,7 +8,9 @@ class ServicioModel {
 
   factory ServicioModel.fromJson(Map<String, dynamic> json) => ServicioModel(
         id: json['id'] as int,
-        clave: routeKey(json['nombre'] as String, json['id'] as int),
+        clave: routeKey(
+            json['codigo_folio'] as String? ?? json['nombre'] as String,
+            json['id'] as int),
         nombre: json['nombre'] as String,
         descripcionDemo: json['descripcion'] as String? ?? '',
       );

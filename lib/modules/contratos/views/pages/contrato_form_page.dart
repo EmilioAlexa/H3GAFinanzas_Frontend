@@ -1,21 +1,37 @@
 import 'package:flutter/material.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'package:go_router/go_router.dart';
+
 import 'package:intl/intl.dart';
 
 import '../../../../app/config/env.dart';
+
 import '../../../../app/theme/app_theme.dart';
+
 import '../../../../core/network/api_error_model.dart';
+
 import '../../../../core/platform/file_platform_factory.dart';
+
 import '../../../../core/platform/selected_file.dart';
+
 import '../../../../core/widgets/app_back_button.dart';
+
 import '../../../../core/widgets/app_page_header.dart';
+
 import '../../../../core/widgets/app_state_panel.dart';
+
 import '../../../auth/auth.dart';
+
 import '../../controllers/contrato_options_controller.dart';
+
 import '../../controllers/contratos_controller.dart';
+
 import '../../fixtures/contratos_demo_fixtures.dart';
+
 import '../../models/contrato_model.dart';
+
 import '../../models/servicio_model.dart';
 
 const _demoClients = <({String id, String name})>[
@@ -43,44 +59,70 @@ class ContratoFormPage extends ConsumerStatefulWidget {
 
 class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
   final _formKey = GlobalKey<FormState>();
+
   final _folioController = TextEditingController();
+
   final _observationsController = TextEditingController();
+
   final _dailySalaryController = TextEditingController();
+
   final _monthlyAmountController = TextEditingController();
+
   final List<SelectedFile> _documents = [];
 
   List<ContractPerson> _clients = AppEnv.demoMode ? _demoClients : [];
+
   List<ContractPerson> _advisors = AppEnv.demoMode ? _demoAdvisors : [];
+
   List<ServicioModel> _services =
       AppEnv.demoMode ? ContratosDemoFixtures.services : [];
+
   List<({int id, String name})> _states =
       AppEnv.demoMode ? [(id: 1, name: 'Activo')] : [];
+
   int? _selectedStateId;
+
   String? _optionsMessage;
+
   bool _saving = false;
+
   String? _selectedClientId = AppEnv.demoMode ? _demoClients.first.id : null;
+
   int? _selectedServiceId = AppEnv.demoMode ? 40 : null;
+
   String? _selectedAdvisorId = AppEnv.demoMode ? _demoAdvisors.first.id : null;
+
   String _saleType = 'Cambaceo';
+
   String _paymentScheme = 'Mensual';
+
   String _contractPeriod = '12 meses';
+
   DateTime? _selectedDate;
+
   DateTime? _estimatedEndDate;
+
   String? _fileError;
+
   String? _initializedContractId;
 
   @override
   void dispose() {
     _folioController.dispose();
+
     _observationsController.dispose();
+
     _dailySalaryController.dispose();
+
     _monthlyAmountController.dispose();
+
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authControllerProvider);
+
     return auth.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stackTrace) => const AppStatePanel(
@@ -96,39 +138,52 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
             message: 'El formulario requiere una sesión activa.',
           );
         }
+
         if (!AppEnv.demoMode && widget.contratoId == null) {
           final options = ref.watch(contratoOptionsProvider(session.role));
+
           final data = options.valueOrNull;
+
           if (data != null) {
             _clients = data.clients;
+
             _advisors = data.advisors;
+
             _services = data.services;
+
             _states = data.states;
+
             if (!_clients.any((e) => e.id == _selectedClientId)) {
               _selectedClientId = null;
             }
+
             if (!_advisors.any((e) => e.id == _selectedAdvisorId)) {
               _selectedAdvisorId = null;
             }
+
             if (!_services.any((e) => e.id == _selectedServiceId)) {
               _selectedServiceId = null;
             }
+
             if (!_states.any((e) => e.id == _selectedStateId)) {
               _selectedStateId = null;
             }
           }
+
           _optionsMessage = options.isLoading
               ? 'Cargando catálogos…'
               : options.hasError
                   ? ApiErrorModel.fromObject(options.error!).message
                   : data?.advisorMessage;
         }
+
         final AsyncValue<List<ContratoModel>?> state =
             widget.contratoId != null && !AppEnv.demoMode
                 ? ref
                     .watch(contratoDetailProvider(widget.contratoId!))
                     .whenData((value) => [value])
                 : ref.watch(contratosControllerProvider(session.role));
+
         return state.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, stackTrace) => AppStatePanel(
@@ -157,11 +212,13 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
                 message: 'No fue posible cargar la información del contrato.',
               );
             }
+
             final existing = widget.contratoId == null
                 ? null
                 : contracts
                     .where((item) => item.id == widget.contratoId)
                     .firstOrNull;
+
             if (widget.contratoId != null && existing == null) {
               return const AppStatePanel(
                 icon: Icons.lock_outline,
@@ -169,7 +226,9 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
                 message: '',
               );
             }
+
             if (existing != null) _initializeEdit(existing);
+
             return _form(context, session, existing);
           },
         );
@@ -179,12 +238,19 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
 
   void _initializeEdit(ContratoModel contract) {
     if (_initializedContractId == contract.id) return;
+
     _initializedContractId = contract.id;
+
     _folioController.text = contract.folio;
+
     _observationsController.text = contract.observaciones ?? '';
+
     _selectedClientId = contract.clienteId;
+
     _selectedServiceId = contract.servicioId;
+
     _selectedAdvisorId = contract.asesorId;
+
     _selectedDate = contract.fechaContrato;
   }
 
@@ -194,11 +260,13 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
     ContratoModel? existing,
   ) {
     final editing = existing != null;
+
     final canEdit = !editing ||
         session.role != UserRole.asesor ||
         (AppEnv.demoMode
             ? existing.assignedToCurrentAdvisor
             : existing.asesorId == session.id);
+
     if (!canEdit) {
       return const AppStatePanel(
         icon: Icons.lock_outline,
@@ -209,7 +277,9 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
     }
 
     final selectedDate = _selectedDate ?? DateTime.now();
+
     final isAdvisor = session.role == UserRole.asesor;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.space6),
       child: Form(
@@ -234,6 +304,7 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
             LayoutBuilder(
               builder: (context, constraints) {
                 final wide = constraints.maxWidth >= 980;
+
                 final main = Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: editing
@@ -259,21 +330,21 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
                           const SizedBox(height: AppTheme.space4),
                           _generalDataSection(selectedDate),
                           const SizedBox(height: AppTheme.space4),
-                          AbsorbPointer(
-                              absorbing: !AppEnv.demoMode,
-                              child: _serviceConditionsSection()),
+                          _serviceConditionsSection(),
                           const SizedBox(height: AppTheme.space4),
                           AbsorbPointer(
                               absorbing: !AppEnv.demoMode,
                               child: _documentationSection()),
                         ],
                 );
+
                 final summary = _summaryCard(
                   context,
                   session,
                   existing,
                   selectedDate,
                 );
+
                 if (!wide) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -284,6 +355,7 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
                     ],
                   );
                 }
+
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -427,12 +499,13 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
 
   Widget _serviceConditionsSection() {
     final service = _selectedService?.nombre ?? 'del servicio';
+
     return _sectionCard(
       number: '3',
       title: 'Condiciones de $service',
       description: AppEnv.demoMode
           ? 'Información específica para este tipo de servicio.'
-          : 'Pendiente de integración financiera. Estos campos no se guardan.',
+          : 'Se guardan las condiciones compatibles al crear. No generan cuotas ni calculan importes.',
       trailing: _serviceBadge(service),
       child: _fieldGrid(
         columns: 2,
@@ -440,6 +513,9 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
           _ContractGridItem(
             TextFormField(
               controller: _dailySalaryController,
+              enabled: AppEnv.demoMode ||
+                  (_selectedService?.clave == 'm40' ||
+                      _selectedService?.clave == 'm40-retroactiva'),
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(
@@ -458,21 +534,29 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
                 ('24 meses', '24 meses'),
                 ('Indefinido', 'Indefinido'),
               ],
-              onChanged: (value) =>
-                  setState(() => _contractPeriod = value ?? _contractPeriod),
+              onChanged: (value) {
+                if (AppEnv.demoMode ||
+                    ['m10', 'm40'].contains(_selectedService?.clave)) {
+                  setState(() => _contractPeriod = value ?? _contractPeriod);
+                }
+              },
             ),
           ),
           _ContractGridItem(
             _dateField(
               label: 'Fecha de término estimada',
-              value:
-                  AppEnv.demoMode ? _estimatedEndDate ?? _defaultEndDate : null,
+              value: AppEnv.demoMode
+                  ? _estimatedEndDate ?? _defaultEndDate
+                  : _estimatedEndDate,
               onChanged: (value) => setState(() => _estimatedEndDate = value),
             ),
           ),
           _ContractGridItem(
             TextFormField(
               controller: _monthlyAmountController,
+              enabled: AppEnv.demoMode ||
+                  (_selectedService?.clave == 'm10' ||
+                      _selectedService?.clave == 'm40'),
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(
@@ -566,12 +650,16 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
     DateTime selectedDate,
   ) {
     final editing = existing != null;
+
     final clientName = _selectedClient?.name ?? existing?.clienteNombre ?? '—';
+
     final serviceName =
         _selectedService?.nombre ?? existing?.servicioNombre ?? '—';
+
     final advisorName = session.role == UserRole.asesor
         ? session.name
         : _selectedAdvisor?.name ?? existing?.asesorNombre ?? '—';
+
     return Container(
       padding: const EdgeInsets.all(AppTheme.space4),
       decoration: BoxDecoration(
@@ -632,7 +720,7 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
                             ? 'Sin clientes disponibles.'
                             : '')),
             const Text(
-                'Condiciones financieras y documentos: pendientes de integración; no se guardan en esta etapa.'),
+                'Las condiciones compatibles se guardan al crear. Documentos y calendario automatico pendientes de autorizacion.'),
             TextButton(
                 onPressed: () =>
                     ref.invalidate(contratoOptionsProvider(session.role)),
@@ -758,9 +846,12 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
       LayoutBuilder(
         builder: (context, constraints) {
           final actualColumns = constraints.maxWidth < 680 ? 1 : columns;
+
           final gap = AppTheme.space4;
+
           final cellWidth = (constraints.maxWidth - gap * (actualColumns - 1)) /
               actualColumns;
+
           return Wrap(
             spacing: gap,
             runSpacing: AppTheme.space3,
@@ -801,8 +892,9 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
         ],
         validator: (selected) => selected == null ? 'Selecciona $label.' : null,
         onChanged: !AppEnv.demoMode &&
-                ['Tipo de venta', 'Esquema de pago', 'Periodo contratado']
-                    .contains(label)
+                (['Tipo de venta', 'Esquema de pago'].contains(label) ||
+                    (label == 'Periodo contratado' &&
+                        !['m10', 'm40'].contains(_selectedService?.clave)))
             ? null
             : onChanged,
       );
@@ -813,15 +905,20 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
     required ValueChanged<DateTime?> onChanged,
   }) =>
       InkWell(
-        onTap: () async {
-          final picked = await showDatePicker(
-            context: context,
-            initialDate: value ?? DateTime.now(),
-            firstDate: DateTime(2000),
-            lastDate: DateTime(2100),
-          );
-          if (picked != null && mounted) onChanged(picked);
-        },
+        onTap: !AppEnv.demoMode &&
+                label == 'Fecha de término estimada' &&
+                _selectedService?.clave != 'm40'
+            ? null
+            : () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: value ?? DateTime.now(),
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime(2100),
+                );
+
+                if (picked != null && mounted) onChanged(picked);
+              },
         child: InputDecorator(
           decoration: InputDecoration(labelText: label),
           child: Row(
@@ -844,10 +941,15 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
 
   Future<void> _pickDocument() async {
     final file = await createFilePlatform().chooseFile();
+
     if (!mounted || file == null) return;
+
     final extension = file.name.split('.').last.toLowerCase();
+
     final validExtension = {'pdf', 'jpg', 'jpeg', 'png'}.contains(extension);
+
     final validSize = file.bytes.lengthInBytes <= 10 * 1024 * 1024;
+
     setState(() {
       if (!validExtension) {
         _fileError = 'Solo se permiten archivos PDF, JPG o PNG.';
@@ -855,6 +957,7 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
         _fileError = 'El archivo no puede superar 10 MB.';
       } else {
         _fileError = null;
+
         _documents.add(file);
       }
     });
@@ -866,11 +969,14 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
     ContratoModel? existing,
   ) async {
     if (!_formKey.currentState!.validate() || _saving) return;
+
     if (!AppEnv.demoMode) {
       setState(() => _saving = true);
+
       try {
         final controller =
             ref.read(contratosControllerProvider(session.role).notifier);
+
         final contract = existing != null
             ? await controller.updateObservations(
                 existing.id, _nullable(_observationsController.text))
@@ -883,8 +989,23 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
                     .format(_selectedDate ?? DateTime.now()),
                 'estado_contrato_id': _selectedStateId,
                 'observaciones': _nullable(_observationsController.text),
+                if (['m40', 'm40-retroactiva']
+                        .contains(_selectedService?.clave) &&
+                    _dailySalaryController.text.trim().isNotEmpty)
+                  'salario_diario': _dailySalaryController.text.trim(),
+                if (['m10', 'm40'].contains(_selectedService?.clave)) ...{
+                  if (_monthlyAmountController.text.trim().isNotEmpty)
+                    'monto_mensual': _monthlyAmountController.text.trim(),
+                  'periodo_contrato': _contractPeriod,
+                },
+                if (_selectedService?.clave == 'm40' &&
+                    _estimatedEndDate != null)
+                  'fecha_fin':
+                      DateFormat('yyyy-MM-dd').format(_estimatedEndDate!),
               });
+
         ref.invalidate(contratoDetailProvider(contract.id));
+
         if (context.mounted) context.go('/contratos/${contract.id}');
       } catch (error) {
         if (context.mounted) {
@@ -894,23 +1015,32 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
       } finally {
         if (mounted) setState(() => _saving = false);
       }
+
       return;
     }
+
     final controller =
         ref.read(contratosControllerProvider(session.role).notifier);
+
     if (existing != null) {
       controller.updateObservationsDemo(
         existing.id,
         _nullable(_observationsController.text),
       );
+
       context.go('/contratos/${existing.id}');
+
       return;
     }
 
     final client = _selectedClient;
+
     final service = _selectedService;
+
     if (client == null || service == null) return;
+
     final advisor = session.role == UserRole.asesor ? null : _selectedAdvisor;
+
     final contract = controller.createDemo(
       clienteId: client.id,
       clienteNombre: client.name,
@@ -929,6 +1059,7 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
       advisorName: advisor?.name,
       documentos: List.unmodifiable(_documents),
     );
+
     context.go('/contratos/${contract.id}');
   }
 
@@ -940,6 +1071,7 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
 
   DateTime get _defaultEndDate {
     final date = _selectedDate ?? DateTime.now();
+
     return DateTime(date.year + 1, date.month, date.day);
   }
 
@@ -947,6 +1079,7 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
     for (final client in _clients) {
       if (client.id == _selectedClientId) return client;
     }
+
     return null;
   }
 
@@ -954,6 +1087,7 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
     for (final advisor in _advisors) {
       if (advisor.id == _selectedAdvisorId) return advisor;
     }
+
     return null;
   }
 
@@ -961,6 +1095,7 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
     for (final service in _services) {
       if (service.id == _selectedServiceId) return service;
     }
+
     return null;
   }
 
@@ -971,5 +1106,6 @@ class _ContractGridItem {
   const _ContractGridItem(this.child, {this.span = 1});
 
   final Widget child;
+
   final int span;
 }

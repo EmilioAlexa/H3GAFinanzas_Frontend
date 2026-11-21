@@ -89,6 +89,34 @@ void main() {
     expect(ServicioModel.routeKey('M40R', 88), 'm40-retroactiva');
     expect(ServicioModel.routeKey('APD', 91), 'apd');
   });
+  test(
+      'explicit financial conditions are sent and server monthly amount is read without totals',
+      () async {
+    dio.interceptors.clear();
+    dio.interceptors.add(InterceptorsWrapper(onRequest: (r, h) {
+      requests.add(r);
+      h.resolve(Response(requestOptions: r, data: {
+        ...contract,
+        'seguimiento_m40': {
+          'monto_mensual': '1500.25',
+          'salario_diario': '300.00'
+        }
+      }));
+    }));
+    final result = await repository.create({
+      'cliente_id': id,
+      'servicio_id': 72,
+      'fecha_contrato': '2026-11-20',
+      'estado_contrato_id': 9,
+      'monto_mensual': '1500.25',
+      'salario_diario': '300.00',
+      'periodo_contrato': '6 meses'
+    });
+    expect((requests.single.data as Map<String, dynamic>)['monto_mensual'], '1500.25');
+    expect(result.montoMensual, '1500.25');
+    expect(result.totalPagar, isNull);
+    expect(result.saldoPendiente, isNull);
+  });
   test('error HTTP se propaga sin recuperar fixtures', () async {
     dio.interceptors.clear();
     dio.interceptors.add(InterceptorsWrapper(onRequest: (request, handler) {

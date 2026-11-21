@@ -10,10 +10,16 @@ class ReportDataModel {
     required this.total,
     required this.rows,
     this.points = const [],
+    this.serverCalculated = false,
+    this.personalTotal,
+    this.variation,
     this.comparisonTotal,
     this.serviceBreakdown = const [],
   });
 
+  final bool serverCalculated;
+  final Decimal? personalTotal;
+  final Decimal? variation;
   final ReportType type;
   final Decimal total;
   final List<ReportRowModel> rows;
