@@ -8,6 +8,7 @@ import '../../modules/busqueda/busqueda.dart';
 import '../../modules/pagos/pagos.dart';
 import '../responsive/responsive.dart';
 import '../responsive/window_size_class.dart';
+import '../utils/payment_alert_rules.dart';
 import 'shell_item.dart';
 import 'shell_navigation.dart';
 
@@ -643,7 +644,7 @@ class AppShell extends ConsumerWidget {
   int _pendingValidationCount(WidgetRef ref, UserRole role) {
     final state = ref.watch(pagosControllerProvider(role)).valueOrNull;
     return state?.payments
-            .where((payment) => payment.estado == 'Por revisar')
+            .where((payment) => needsFinancialReview(payment.estado))
             .length ??
         0;
   }
@@ -669,7 +670,7 @@ class AppShell extends ConsumerWidget {
       }
     } else {
       for (final payment in state.payments
-          .where((payment) => payment.estado == 'Por revisar')) {
+          .where((payment) => needsFinancialReview(payment.estado))) {
         result.add((
           title: 'Pago pendiente de validar',
           detail: '${payment.folio} · ${payment.clienteNombre}',
@@ -678,17 +679,17 @@ class AppShell extends ConsumerWidget {
         ));
       }
     }
-    for (final schedule in state.scheduled.where((schedule) {
+    // Date-only obligations are evaluated in America/Cancun (UTC-5).
+    final now = DateTime.now();
+    for (final schedule in state.scheduled) {
       final date = schedule.fechaVencimiento;
-      if (date == null || schedule.estado != 'Pendiente') return false;
-      final days = date.difference(DateTime.now()).inDays;
-      return days >= 0 && days <= 30;
-    })) {
+      if (!showsScheduledAlert(schedule.estado, date, now)) continue;
+      final days = daysUntilPayment(date!, now);
       result.add((
-        title: 'Fecha próxima de pago',
-        detail: '${schedule.clienteNombre} · ${schedule.contratoFolio}',
+        title: days < 0 ? 'Pago programado vencido' : 'Fecha proxima de pago',
+        detail: '${schedule.clienteNombre} | ${schedule.contratoFolio}',
         route: '/pagos-programados',
-        icon: Icons.event_outlined,
+        icon: days < 0 ? Icons.warning_amber_outlined : Icons.event_outlined,
       ));
     }
     return result.take(8).toList();

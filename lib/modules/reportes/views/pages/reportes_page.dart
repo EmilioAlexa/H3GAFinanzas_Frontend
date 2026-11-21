@@ -23,7 +23,6 @@ import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_responsive_collection.dart';
 import '../../../../core/widgets/app_state_panel.dart';
 import '../../controllers/reportes_controller.dart';
-import '../../fixtures/reportes_demo_fixtures.dart';
 import '../../models/report_data_model.dart';
 import '../../models/report_filters_model.dart';
 import '../../models/report_point_model.dart';
@@ -38,14 +37,36 @@ class ReportesPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final repository = ref.read(reportesRepositoryProvider);
+    final filters = repository.demoMode ? ref.watch(reportesControllerProvider) : ref.watch(appliedReportFiltersProvider);
     if (!repository.demoMode) {
-      return const AppStatePanel(
-        icon: Icons.link_off_outlined,
-        title: 'Reportes no disponibles',
-        message: 'No fue posible consultar la información del periodo.',
-      );
+      final types = reportType == null
+          ? [ReportType.ingresos, ReportType.imss, ReportType.comisionesDestino]
+          : [reportType!];
+      final states = [
+        for (final type in types) ref.watch(reportDataProvider(type))
+      ];
+      if (states.any((s) => s.isLoading)) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      if (states.any((s) => s.hasError)) {
+        return AppStatePanel(
+            icon: Icons.cloud_off_outlined,
+            title: 'No se pudieron cargar los reportes',
+            message: 'Verifica el periodo y tus permisos.',
+            action: TextButton(
+                onPressed: () {
+                  for (final type in types) {
+                    ref.invalidate(reportDataProvider(type));
+                  }
+                },
+                child: const Text('Reintentar')));
+      }
+      final reports = [for (final state in states) state.requireValue];
+      if (reportType == null) {
+        return _ReportOverview(filters: filters, reports: reports);
+      }
+      return _ReportDetail(report: reports.single, filters: filters);
     }
-    final filters = ref.watch(reportesControllerProvider);
     if (reportType == null) {
       return _ReportOverview(filters: filters, reports: repository.listDemo());
     }
@@ -70,13 +91,14 @@ class _ReportOverview extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final income = _applyOverviewFilters(
-      ReportesDemoFixtures.reports[ReportType.ingresos]!,
+      reports.firstWhere((r) => r.type == ReportType.ingresos),
       filters,
     );
-    final imss = ReportesDemoFixtures.reports[ReportType.imss]!;
+    final imss = reports.firstWhere((r) => r.type == ReportType.imss);
     final commissions =
-        ReportesDemoFixtures.reports[ReportType.comisionesDestino]!;
-    final variation = _variation(income.total, income.comparisonTotal!);
+        reports.firstWhere((r) => r.type == ReportType.comisionesDestino);
+    final variation = income.variation ??
+        _variation(income.total, income.comparisonTotal ?? Decimal.zero);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.space6),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -111,8 +133,9 @@ class _ReportOverview extends ConsumerWidget {
             ),
             AppMetricCard(
               label: 'Variación',
-              value:
-                  '${variation >= Decimal.zero ? '+' : ''}${variation.toStringAsFixed(1)}%',
+              value: income.serverCalculated && income.variation == null
+                  ? 'Sin base comparable'
+                  : '${variation >= Decimal.zero ? '+' : ''}${variation.toStringAsFixed(1)}%',
               detail: 'vs. periodo anterior',
               icon: Icons.trending_up,
               tone: AppMetricTone.info,
@@ -187,7 +210,11 @@ class _ReportOverview extends ConsumerWidget {
         const SizedBox(height: AppTheme.space4),
         _commissionStrip(context, commissions),
         const SizedBox(height: AppTheme.space4),
-        _reportLinks(context, reports),
+        _reportLinks(context, [
+          for (final type in ReportType.values)
+            reports.where((r) => r.type == type).firstOrNull ??
+                ReportDataModel(type: type, total: Decimal.zero, rows: const [])
+        ]),
       ]),
     );
   }
@@ -202,7 +229,9 @@ class _ReportDetail extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final rows = _filteredRows(report, filters);
-    final total = rows.fold(Decimal.zero, (sum, row) => sum + row.amount);
+    final total = report.serverCalculated
+        ? report.total
+        : rows.fold(Decimal.zero, (sum, row) => sum + row.amount);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.space6),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -238,8 +267,10 @@ class _ReportDetail extends ConsumerWidget {
           );
           final variation = AppMetricCard(
             label: 'Variación',
-            value: filters.compare && report.comparisonTotal != null
-                ? '${_variation(report.total, report.comparisonTotal!).toStringAsFixed(1)}%'
+            value: filters.compare &&
+                    report.comparisonTotal != null &&
+                    (!report.serverCalculated || report.variation != null)
+                ? '${(report.variation ?? _variation(report.total, report.comparisonTotal!)).toStringAsFixed(1)}%'
                 : 'Sin comparar',
             detail: 'Periodo anterior de igual duración',
             icon: Icons.compare_arrows,
@@ -291,6 +322,7 @@ class _ReportFilters extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.read(reportesControllerProvider.notifier);
+    final filters = ref.watch(reportesControllerProvider);
     final showSaleType = reportType == ReportType.comisionesTipoVenta;
     final showMethod = reportType == ReportType.pagosMetodo;
     if (reportType == null) {
@@ -352,6 +384,8 @@ class _ReportFilters extends ConsumerWidget {
             FilledButton(
               onPressed: () {
                 controller.apply();
+                ref.read(appliedReportFiltersProvider.notifier).state =
+                    ref.read(reportesControllerProvider);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Filtros aplicados.')),
                 );
@@ -460,6 +494,8 @@ class _ReportFilters extends ConsumerWidget {
             FilledButton.icon(
               onPressed: () {
                 controller.apply();
+                ref.read(appliedReportFiltersProvider.notifier).state =
+                    ref.read(reportesControllerProvider);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Filtros aplicados.')),
                 );
@@ -576,14 +612,15 @@ Future<void> _showExportDialog(
             DropdownButtonFormField<String>(
               initialValue: period,
               decoration: const InputDecoration(labelText: 'Periodo'),
-              items: const [
-                DropdownMenuItem(
+              items: [
+                const DropdownMenuItem(
                   value: 'Periodo actual',
                   child: Text('Periodo actual'),
                 ),
                 DropdownMenuItem(
+                  enabled: !report.serverCalculated,
                   value: 'Todo el historial',
-                  child: Text('Todo el historial'),
+                  child: const Text('Todo el historial'),
                 ),
               ],
               onChanged: (value) =>
@@ -779,7 +816,9 @@ Widget _rowCard(BuildContext context, ReportType type, ReportRowModel row) =>
 
 Widget _incomeChart(BuildContext context, ReportDataModel report, bool compare,
     String granularity) {
-  final points = _pointsForGranularity(report.points, granularity);
+  final points = (report.serverCalculated
+      ? report.points
+      : _pointsForGranularity(report.points, granularity));
   final maxAmount = points
           .map((point) => point.amount.toDouble())
           .fold<double>(0, (a, b) => a > b ? a : b) *
@@ -792,9 +831,9 @@ Widget _incomeChart(BuildContext context, ReportDataModel report, bool compare,
       child: LineChart(
         LineChartData(
           minX: 0,
-          maxX: (points.length - 1).toDouble(),
+          maxX: points.length < 2 ? 1 : (points.length - 1).toDouble(),
           minY: 0,
-          maxY: maxAmount,
+          maxY: maxAmount > 0 ? maxAmount : 1,
           gridData: const FlGridData(show: true, drawVerticalLine: false),
           borderData: FlBorderData(show: false),
           titlesData: FlTitlesData(
@@ -836,7 +875,9 @@ Widget _incomeChart(BuildContext context, ReportDataModel report, bool compare,
               belowBarData: BarAreaData(
                   show: true, color: AppTheme.secondary.withValues(alpha: .16)),
             ),
-            if (compare && report.comparisonTotal != null)
+            if (!report.serverCalculated &&
+                compare &&
+                report.comparisonTotal != null)
               LineChartBarData(
                 spots: [
                   for (var i = 0; i < points.length; i++)
@@ -1052,7 +1093,9 @@ ReportDataModel _applyOverviewFilters(
   ReportDataModel report,
   ReportFiltersModel filters,
 ) {
-  if (filters.service == 'Todos los servicios') return report;
+  if (report.serverCalculated || filters.service == 'Todos los servicios') {
+    return report;
+  }
   final selected = report.serviceBreakdown
       .where((row) => row.title == filters.service)
       .firstOrNull;
@@ -1098,6 +1141,7 @@ ReportDataModel _applyOverviewFilters(
 
 List<ReportRowModel> _filteredRows(
     ReportDataModel report, ReportFiltersModel filters) {
+  if (report.serverCalculated) return report.rows;
   if (report.type == ReportType.comisionesTipoVenta &&
       filters.saleType != 'Todos los tipos') {
     return report.rows.where((row) => row.title == filters.saleType).toList();
@@ -1177,9 +1221,11 @@ List<ReportPointModel> _pointsForGranularity(
   ];
 }
 
-Decimal _personalCommissions(ReportDataModel report) => report.rows
-    .where((row) => !{'IMSS', 'Empresa'}.contains(row.title))
-    .fold(Decimal.zero, (sum, row) => sum + row.amount);
+Decimal _personalCommissions(ReportDataModel report) =>
+    report.personalTotal ??
+    report.rows
+        .where((row) => !{'IMSS', 'Empresa'}.contains(row.title))
+        .fold(Decimal.zero, (sum, row) => sum + row.amount);
 
 Decimal _variation(Decimal current, Decimal previous) {
   if (previous == Decimal.zero) return Decimal.zero;
