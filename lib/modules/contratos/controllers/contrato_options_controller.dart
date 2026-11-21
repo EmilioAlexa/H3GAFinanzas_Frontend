@@ -11,6 +11,8 @@ typedef ContractOptions = ({
   List<ServicioModel> services,
   List<({int id, String name})> states,
   String? advisorMessage,
+  bool documentsReady,
+  List<({int id, String name})> saleTypes,
 });
 
 final contratoOptionsProvider = FutureProvider.autoDispose
@@ -22,8 +24,17 @@ final contratoOptionsProvider = FutureProvider.autoDispose
         row['apellido_paterno'],
         row['apellido_materno']
       ].whereType<String>().where((s) => s.isNotEmpty).join(' ');
-  final services = await repository.loadServices();
-  final states = await repository.loadStates();
+  final options =
+      (await dio.get<Map<String, dynamic>>('/finanzas/contratos/opciones'))
+          .data!;
+  final services = (options['servicios'] as List)
+      .map((e) => ServicioModel.fromJson(Map<String, dynamic>.from(e as Map)))
+      .toList();
+  List<({int id, String name})> catalog(String key) => (options[key] as List)
+      .map((e) => (id: (e as Map)['id'] as int, name: e['nombre'] as String))
+      .toList();
+  final states = catalog('estados');
+  final saleTypes = catalog('tipos_venta');
   final clients = await repository.readAll('/clientes');
   var advisors = <ContractPerson>[];
   String? advisorMessage;
@@ -52,8 +63,10 @@ final contratoOptionsProvider = FutureProvider.autoDispose
     clients:
         clients.map((e) => (id: e['id'] as String, name: name(e))).toList(),
     advisors: advisors,
-    services: services ?? [],
+    services: services,
+    saleTypes: saleTypes,
     states: states,
+    documentsReady: (options['capacidades'] as Map?)?['documentos'] == true,
     advisorMessage: advisorMessage,
   );
 });

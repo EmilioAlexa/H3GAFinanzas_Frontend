@@ -1,42 +1,25 @@
 import 'package:decimal/decimal.dart';
-
 import 'package:flutter/material.dart';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:go_router/go_router.dart';
-
 import 'package:pdfrx/pdfrx.dart';
 
 import '../../../../app/config/env.dart';
-
 import '../../../../app/theme/app_theme.dart';
-
 import '../../../../core/network/api_error_model.dart';
-
 import '../../../../core/platform/selected_file.dart';
-
 import '../../../../core/utils/money_formatter.dart';
-
 import '../../../../core/widgets/app_back_button.dart';
-
 import '../../../../core/widgets/app_badge.dart';
-
 import '../../../../core/widgets/app_dialog.dart';
-
 import '../../../../core/widgets/app_page_header.dart';
-
 import '../../../../core/widgets/app_state_panel.dart';
-
 import '../../../auth/auth.dart';
-
 import '../../../pagos/fixtures/pagos_demo_fixtures.dart';
-
 import '../../../pagos/models/pago_model.dart';
-
 import '../../controllers/contratos_controller.dart';
-
 import '../../models/contrato_model.dart';
+import '../widgets/contract_documents_panel.dart';
 
 class ContratoDetallePage extends ConsumerWidget {
   const ContratoDetallePage({required this.contratoId, super.key});
@@ -294,17 +277,37 @@ class ContratoDetallePage extends ConsumerWidget {
                   'Total a pagar',
                   AppEnv.demoMode
                       ? MoneyFormatter.format(total)
-                      : 'Pendiente de integración'),
+                      : '20,000.00'),
               _field(
                   'Monto mensual',
                   AppEnv.demoMode || contract.montoMensual != null
                       ? MoneyFormatter.format(monthly)
-                      : 'Sin monto mensual registrado'),
-              _field(
-                  'Saldo pendiente',
-                  AppEnv.demoMode
-                      ? MoneyFormatter.format(balance)
-                      : 'Pendiente de integración'),
+                      : contract.esquemaPago == 'Pago \u00fanico'
+                          ? 'No aplica'
+                          : 'Sin monto mensual registrado'),
+              if (!AppEnv.demoMode) ...[
+                _field(
+                    'Esquema de pago', contract.esquemaPago ?? 'No disponible'),
+                _field(
+                    'Tipo de venta',
+                    contract.codigoServicio != 'APD'
+                        ? 'No aplica'
+                        : contract.tipoVentaNombre ?? 'Sin registrar'),
+                if (contract.salarioDiario != null)
+                  _field(
+                      'Salario diario',
+                      MoneyFormatter.format(
+                          Decimal.parse(contract.salarioDiario!))),
+                if (contract.periodoContrato != null)
+                  _field('Periodo contratado', contract.periodoContrato!),
+                if (contract.fechaTermino != null)
+                  _field('Fecha de termino', _date(contract.fechaTermino!)),
+              ],
+              // _field(
+              //     'Saldo pendiente',
+              //     AppEnv.demoMode
+              //         ? MoneyFormatter.format(balance)
+              //         : 'Pendiente de integración'),
             ],
           ),
         ],
@@ -405,21 +408,26 @@ class ContratoDetallePage extends ConsumerWidget {
           Text('Documentos y actividad',
               style: Theme.of(context).textTheme.titleLarge),
           const Divider(height: AppTheme.space6),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.description_outlined,
-                color: AppTheme.secondaryDark),
-            title: const Text('Contrato firmado'),
-            trailing: AppBadge(
-              label: signedDocument == null
-                  ? 'Sin archivo'
-                  : _fileExtension(signedDocument.name).toUpperCase(),
-              tone: signedDocument == null
-                  ? AppBadgeTone.neutral
-                  : AppBadgeTone.info,
+          if (!AppEnv.demoMode)
+            ContractDocumentsPanel(
+                contractId: contract.id, ready: contract.documentsReady)
+          else
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.description_outlined,
+                  color: AppTheme.secondaryDark),
+              title: const Text('Contrato firmado'),
+              trailing: AppBadge(
+                label: signedDocument == null
+                    ? 'Sin archivo'
+                    : _fileExtension(signedDocument.name).toUpperCase(),
+                tone: signedDocument == null
+                    ? AppBadgeTone.neutral
+                    : AppBadgeTone.info,
+              ),
+              onTap: () =>
+                  _showSignedDocument(context, contract, signedDocument),
             ),
-            onTap: () => _showSignedDocument(context, contract, signedDocument),
-          ),
           const Divider(height: 1),
           ListTile(
             contentPadding: EdgeInsets.zero,

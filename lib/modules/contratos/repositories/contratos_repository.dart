@@ -1,12 +1,16 @@
+import 'dart:typed_data';
+
 import 'package:decimal/decimal.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http_parser/http_parser.dart';
 
 import '../../../app/config/env.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/platform/selected_file.dart';
 import '../../auth/auth.dart';
 import '../fixtures/contratos_demo_fixtures.dart';
+import '../models/contract_document_model.dart';
 import '../models/contrato_model.dart';
 import '../models/penalizacion_model.dart';
 import '../models/servicio_model.dart';
@@ -55,6 +59,55 @@ class ContratosRepository {
       page++;
     }
     return rows;
+  }
+
+  Future<List<ContractDocument>> documents(String id) async => ((await dio!
+              .get<List<dynamic>>('/finanzas/contratos/$id/documentos'))
+          .data!)
+      .map(
+          (e) => ContractDocument.fromJson(Map<String, dynamic>.from(e as Map)))
+      .toList();
+  Future<void> uploadDocument(
+      String id, PendingContractDocument pending) async {
+    final mime = contractFileMime(pending.file);
+    final response =
+        await dio!.post<dynamic>('/finanzas/contratos/$id/documentos',
+            data: FormData.fromMap({
+              'solicitud_id': pending.requestId,
+              'file': MultipartFile.fromBytes(pending.file.bytes,
+                  filename: pending.file.name,
+                  contentType: MediaType.parse(mime))
+            }));
+    final metadata = response.data;
+    if (metadata is! Map ||
+        metadata['id'] is! String ||
+        metadata['contrato_id'] != id ||
+        metadata['solicitud_id'] != pending.requestId) {
+      throw const FormatException(
+          'La respuesta no confirma la persistencia del documento');
+    }
+  }
+
+  Future<Uint8List> documentBytes(String id, String documentId) async =>
+      Uint8List.fromList((await dio!.get<List<int>>(
+              '/finanzas/contratos/$id/documentos/$documentId/archivo',
+              options: Options(responseType: ResponseType.bytes)))
+          .data!);
+  final Map<String, List<PendingContractDocument>> _pendingDocuments = {};
+  List<PendingContractDocument> pendingDocuments(String id) =>
+      List.unmodifiable(_pendingDocuments[id] ?? []);
+  void retainPendingDocuments(String id, List<PendingContractDocument> files) {
+    _pendingDocuments[id] = List.of(files);
+  }
+
+  Future<void> retryDocuments(String id) async {
+    final remaining =
+        List.of(_pendingDocuments[id] ?? <PendingContractDocument>[]);
+    for (final pending in List.of(remaining)) {
+      await uploadDocument(id, pending);
+      remaining.remove(pending);
+      retainPendingDocuments(id, remaining);
+    }
   }
 
   Future<ContratoModel> detail(String id, UserRole role) async {

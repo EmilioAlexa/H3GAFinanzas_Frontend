@@ -1,5 +1,7 @@
 import '../../../core/platform/selected_file.dart';
 
+import 'servicio_model.dart';
+
 class ContratoModel {
   const ContratoModel({
     required this.id,
@@ -19,6 +21,13 @@ class ContratoModel {
     this.totalPagar,
     this.montoMensual,
     this.saldoPendiente,
+    this.salarioDiario,
+    this.periodoContrato,
+    this.fechaTermino,
+    this.tipoVentaNombre,
+    this.esquemaPago,
+    this.codigoServicio,
+    this.documentsReady = false,
     this.documentos = const [],
     this.assignedToCurrentAdvisor = false,
   });
@@ -33,6 +42,7 @@ class ContratoModel {
     }
 
     return ContratoModel(
+      documentsReady: (json['capacidades'] as Map?)?['documentos'] == true,
       id: json['id'] as String,
       clienteId: json['cliente_id'] as String,
       servicioId: json['servicio_id'] as int,
@@ -46,6 +56,29 @@ class ContratoModel {
       montoMensual: ((json['seguimiento_m10'] as Map?)?['monto_mensual'] ??
               (json['seguimiento_m40'] as Map?)?['monto_mensual'])
           ?.toString(),
+      codigoServicio: (json['servicios'] as Map?)?['codigo_folio'] as String?,
+      salarioDiario: ((json['seguimiento_m40'] as Map?)?['salario_diario'] ??
+              (json['seguimiento_m40_retroactiva'] as Map?)?['salario_diario'])
+          ?.toString(),
+      periodoContrato: (json['seguimiento_m10'] as Map?)?['periodo_contrato']
+              ?.toString() ??
+          ((json['seguimiento_m40'] as Map?)?['cantidad_meses'] == null
+              ? null
+              : "${(json['seguimiento_m40'] as Map)['cantidad_meses']} meses"),
+      fechaTermino: (json['seguimiento_m40'] as Map?)?['fecha_fin'] == null
+          ? null
+          : DateTime.parse(
+              (json['seguimiento_m40'] as Map)['fecha_fin'] as String),
+      tipoVentaNombre: ((json['seguimiento_apd'] as Map?)?['tipos_venta']
+          as Map?)?['nombre'] as String?,
+      esquemaPago: switch (ServicioModel.routeKey(
+          (json['servicios'] as Map?)?['codigo_folio'] as String? ??
+              name(json['servicios']),
+          json['servicio_id'] as int)) {
+        'apd' || 'm40-retroactiva' => 'Pago \u00fanico',
+        'm10' || 'm40' => 'Mensual',
+        _ => null,
+      },
       clienteNombre: name(json['clientes']),
       servicioNombre: name(json['servicios']),
       asesorNombre: name(json['usuarios']),
@@ -65,6 +98,13 @@ class ContratoModel {
   final String? totalPagar;
   final String? montoMensual;
   final String? saldoPendiente;
+  final String? salarioDiario;
+  final String? periodoContrato;
+  final DateTime? fechaTermino;
+  final String? tipoVentaNombre;
+  final String? esquemaPago;
+  final String? codigoServicio;
+  final bool documentsReady;
   final List<SelectedFile> documentos;
   final DateTime creadoEn;
   final String clienteNombre;
