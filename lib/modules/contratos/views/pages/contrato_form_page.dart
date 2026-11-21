@@ -1,38 +1,24 @@
 import 'package:flutter/material.dart';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:go_router/go_router.dart';
-
 import 'package:intl/intl.dart';
 
 import '../../../../app/config/env.dart';
-
 import '../../../../app/theme/app_theme.dart';
-
 import '../../../../core/network/api_error_model.dart';
-
 import '../../../../core/platform/file_platform_factory.dart';
-
 import '../../../../core/platform/selected_file.dart';
-
 import '../../../../core/widgets/app_back_button.dart';
-
 import '../../../../core/widgets/app_page_header.dart';
-
 import '../../../../core/widgets/app_state_panel.dart';
-
 import '../../../auth/auth.dart';
-
 import '../../controllers/contrato_options_controller.dart';
-
 import '../../controllers/contratos_controller.dart';
-
 import '../../fixtures/contratos_demo_fixtures.dart';
-
+import '../../models/contract_document_model.dart';
 import '../../models/contrato_model.dart';
-
 import '../../models/servicio_model.dart';
+import '../../repositories/contratos_repository.dart';
 
 const _demoClients = <({String id, String name})>[
   (id: 'demo-client-1', name: 'Elena Robles Vargas'),
@@ -85,6 +71,7 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
   String? _optionsMessage;
 
   bool _saving = false;
+  bool _documentsReady = false;
 
   String? _selectedClientId = AppEnv.demoMode ? _demoClients.first.id : null;
 
@@ -93,7 +80,18 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
   String? _selectedAdvisorId = AppEnv.demoMode ? _demoAdvisors.first.id : null;
 
   String _saleType = 'Cambaceo';
-
+  int? _saleTypeId;
+  List<({int id, String name})> _saleTypes = [];
+  bool get _singlePayment =>
+      ['apd', 'm40-retroactiva'].contains(_selectedService?.clave);
+  String get _effectiveScheme => AppEnv.demoMode
+      ? _paymentScheme
+      : switch (_selectedService?.clave) {
+          'apd' || 'm40-retroactiva' => 'Pago \u00fanico',
+          'm10' || 'm40' => 'Mensual',
+          null => 'Selecciona servicio',
+          _ => 'Sin esquema autorizado',
+        };
   String _paymentScheme = 'Mensual';
 
   String _contractPeriod = '12 meses';
@@ -152,6 +150,9 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
             _services = data.services;
 
             _states = data.states;
+            _saleTypes = data.saleTypes;
+            _documentsReady = data.documentsReady;
+            if (!_saleTypes.any((e) => e.id == _saleTypeId)) _saleTypeId = null;
 
             if (!_clients.any((e) => e.id == _selectedClientId)) {
               _selectedClientId = null;
@@ -333,7 +334,7 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
                           _serviceConditionsSection(),
                           const SizedBox(height: AppTheme.space4),
                           AbsorbPointer(
-                              absorbing: !AppEnv.demoMode,
+                              absorbing: !AppEnv.demoMode && !_documentsReady,
                               child: _documentationSection()),
                         ],
                 );
@@ -416,8 +417,12 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
                 value: _selectedServiceId,
                 values:
                     _services.map((item) => (item.id, item.nombre)).toList(),
-                onChanged: (value) =>
-                    setState(() => _selectedServiceId = value),
+                onChanged: (value) => setState(() {
+                  _selectedServiceId = value;
+                  _saleTypeId = null;
+                  _monthlyAmountController.clear();
+                  _estimatedEndDate = null;
+                }),
               ),
             ),
             if (!AppEnv.demoMode)
@@ -428,18 +433,43 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
                 onChanged: (value) => setState(() => _selectedStateId = value),
               )),
             _ContractGridItem(
-              _dropdown<String>(
-                label: 'Tipo de venta',
-                value: _saleType,
-                values: const [
-                  ('Cambaceo', 'Cambaceo'),
-                  ('Referido', 'Referido'),
-                  ('Renovación', 'Renovación'),
-                  ('Digital', 'Digital'),
-                ],
-                onChanged: (value) =>
-                    setState(() => _saleType = value ?? _saleType),
-              ),
+              _selectedService?.clave != 'apd'
+                  ? TextFormField(
+                      key: ValueKey('sale-not-applicable-$_selectedServiceId'),
+                      initialValue: 'No aplica',
+                      readOnly: true,
+                      decoration:
+                          const InputDecoration(labelText: 'Tipo de venta'))
+                  : AppEnv.demoMode
+                      ? _dropdown<String>(
+                          label: 'Tipo de venta',
+                          value: _saleType,
+                          values: const [
+                            ('Cambaceo', 'Cambaceo'),
+                            ('Marketing', 'Marketing')
+                          ],
+                          onChanged: (value) =>
+                              setState(() => _saleType = value ?? _saleType))
+                      : DropdownButtonFormField<int>(
+                          initialValue: _saleTypeId,
+                          key: ValueKey(
+                              "$_selectedServiceId-${_saleTypes.map((e) => e.id).join(',')}"),
+                          decoration: InputDecoration(
+                              labelText: 'Tipo de venta',
+                              helperText: _selectedService?.clave == 'apd'
+                                  ? (_saleTypes.isEmpty
+                                      ? 'Catalogo sin Cambaceo/Marketing disponibles'
+                                      : null)
+                                  : 'No aplica'),
+                          items: [
+                            for (final type in _saleTypes)
+                              DropdownMenuItem(
+                                  value: type.id, child: Text(type.name))
+                          ],
+                          onChanged: _selectedService?.clave == 'apd'
+                              ? (value) => setState(() => _saleTypeId = value)
+                              : null,
+                        ),
               span: 2,
             ),
           ],
@@ -459,18 +489,25 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
               onChanged: (value) => setState(() => _selectedDate = value),
             )),
             _ContractGridItem(
-              _dropdown<String>(
-                label: 'Esquema de pago',
-                value: _paymentScheme,
-                values: const [
-                  ('Mensual', 'Mensual'),
-                  ('Trimestral', 'Trimestral'),
-                  ('Anual', 'Anual'),
-                  ('Único', 'Único'),
-                ],
-                onChanged: (value) =>
-                    setState(() => _paymentScheme = value ?? _paymentScheme),
-              ),
+              !AppEnv.demoMode
+                  ? TextFormField(
+                      key: ValueKey(_effectiveScheme),
+                      initialValue: _effectiveScheme,
+                      readOnly: true,
+                      decoration:
+                          const InputDecoration(labelText: 'Esquema de pago'))
+                  : _dropdown<String>(
+                      label: 'Esquema de pago',
+                      value: _paymentScheme,
+                      values: const [
+                        ('Mensual', 'Mensual'),
+                        ('Trimestral', 'Trimestral'),
+                        ('Anual', 'Anual'),
+                        ('Único', 'Único'),
+                      ],
+                      onChanged: (value) => setState(
+                          () => _paymentScheme = value ?? _paymentScheme),
+                    ),
             ),
             _ContractGridItem(
               TextFormField(
@@ -514,11 +551,14 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
             TextFormField(
               controller: _dailySalaryController,
               enabled: AppEnv.demoMode ||
-                  (_selectedService?.clave == 'm40' ||
-                      _selectedService?.clave == 'm40-retroactiva'),
+                  (['m10', 'm40', 'm40-retroactiva']
+                      .contains(_selectedService?.clave)),
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
+                helperText: !AppEnv.demoMode && _selectedService?.clave == 'm10'
+                    ? 'M10: este salario no se guarda.'
+                    : null,
                 labelText: 'Salario diario de cotización',
                 prefixText: '\$',
               ),
@@ -559,6 +599,7 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
                       _selectedService?.clave == 'm40'),
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
+              onChanged: (_) => setState(() {}),
               decoration: const InputDecoration(
                 labelText: 'Monto mensual',
                 prefixText: '\$',
@@ -575,12 +616,14 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
         title: 'Documentación',
         description: AppEnv.demoMode
             ? 'Adjunta el contrato firmado y sus anexos.'
-            : 'Pendiente de integración de documentos contractuales.',
+            : _documentsReady
+                ? 'Archivos privados asociados al contrato despues de crearlo.'
+                : 'Pendiente de instalar esquema de documentos contractuales.',
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             InkWell(
-              onTap: _pickDocument,
+              onTap: AppEnv.demoMode || _documentsReady ? _pickDocument : null,
               borderRadius: BorderRadius.circular(AppTheme.radiusField),
               child: Container(
                 constraints: const BoxConstraints(minHeight: 145),
@@ -605,12 +648,14 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
                     ),
                     const SizedBox(height: AppTheme.space1),
                     const Text(
-                      'PDF, JPG o PNG · Máximo 10 MB por archivo',
+                      'PDF, JPG o PNG · Máximo 10 MiB por archivo',
                       style: TextStyle(color: AppTheme.muted, fontSize: 11),
                     ),
                     const SizedBox(height: AppTheme.space3),
                     OutlinedButton(
-                      onPressed: _pickDocument,
+                      onPressed: AppEnv.demoMode || _documentsReady
+                          ? _pickDocument
+                          : null,
                       child: const Text('Seleccionar archivos'),
                     ),
                   ],
@@ -678,8 +723,30 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
           _summaryLine('Servicio', serviceName),
           _summaryLine('Asesor', advisorName),
           if (!editing) ...[
-            _summaryLine('Esquema', _paymentScheme),
-            _summaryLine('Tipo de venta', _saleType),
+            _summaryLine(
+                'Monto mensual',
+                _singlePayment
+                    ? 'No aplica'
+                    : _monthlyAmountController.text.trim().isEmpty
+                        ? 'Sin importe capturado'
+                        : '\$${_monthlyAmountController.text.trim()}'),
+            _summaryLine(
+                'Termino estimado',
+                _estimatedEndDate == null
+                    ? 'Sin fecha registrada'
+                    : DateFormat('dd/MM/yyyy').format(_estimatedEndDate!)),
+            _summaryLine('Esquema', _effectiveScheme),
+            _summaryLine(
+                'Tipo de venta',
+                AppEnv.demoMode
+                    ? _saleType
+                    : _selectedService?.clave != 'apd'
+                        ? 'No aplica'
+                        : _saleTypes
+                                .where((e) => e.id == _saleTypeId)
+                                .firstOrNull
+                                ?.name ??
+                            'Sin registrar'),
             _summaryLine(
               'Fecha de inicio',
               DateFormat('dd/MM/yyyy', 'es_MX').format(selectedDate),
@@ -702,7 +769,7 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
                 SizedBox(width: AppTheme.space2),
                 Expanded(
                   child: Text(
-                    'El folio definitivo se asignará al crear el contrato. El tipo de venta es informativo y no determina la comisión.',
+                    'El folio definitivo se asignará al crear el contrato. El tipo de venta solo se guarda cuando existe soporte de la modalidad.',
                     style: TextStyle(color: AppTheme.warning, fontSize: 11),
                   ),
                 ),
@@ -719,8 +786,9 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
                         : _clients.isEmpty
                             ? 'Sin clientes disponibles.'
                             : '')),
-            const Text(
-                'Las condiciones compatibles se guardan al crear. Documentos y calendario automatico pendientes de autorizacion.'),
+            Text(_documentsReady
+                ? 'Las condiciones se guardan al crear y los documentos se cargan despues. No se generan obligaciones automaticamente.'
+                : 'Documentos pendientes de instalar el esquema. No se generan obligaciones automaticamente.'),
             TextButton(
                 onPressed: () =>
                     ref.invalidate(contratoOptionsProvider(session.role)),
@@ -885,7 +953,11 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
       DropdownButtonFormField<T>(
         initialValue: value,
         isExpanded: true,
-        decoration: InputDecoration(labelText: label),
+        decoration: InputDecoration(
+            labelText: label,
+            helperText: label == 'Estado contractual'
+                ? 'Estado inicial; no ejecuta aprobacion'
+                : null),
         items: [
           for (final item in values)
             DropdownMenuItem<T>(value: item.$1, child: Text(item.$2)),
@@ -940,10 +1012,18 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
       );
 
   Future<void> _pickDocument() async {
-    final file = await createFilePlatform().chooseFile();
+    final file = await createFilePlatform().chooseFile(allowPng: true);
 
     if (!mounted || file == null) return;
 
+    if (!AppEnv.demoMode) {
+      try {
+        contractFileMime(file);
+      } catch (error) {
+        setState(() => _fileError = error.toString());
+        return;
+      }
+    }
     final extension = file.name.split('.').last.toLowerCase();
 
     final validExtension = {'pdf', 'jpg', 'jpeg', 'png'}.contains(extension);
@@ -954,7 +1034,7 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
       if (!validExtension) {
         _fileError = 'Solo se permiten archivos PDF, JPG o PNG.';
       } else if (!validSize) {
-        _fileError = 'El archivo no puede superar 10 MB.';
+        _fileError = 'El archivo no puede superar 10 MiB.';
       } else {
         _fileError = null;
 
@@ -969,7 +1049,6 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
     ContratoModel? existing,
   ) async {
     if (!_formKey.currentState!.validate() || _saving) return;
-
     if (!AppEnv.demoMode) {
       setState(() => _saving = true);
 
@@ -988,6 +1067,8 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
                 'fecha_contrato': DateFormat('yyyy-MM-dd')
                     .format(_selectedDate ?? DateTime.now()),
                 'estado_contrato_id': _selectedStateId,
+                if (_selectedService?.clave == 'apd' && _saleTypeId != null)
+                  'tipo_venta_id': _saleTypeId,
                 'observaciones': _nullable(_observationsController.text),
                 if (['m40', 'm40-retroactiva']
                         .contains(_selectedService?.clave) &&
@@ -1004,6 +1085,20 @@ class _ContratoFormPageState extends ConsumerState<ContratoFormPage> {
                       DateFormat('yyyy-MM-dd').format(_estimatedEndDate!),
               });
 
+        if (existing == null && _documents.isNotEmpty) {
+          final repository = ref.read(contratosRepositoryProvider);
+          repository.retainPendingDocuments(contract.id,
+              [for (final file in _documents) PendingContractDocument(file)]);
+          try {
+            await repository.retryDocuments(contract.id);
+          } catch (_) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text(
+                      'Contrato creado. Hay documentos pendientes; reintenta desde el detalle.')));
+            }
+          }
+        }
         ref.invalidate(contratoDetailProvider(contract.id));
 
         if (context.mounted) context.go('/contratos/${contract.id}');

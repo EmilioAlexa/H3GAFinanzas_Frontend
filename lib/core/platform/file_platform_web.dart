@@ -8,10 +8,12 @@ import 'selected_file.dart';
 
 class WebFilePlatform implements FilePlatform {
   @override
-  Future<SelectedFile?> chooseFile() async {
+  Future<SelectedFile?> chooseFile({bool allowPng = false}) async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: const ['pdf', 'jpg', 'jpeg'],
+      allowedExtensions: allowPng
+          ? const ['pdf', 'jpg', 'jpeg', 'png']
+          : const ['pdf', 'jpg', 'jpeg'],
       withData: true,
     );
     if (result == null || result.files.isEmpty) return null;

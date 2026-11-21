@@ -99,7 +99,9 @@ void main() {
         ...contract,
         'seguimiento_m40': {
           'monto_mensual': '1500.25',
-          'salario_diario': '300.00'
+          'salario_diario': '300.00',
+          'cantidad_meses': 6,
+          'fecha_fin': '2027-05-20'
         }
       }));
     }));
@@ -112,10 +114,44 @@ void main() {
       'salario_diario': '300.00',
       'periodo_contrato': '6 meses'
     });
-    expect((requests.single.data as Map<String, dynamic>)['monto_mensual'], '1500.25');
+    expect((requests.single.data as Map<String, dynamic>)['monto_mensual'],
+        '1500.25');
     expect(result.montoMensual, '1500.25');
+    expect(result.salarioDiario, '300.00');
+    expect(result.periodoContrato, '6 meses');
+    expect(result.fechaTermino, DateTime(2027, 5, 20));
     expect(result.totalPagar, isNull);
     expect(result.saldoPendiente, isNull);
+  });
+  test('APD sends real sale type and reads the persisted catalog name',
+      () async {
+    dio.interceptors.clear();
+    dio.interceptors.add(InterceptorsWrapper(onRequest: (r, h) {
+      requests.add(r);
+      h.resolve(Response(requestOptions: r, data: {
+        ...contract,
+        if (r.method == 'GET') 'capacidades': {'documentos': true},
+        'servicios': {'codigo_folio': 'APD', 'nombre': 'APD'},
+        'seguimiento_apd': {
+          'tipo_venta_id': 77,
+          'tipos_venta': {'id': 77, 'nombre': 'Marketing'}
+        }
+      }));
+    }));
+    final result = await repository.create({
+      'cliente_id': id,
+      'servicio_id': 72,
+      'fecha_contrato': '2026-11-20',
+      'estado_contrato_id': 9,
+      'tipo_venta_id': 77
+    });
+    expect((requests.single.data as Map<String, dynamic>)['tipo_venta_id'], 77);
+    expect(result.tipoVentaNombre, 'Marketing');
+    expect(result.esquemaPago, 'Pago \u00fanico');
+    expect(result.montoMensual, isNull);
+    expect(result.totalPagar, isNull);
+    final detail = await repository.detail(id, UserRole.asesor);
+    expect(detail.documentsReady, isTrue);
   });
   test('error HTTP se propaga sin recuperar fixtures', () async {
     dio.interceptors.clear();
