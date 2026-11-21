@@ -3,11 +3,12 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/config/env.dart';
+import '../../../core/network/finanzas_api.dart';
 import '../models/prenomina_model.dart';
 import '../repositories/prenomina_repository.dart';
 
-final prenominaRepositoryProvider =
-    Provider<PrenominaRepository>((ref) => PrenominaRepository());
+final prenominaRepositoryProvider = Provider<PrenominaRepository>(
+    (ref) => PrenominaRepository(api: ref.watch(finanzasApiProvider)));
 
 final prenominaControllerProvider = StateNotifierProvider<PrenominaController,
     AsyncValue<List<PrenominaModel>?>>(
@@ -30,14 +31,15 @@ class PrenominaController
   Future<void> load() async {
     state = const AsyncLoading();
     try {
-      state = AsyncData(demoMode ? _repository.listDemo() : null);
+      state = AsyncData(
+          demoMode ? _repository.listDemo() : await _repository.loadReal());
     } catch (error, stackTrace) {
       state = AsyncError(error, stackTrace);
     }
   }
 
   List<PrenominaModel> forCut(String cutId) =>
-      demoMode ? _repository.recipientsForCut(cutId) : const [];
+      _repository.recipientsForCut(cutId);
 
   PrenominaModel? find(String id) => demoMode ? _repository.findDemo(id) : null;
 

@@ -2,7 +2,7 @@ import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
+import '../../../../app/config/env.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/responsive/window_size_class.dart';
@@ -125,7 +125,14 @@ class _ComisionesPageState extends ConsumerState<ComisionesPage> {
           description: isAdvisor
               ? 'Consulta tu comisión y los movimientos asociados a tus contratos.'
               : 'Consulta la distribución de cada pago y administra la dispersión.',
-          actions: const [],
+          actions: [
+            if (!isAdvisor)
+              OutlinedButton.icon(
+                onPressed: () => context.go('/comisiones/receptores'),
+                icon: const Icon(Icons.manage_accounts_outlined),
+                label: const Text('Administrar receptores'),
+              ),
+          ],
         ),
         LayoutBuilder(builder: (context, constraints) {
           final compact = Responsive.of(context) == WindowSizeClass.compacto;
@@ -356,11 +363,14 @@ class _ComisionesPageState extends ConsumerState<ComisionesPage> {
           .where((item) => item.conceptId == conceptId)
           .fold(Decimal.zero, (sum, item) => sum + item.amount);
 
-  Decimal _companyRemainder(CommissionPaymentModel payment) =>
-      CommissionMath.remainderAmount(
-        payment.paymentAmount,
-        payment.snapshot.map((item) => item.amount),
-      );
+  Decimal _companyRemainder(CommissionPaymentModel payment) => !AppEnv.demoMode
+      ? payment.snapshot
+          .where((s) => s.concept == 'Empresa')
+          .fold(Decimal.zero, (sum, s) => sum + s.amount)
+      : CommissionMath.remainderAmount(
+          payment.paymentAmount,
+          payment.snapshot.map((item) => item.amount),
+        );
 
   AppBadge _statusBadge(CommissionPaymentModel payment) {
     final personal = payment.snapshot.where((item) => item.conceptId == 1);

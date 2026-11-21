@@ -1,5 +1,6 @@
 import 'package:decimal/decimal.dart';
 
+import '../../../core/network/finanzas_api.dart';
 import '../../auth/models/user_role_model.dart';
 import '../fixtures/comisiones_demo_fixtures.dart';
 import '../models/commission_concept_model.dart';
@@ -10,6 +11,120 @@ import '../models/dispersion_receiver_model.dart';
 import '../utils/commission_math.dart';
 
 class ComisionesRepository {
+  ComisionesRepository({this.api});
+  final FinanzasApi? api;
+  List<CommissionConceptModel>? _realConcepts;
+  List<DispersionReceiverModel> _eligibleAdvisorUsers = const [];
+  Future<void> loadReal(UserRole role) async {
+    final rows = await api!.list('/finanzas/comisiones');
+    if (role != UserRole.asesor) {
+      final concepts =
+          await api!.list('/finanzas/catalogos/conceptos-dispersion');
+      _realConcepts = concepts
+          .map((r) => CommissionConceptModel(
+                id: r['id'] as int,
+                name: apiText(r['nombre']),
+                external: r['tipo_destino'] != 'usuario',
+              ))
+          .toList();
+    }
+    final groups = <String, List<Map<String, dynamic>>>{};
+    for (final row in rows) {
+      groups.putIfAbsent(apiText(row['pago_id']), () => []).add(row);
+    }
+    final payments = <CommissionPaymentModel>[];
+    for (final entry in groups.entries) {
+      final row = entry.value.first;
+      final payment = apiMap(row['pagos']);
+      final contract = apiMap(payment['contratos']);
+      payments.add(CommissionPaymentModel(
+        id: entry.key,
+        paymentFolio: entry.key,
+        contractId: apiText(contract['id']),
+        contractFolio: apiText(contract['folio']),
+        clientName: '',
+        serviceName: '',
+        advisorName: '',
+        paymentAmount: Decimal.parse(apiText(row['monto_base'])),
+        paymentDate: DateTime.parse(apiText(row['fecha_calculo'])),
+        paymentMethod: '',
+        assignedToCurrentAdvisor: role == UserRole.asesor,
+        configuration: const [],
+        configurationHistory: const [],
+        snapshot: entry.value
+            .map((r) => CommissionSnapshotModel(
+                  id: apiText(r['id']),
+                  conceptId: r['concepto_id'] as int,
+                  concept: apiText(apiMap(r['conceptos_dispersion'])['nombre']),
+                  receiverId: r['receptor_dispersion_id'] as String?,
+                  receiverName:
+                      apiText(apiMap(r['conceptos_dispersion'])['nombre']) ==
+                              'Referidor'
+                          ? 'Referidor'
+                          : apiText(r['receptor_nombre_snapshot']),
+                  percentage: Decimal.parse(apiText(r['valor_aplicado'])),
+                  amount: Decimal.parse(apiText(r['monto_comision'])),
+                  status: apiText(apiMap(r['estados_comisiones'])['nombre']),
+                  history: (r['historial_estados_comisiones'] as List? ?? const <dynamic>[])
+                      .map(apiMap)
+                      .map((h) => '${h['fecha_cambio']} · ${h['cambiado_por']} · ${h['comentario'] ?? ''}')
+                      .toList(),
+                ))
+            .toList(),
+      ));
+    }
+    final receivers = role == UserRole.asesor
+        ? <Map<String, dynamic>>[]
+        : await api!.list('/finanzas/receptores-dispersion');
+    _payments
+      ..clear()
+      ..addAll(payments);
+    _receivers
+      ..clear()
+      ..addAll(receivers.map((r) {
+        final concept = apiMap(r['conceptos_dispersion']);
+        final user = apiMap(r['usuarios_receptor']);
+        return DispersionReceiverModel(
+            id: apiText(r['id']),
+            conceptId: r['concepto_id'] as int,
+            concept: apiText(concept['nombre']),
+            name: apiText(r['nombre_externo']).isNotEmpty
+                ? apiText(r['nombre_externo'])
+                : [
+                    user['nombre'],
+                    user['apellido_paterno'],
+                    user['apellido_materno']
+                  ].whereType<String>().join(' '),
+            active: r['activo'] == true,
+            external: r['usuario_id'] == null,
+            userId: r['usuario_id'] as String?);
+      }));
+    if (role == UserRole.administrador) {
+      final users = await api!.list('/usuarios');
+      _eligibleAdvisorUsers = users
+          .where((user) =>
+              user['activo'] == true &&
+              apiText(apiMap(user['roles'])['nombre']) == 'asesor')
+          .map((user) => DispersionReceiverModel(
+                id: apiText(user['id']),
+                userId: apiText(user['id']),
+                conceptId: 1,
+                concept: 'Asesor',
+                name: [
+                  user['nombre'],
+                  user['apellido_paterno'],
+                  user['apellido_materno'],
+                ].whereType<String>().join(' '),
+                active: true,
+                external: false,
+                role: 'Asesor',
+              ))
+          .toList(growable: false);
+    } else {
+      _eligibleAdvisorUsers = const [];
+    }
+  }
+
   final List<CommissionPaymentModel> _payments =
       List.of(ComisionesDemoFixtures.payments);
   final List<DispersionReceiverModel> _receivers =
@@ -50,7 +165,12 @@ class ComisionesRepository {
       .where((item) => item.active && item.conceptId == conceptId)
       .toList();
 
-  List<CommissionConceptModel> get concepts => ComisionesDemoFixtures.concepts;
+  List<DispersionReceiverModel> get eligibleAdvisorUsers =>
+      List.unmodifiable(_eligibleAdvisorUsers);
+
+  List<CommissionConceptModel> get concepts =>
+      _realConcepts ??
+      (api == null ? ComisionesDemoFixtures.concepts : const []);
 
   CommissionPaymentModel saveConfigurationDemo({
     required String contractId,

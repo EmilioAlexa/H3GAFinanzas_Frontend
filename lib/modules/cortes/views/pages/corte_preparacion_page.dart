@@ -33,29 +33,18 @@ class CortePreparacionPage extends ConsumerWidget {
         message: 'Solo administración consulta la preparación de cortes.',
       );
     }
-    return ref.watch(cortesControllerProvider).when(
+    return ref.watch(corteDetailProvider(cutId)).when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, stack) => const AppStatePanel(
+          error: (error, stack) => AppStatePanel(
             icon: Icons.cloud_off_outlined,
             title: 'No se pudo cargar la preparación',
-            message: 'Vuelve al listado e inténtalo de nuevo.',
+            message:
+                'Si acabas de guardar, la operación se conserva. ${error.toString()}',
+            action: TextButton(
+                onPressed: () => ref.invalidate(corteDetailProvider(cutId)),
+                child: const Text('Reintentar')),
           ),
-          data: (cuts) {
-            final cut = ref.read(cortesControllerProvider.notifier).find(cutId);
-            if (cuts == null) {
-              return const AppStatePanel(
-                icon: Icons.link_off,
-                title: 'Preparación no disponible',
-                message: 'No fue posible cargar los movimientos del corte.',
-              );
-            }
-            if (cut == null) {
-              return const AppStatePanel(
-                icon: Icons.search_off_outlined,
-                title: 'Corte no disponible',
-                message: 'El corte no existe en el conjunto.',
-              );
-            }
+          data: (cut) {
             return _content(context, ref, session, cut);
           },
         );
@@ -414,22 +403,23 @@ class CortePreparacionPage extends ConsumerWidget {
     }
     if (confirmed == true) {
       try {
-        ref.read(cortesControllerProvider.notifier).transitionDemo(
+        await ref.read(cortesControllerProvider.notifier).transitionDemo(
               id: cut.id,
               action: action,
               actor: session.name,
               comment: comment.text,
             );
+        ref.invalidate(corteDetailProvider(cut.id));
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(successMessage)),
           );
           context.go('/cortes/${cut.id}');
         }
-      } on StateError catch (error) {
+      } catch (error) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(error.message.toString())),
+            SnackBar(content: Text(error.toString())),
           );
         }
       }

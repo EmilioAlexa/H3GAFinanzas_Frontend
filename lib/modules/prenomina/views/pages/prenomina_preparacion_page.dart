@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../app/config/env.dart';
 import '../../../../app/theme/app_theme.dart';
+import '../../../../core/network/finanzas_api.dart';
 import '../../../../core/utils/money_formatter.dart';
 import '../../../../core/widgets/app_back_button.dart';
 import '../../../../core/widgets/app_badge.dart';
@@ -12,7 +14,9 @@ import '../../../../core/widgets/app_page_header.dart';
 import '../../../../core/widgets/app_state_panel.dart';
 import '../../controllers/prenomina_controller.dart';
 import '../../fixtures/prenomina_demo_fixtures.dart';
+import '../../models/prenomina_cut_model.dart';
 import '../../models/prenomina_model.dart';
+import '../../models/prenomina_movement_model.dart';
 
 class PrenominaPreparacionPage extends ConsumerStatefulWidget {
   const PrenominaPreparacionPage({required this.cutId, super.key});
@@ -26,6 +30,33 @@ class PrenominaPreparacionPage extends ConsumerStatefulWidget {
 
 class _PrenominaPreparacionPageState
     extends ConsumerState<PrenominaPreparacionPage> {
+  bool _generating = false;
+  Map<String, dynamic>? _preview;
+  List<Map<String, dynamic>> _states = [];
+  String? _loadError;
+  @override
+  void initState() {
+    super.initState();
+    if (!AppEnv.demoMode) _loadReal();
+  }
+
+  Future<void> _loadReal() async {
+    try {
+      final api = ref.read(finanzasApiProvider);
+      final preview = await api
+          .detail('/finanzas/cortes/${widget.cutId}/prenomina/preparacion');
+      final states = await api.list('/finanzas/catalogos/estados-prenomina');
+      if (mounted)
+        setState(() {
+          _preview = preview;
+          _states = states;
+          _selectedState = '';
+        });
+    } catch (e) {
+      if (mounted) setState(() => _loadError = e.toString());
+    }
+  }
+
   final _observations = TextEditingController();
   String _selectedState = 'En preparación';
 
@@ -37,8 +68,27 @@ class _PrenominaPreparacionPageState
 
   @override
   Widget build(BuildContext context) {
-    final cutMatches =
-        PrenominaDemoFixtures.cuts.where((cut) => cut.id == widget.cutId);
+    if (!AppEnv.demoMode && _loadError != null)
+      return AppStatePanel(
+          icon: Icons.error_outline,
+          title: 'No se pudo preparar',
+          message: _loadError!);
+    if (!AppEnv.demoMode && _preview == null)
+      return const Center(child: CircularProgressIndicator());
+    final rawCut = apiMap(_preview?['corte']);
+    final cutMatches = AppEnv.demoMode
+        ? PrenominaDemoFixtures.cuts.where((cut) => cut.id == widget.cutId)
+        : [
+            PrenominaCutModel(
+                id: widget.cutId,
+                name: apiText(rawCut['numero_corte']),
+                period: '${rawCut['fecha_inicio']} / ${rawCut['fecha_fin']}',
+                status: apiText(rawCut['estado']),
+                people: (_preview!['por_receptor'] as List).length,
+                operations: _preview!['comisiones_elegibles'] as int,
+                total: Decimal.parse(apiText(_preview!['total_referencial'])),
+                generated: false)
+          ];
     if (cutMatches.isEmpty) {
       return const AppStatePanel(
         icon: Icons.search_off_outlined,
@@ -63,11 +113,47 @@ class _PrenominaPreparacionPageState
             message: 'No fue posible cargar la preparación de prenómina.',
           );
         }
-        final items =
-            ref.read(prenominaControllerProvider.notifier).forCut(cut.id);
+        final items = AppEnv.demoMode
+            ? ref.read(prenominaControllerProvider.notifier).forCut(cut.id)
+            : (_preview!['por_receptor'] as List).map((raw) {
+                final group = apiMap(raw);
+                return PrenominaModel(
+                    id: '',
+                    cutId: widget.cutId,
+                    cutName: cut.name,
+                    period: cut.period,
+                    recipientId: apiText(group['receptor_dispersion_id'] ??
+                        group['beneficiario_id']),
+                    recipient: group['destino'] == 'Referidor'
+                        ? 'Referidor (concepto general)'
+                        : apiText(group['receptor']),
+                    position: apiText(group['destino']),
+                    status: 'Pendiente de generar',
+                    backendTotal:
+                        Decimal.parse(apiText(group['monto_referencial'])),
+                    movements: (_preview!['movimientos'] as List)
+                        .map(apiMap)
+                        .where((m) =>
+                            m['concepto'] == group['destino'] &&
+                            m['receptor'] == group['receptor'])
+                        .map((m) => PrenominaMovementModel(
+                            id: apiText(m['comision_id']),
+                            payment: apiText(apiMap(m['pago'])['id']),
+                            contract: '',
+                            saleType: apiText(m['concepto']),
+                            percentage: Decimal.parse(
+                                apiText(m['porcentaje_aplicado'])),
+                            baseAmount: Decimal.parse(apiText(m['monto_base'])),
+                            commissionAmount:
+                                Decimal.parse(apiText(m['monto_referencial'])),
+                            status: 'Elegible'))
+                        .toList());
+              }).toList();
         final generated = items.isNotEmpty &&
             items.every((item) => item.status == 'Preparada');
-        final total = items.fold(Decimal.zero, (sum, item) => sum + item.total);
+        final total = AppEnv.demoMode
+            ? items.fold(Decimal.zero, (sum, item) => sum + item.total)
+            : Decimal.parse(apiText(_preview!['total_referencial']));
         return SingleChildScrollView(
           padding: const EdgeInsets.all(AppTheme.space6),
           child:
@@ -193,11 +279,17 @@ class _PrenominaPreparacionPageState
               style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: AppTheme.space2),
           DropdownButtonFormField<String>(
-            initialValue: _selectedState,
+            initialValue: _selectedState.isEmpty ? null : _selectedState,
             decoration: const InputDecoration(labelText: 'Estado de ejemplo'),
-            items: const ['En preparación', 'Preparada']
-                .map((value) =>
-                    DropdownMenuItem(value: value, child: Text(value)))
+            items: (AppEnv.demoMode
+                    ? const ['En preparacion', 'Preparada']
+                    : _states.map((s) => apiText(s['id'])).toList())
+                .map((value) => DropdownMenuItem(
+                    value: value,
+                    child: Text(AppEnv.demoMode
+                        ? value
+                        : apiText(_states.firstWhere(
+                            (s) => apiText(s['id']) == value)['nombre']))))
                 .toList(),
             onChanged: generated
                 ? null
@@ -219,7 +311,7 @@ class _PrenominaPreparacionPageState
           Align(
             alignment: Alignment.centerRight,
             child: FilledButton.icon(
-              onPressed: generated ? null : _confirmGeneration,
+              onPressed: generated || _generating ? null : _confirmGeneration,
               icon: const Icon(Icons.playlist_add_check),
               label:
                   Text(generated ? 'Prenómina generada' : 'Generar prenómina'),
@@ -246,14 +338,31 @@ class _PrenominaPreparacionPageState
       ),
     );
     if (confirmed != true || !mounted) return;
+    setState(() => _generating = true);
     try {
-      ref.read(prenominaControllerProvider.notifier).generateDemo(widget.cutId);
+      if (!AppEnv.demoMode) {
+        final stateId = int.tryParse(_selectedState);
+        if (stateId == null)
+          throw StateError('Selecciona un estado del catalogo.');
+        await ref
+            .read(finanzasApiProvider)
+            .generatePayroll(widget.cutId, stateId, _observations.text);
+        await ref.read(prenominaControllerProvider.notifier).load();
+        if (!mounted) return;
+      } else {
+        ref
+            .read(prenominaControllerProvider.notifier)
+            .generateDemo(widget.cutId);
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Prenómina generada.')),
       );
-    } on StateError catch (error) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error.message)));
+    } catch (error) {
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.toString())));
+    } finally {
+      if (mounted) setState(() => _generating = false);
     }
   }
 }
